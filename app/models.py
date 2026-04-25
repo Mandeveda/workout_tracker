@@ -39,6 +39,7 @@ class User(UserMixin, db.Model):
     role = relationship('Role', back_populates='users')
     workout_templates = relationship('WorkoutTemplate', back_populates='user', cascade='all, delete-orphan')
     workout_sessions = relationship('WorkoutSession', back_populates='user', cascade='all, delete-orphan')
+    schedules = db.relationship('WorkoutSchedule', back_populates='user', cascade='all, delete-orphan')
     
     def __repr__(self):
         return f'<User {self.username}>'
@@ -51,6 +52,15 @@ class Exercise(db.Model):
     name = db.Column(db.String(100), nullable=False)
     exercise_type = db.Column(db.String(20), nullable=False)  # 'strength', 'cardio', 'bodyweight'
     description = db.Column(db.Text)
+    
+    # Группа мышц (основная)
+    muscle_group = db.Column(db.String(50))  # chest, shoulders, arms, back, legs, core
+    
+    # Уточнение (подгруппа)
+    muscle_subgroup = db.Column(db.String(50))  # upper_chest, middle_chest, lower_chest, quads, hamstrings, calves
+    
+    # Тип усилия (опционально)
+    movement_pattern = db.Column(db.String(50))  # push, pull, squat, hinge, carry
     
     # Кто добавил упражнение (эксперт)
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -81,6 +91,7 @@ class WorkoutTemplate(db.Model):
     user = relationship('User', back_populates='workout_templates')
     template_exercises = relationship('TemplateExercise', back_populates='template', cascade='all, delete-orphan')
     workout_sessions = relationship('WorkoutSession', back_populates='template')
+    schedules = db.relationship('WorkoutSchedule', back_populates='template', cascade='all, delete-orphan')
     
     def __repr__(self):
         return f'<WorkoutTemplate {self.name}>'
@@ -134,11 +145,16 @@ class WorkoutSession(db.Model):
     template = relationship('WorkoutTemplate', back_populates='workout_sessions')
     set_logs = relationship('SetLog', back_populates='session', cascade='all, delete-orphan')
     
+    # Связь с расписанием
+    schedule_id = db.Column(db.Integer, db.ForeignKey('workout_schedules.id'), nullable=True)
+    schedule = db.relationship('WorkoutSchedule', back_populates='session')
+    
     def __repr__(self):
         return f'<WorkoutSession {self.date} completion={self.completion_percent}%>'
 
 # Лог каждого подхода (или кардио-сегмента)
 class SetLog(db.Model):
+
     __tablename__ = 'set_logs'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -166,3 +182,38 @@ class SetLog(db.Model):
     
     def __repr__(self):
         return f'<SetLog set={self.set_number} completion={self.completion_percent}%>'
+
+class WorkoutSchedule(db.Model):
+    __tablename__ = 'workout_schedules'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    template_id = db.Column(db.Integer, db.ForeignKey('workout_templates.id'), nullable=False)
+    
+    scheduled_date = db.Column(db.Date, nullable=False)
+    order_index = db.Column(db.Integer, default=0)
+    
+    status = db.Column(db.String(20), default='planned')  # planned, completed, skipped, postponed
+    
+    # Для повторяющихся программ (в будущем)
+    is_recurring = db.Column(db.Boolean, default=False)
+    recurring_rule = db.Column(db.String(50), nullable=True)
+    
+    # Связи
+    user = db.relationship('User', back_populates='schedules')
+    template = db.relationship('WorkoutTemplate', back_populates='schedules')
+    session = db.relationship('WorkoutSession', uselist=False, back_populates='schedule')
+    
+    def __repr__(self):
+        return f'<WorkoutSchedule {self.scheduled_date} - {self.template.name}>'
+    
+class MuscleGroup(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True)  # chest, shoulders, arms...
+    display_name = db.Column(db.String(50))  # "Грудные"
+    
+class MuscleSubgroup(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    muscle_group_id = db.Column(db.Integer, db.ForeignKey('muscle_groups.id'))
+    name = db.Column(db.String(50))  # upper_chest
+    display_name = db.Column(db.String(50))  # "Верх груди"

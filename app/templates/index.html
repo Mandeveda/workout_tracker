@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+<div class="px-4 py-5 my-5 text-center">
+    <h1 class="display-5 fw-bold text-body-emphasis">Workout Tracker</h1>
+    <div class="col-lg-6 mx-auto">
+        <p class="lead mb-4">
+            Ваш персональный трекер тренировок. Составляйте планы, отслеживайте прогресс, 
+            анализируйте результаты и достигайте новых рекордов.
+        </p>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+            {% if not current_user.is_authenticated %}
+                <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg px-4 gap-3">Начать сейчас</a>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary btn-lg px-4">Войти</a>
+            {% else %}
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary btn-lg px-4 gap-3">Перейти к тренировкам</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="container px-4 py-5">
+    <h2 class="pb-2 border-bottom">Возможности</h2>
+    <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
+        <div class="col d-flex align-items-start">
+            <div class="icon-square text-body-emphasis bg-body-secondary d-inline-flex align-items-center justify-content-center fs-4 flex-shrink-0 me-3">
+                📋
+            </div>
+            <div>
+                <h3 class="fs-2">Планы тренировок</h3>
+                <p>Создавайте шаблоны, назначайте на дни недели, система сама сгенерирует расписание на недели вперёд.</p>
+            </div>
+        </div>
+        <div class="col d-flex align-items-start">
+            <div class="icon-square text-body-emphasis bg-body-secondary d-inline-flex align-items-center justify-content-center fs-4 flex-shrink-0 me-3">
+                📊
+            </div>
+            <div>
+                <h3 class="fs-2">Анализ прогресса</h3>
+                <p>Тоннаж, рекорды, процент выполнения плана — всё в удобных графиках.</p>
+            </div>
+        </div>
+        <div class="col d-flex align-items-start">
+            <div class="icon-square text-body-emphasis bg-body-secondary d-inline-flex align-items-center justify-content-center fs-4 flex-shrink-0 me-3">
+                🔄
+            </div>
+            <div>
+                <h3 class="fs-2">Гибкость</h3>
+                <p>Переносите, пропускайте, заменяйте упражнения — без потери истории.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

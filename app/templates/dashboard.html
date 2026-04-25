@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Дашборд{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Мои тренировки</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="#" class="btn btn-sm btn-outline-primary me-2">📅 Расписание</a>
+        <a href="#" class="btn btn-sm btn-outline-success">+ Новая программа</a>
+    </div>
+</div>
+
+<!-- Приветствие -->
+<div class="alert alert-info" role="alert">
+    <strong>Привет, {{ user.username }}!</strong> 
+    {% if today_workout %}
+        У вас запланирована тренировка на сегодня.
+    {% else %}
+        На сегодня тренировок нет. Отдохните или добавьте ручную.
+    {% endif %}
+</div>
+
+<div class="row">
+    <!-- Блок с тренировкой на сегодня -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">🏋️ Тренировка на сегодня {{ today_date if today_date else '' }}</h5>
+            </div>
+            <div class="card-body">
+                {% if today_workout %}
+                    <p><strong>Программа:</strong> {{ today_workout.template.name }}</p>
+                    <p><strong>Упражнений:</strong> {{ today_workout.template.template_exercises|length }}</p>
+                    <a href="#" class="btn btn-success">▶ Начать тренировку</a>
+                    <a href="#" class="btn btn-secondary">⏩ Перенести</a>
+                    <a href="#" class="btn btn-danger">✖ Пропустить</a>
+                {% else %}
+                    <p class="text-muted">Сегодня нет запланированных тренировок.</p>
+                    <button class="btn btn-outline-primary">➕ Ручная тренировка</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Блок с последними тренировками -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">История тренировок</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_workouts %}
+                    <div class="list-group">
+                        {% for session in recent_workouts %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ session.date.strftime('%d.%m.%Y') }}</h6>
+                                    <small>Выполнение: {{ session.completion_percent|round(1) }}%</small>
+                                </div>
+                                <p class="mb-1 text-muted">
+                                    {% if session.template %}
+                                        Шаблон: {{ session.template.name }}
+                                    {% else %}
+                                        Ручная тренировка
+                                    {% endif %}
+                                </p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted">Пока нет завершённых тренировок.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Боковая панель со статистикой -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">📈 Краткая статистика</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Всего тренировок:</strong> {{ total_workouts }}</p>
+                <p><strong>Выполнено планов:</strong> {{ completed_plan }} ({{ plan_completion_percent }}%)</p>
+                <p><strong>Лучший тоннаж:</strong> {{ best_tonnage }} кг</p>
+                <p><strong>Рекордов:</strong> {{ pr_count }}</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">💡 Быстрые действия</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-sm btn-outline-secondary">📋 Все мои шаблоны</button>
+                    <button class="btn btn-sm btn-outline-secondary">🏆 Мои рекорды</button>
+                    <button class="btn btn-sm btn-outline-secondary">📊 Детальная аналитика</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
