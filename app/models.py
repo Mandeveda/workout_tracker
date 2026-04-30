@@ -44,32 +44,40 @@ class User(UserMixin, db.Model):
     def __repr__(self):
         return f'<User {self.username}>'
 
+class MuscleGroup(db.Model):
+    __tablename__ = 'muscle_groups'  # Обратите внимание: имя во множественном числе
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True)
+    display_name = db.Column(db.String(50))
+
+class MuscleSubgroup(db.Model):
+    __tablename__ = 'muscle_subgroups'  # тоже во множественном числе
+    id = db.Column(db.Integer, primary_key=True)
+    muscle_group_id = db.Column(db.Integer, db.ForeignKey('muscle_groups.id'))  # ссылается на muscle_groups
+    name = db.Column(db.String(50))
+    display_name = db.Column(db.String(50))
+
 # Упражнение (глобальная база)
 class Exercise(db.Model):
     __tablename__ = 'exercises'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(100), nullable=False, unique=True)  # unique=True запрещает дубликаты
     exercise_type = db.Column(db.String(20), nullable=False)  # 'strength', 'cardio', 'bodyweight'
     description = db.Column(db.Text)
     
-    # Группа мышц (основная)
-    muscle_group = db.Column(db.String(50))  # chest, shoulders, arms, back, legs, core
+    muscle_group_id = db.Column(db.Integer, db.ForeignKey('muscle_groups.id'), nullable=True)
+    muscle_subgroup_id = db.Column(db.Integer, db.ForeignKey('muscle_subgroups.id'), nullable=True)
     
-    # Уточнение (подгруппа)
-    muscle_subgroup = db.Column(db.String(50))  # upper_chest, middle_chest, lower_chest, quads, hamstrings, calves
-    
-    # Тип усилия (опционально)
-    movement_pattern = db.Column(db.String(50))  # push, pull, squat, hinge, carry
-    
-    # Кто добавил упражнение (эксперт)
+    # Кто добавил упражнение
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_by = relationship('User')
-    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Связь с шаблонами
+    # Связи
+    created_by = relationship('User', foreign_keys=[created_by_id])
     template_exercises = relationship('TemplateExercise', back_populates='exercise')
+    muscle_group = relationship('MuscleGroup')
+    muscle_subgroup = relationship('MuscleSubgroup')
     
     def __repr__(self):
         return f'<Exercise {self.name}>'
@@ -207,13 +215,3 @@ class WorkoutSchedule(db.Model):
     def __repr__(self):
         return f'<WorkoutSchedule {self.scheduled_date} - {self.template.name}>'
     
-class MuscleGroup(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True)  # chest, shoulders, arms...
-    display_name = db.Column(db.String(50))  # "Грудные"
-    
-class MuscleSubgroup(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    muscle_group_id = db.Column(db.Integer, db.ForeignKey('muscle_groups.id'))
-    name = db.Column(db.String(50))  # upper_chest
-    display_name = db.Column(db.String(50))  # "Верх груди"

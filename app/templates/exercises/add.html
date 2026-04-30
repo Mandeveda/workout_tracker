@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Добавить упражнение{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2 class="mb-4">Добавить новое упражнение</h2>
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control") }}
+                        {% for error in form.name.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.exercise_type.label(class="form-label") }}
+                        {{ form.exercise_type(class="form-select") }}
+                        {% for error in form.exercise_type.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.muscle_group_id.label(class="form-label") }}
+                        {{ form.muscle_group_id(class="form-select") }}
+                        {% for error in form.muscle_group_id.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.muscle_subgroup_id.label(class="form-label") }}
+                        {{ form.muscle_subgroup_id(class="form-select") }}
+                        <div class="form-text">Сначала выберите группу мышц</div>
+                        {% for error in form.muscle_subgroup_id.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control", rows=4) }}
+                        {% for error in form.description.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    {{ form.submit(class="btn btn-primary") }}
+                    <a href="{{ url_for('exercises.list_exercises') }}" class="btn btn-secondary">Отмена</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Динамическая загрузка уточнений при выборе группы мышц
+    document.getElementById('muscle_group_id').addEventListener('change', function() {
+        var groupId = this.value;
+        if (groupId && groupId != '0') {
+            fetch('/exercises/get_subgroups?muscle_group_id=' + groupId)
+                .then(response => response.json())
+                .then(data => {
+                    var subgroupSelect = document.getElementById('muscle_subgroup_id');
+                    subgroupSelect.innerHTML = '<option value="0">Не выбрано</option>';
+                    data.forEach(function(subgroup) {
+                        var option = document.createElement('option');
+                        option.value = subgroup.id;
+                        option.textContent = subgroup.display_name;
+                        subgroupSelect.appendChild(option);
+                    });
+                });
+        }
+    });
+</script>
+{% endblock %}

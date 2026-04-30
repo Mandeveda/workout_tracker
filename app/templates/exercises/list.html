@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}База упражнений{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>База упражнений</h2>
+    {% if current_user.role.name in ['expert', 'admin'] %}
+        <a href="{{ url_for('exercises.add_exercise') }}" class="btn btn-primary">+ Добавить упражнение</a>
+    {% endif %}
+</div>
+
+<!-- Поиск и фильтры -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-6">
+                <input type="text" name="search" class="form-control" placeholder="Поиск по названию" value="{{ search }}">
+            </div>
+            <div class="col-md-4">
+                <select name="muscle_group" class="form-select">
+                    <option value="">Все группы мышц</option>
+                    {% for group in muscle_groups %}
+                        <option value="{{ group.name }}" {% if muscle_group == group.name %}selected{% endif %}>
+                            {{ group.display_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-secondary w-100">Фильтр</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Список упражнений -->
+<div class="row">
+    {% for exercise in exercises %}
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="card-title">{{ exercise.name }}</h5>
+                        <span class="badge bg-secondary">{{ exercise.exercise_type }}</span>
+                    </div>
+                    {% if exercise.muscle_group %}
+                        <p class="card-text">
+                            <small class="text-muted">
+                                {{ exercise.muscle_group.display_name }}
+                                {% if exercise.muscle_subgroup %} → {{ exercise.muscle_subgroup.display_name }}{% endif %}
+                            </small>
+                        </p>
+                    {% endif %}
+                    {% if exercise.description %}
+                        <p class="card-text">{{ exercise.description[:100] }}{% if exercise.description|length > 100 %}...{% endif %}</p>
+                    {% endif %}
+                    {% if current_user.role.name in ['expert', 'admin'] and exercise.created_by_id == current_user.id %}
+                        <a href="{{ url_for('exercises.edit_exercise', id=exercise.id) }}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">Упражнений не найдено</div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}
