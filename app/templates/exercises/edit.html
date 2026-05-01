@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Редактировать упражнение{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1>Редактировать упражнение</h1>
+    
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-warning">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+            {{ form.name.label(class="form-label") }}
+            {{ form.name(class="form-control") }}
+            {% if form.name.errors %}
+                {% for error in form.name.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            {{ form.exercise_type.label(class="form-label") }}
+            {{ form.exercise_type(class="form-select") }}
+            {% if form.exercise_type.errors %}
+                {% for error in form.exercise_type.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            {{ form.muscle_group_id.label(class="form-label") }}
+            {{ form.muscle_group_id(class="form-select") }}
+            {% if form.muscle_group_id.errors %}
+                {% for error in form.muscle_group_id.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            {{ form.muscle_subgroup_id.label(class="form-label") }}
+            {{ form.muscle_subgroup_id(class="form-select") }}
+            {% if form.muscle_subgroup_id.errors %}
+                {% for error in form.muscle_subgroup_id.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            {{ form.description.label(class="form-label") }}
+            {{ form.description(class="form-control", rows="3") }}
+            {% if form.description.errors %}
+                {% for error in form.description.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+        <a href="{{ url_for('exercises.list_exercises') }}" class="btn btn-secondary">Вернуться к списку</a>
+    </form>
+</div>
+{% endblock %}

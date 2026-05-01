@@ -99,7 +99,7 @@ class WorkoutTemplate(db.Model):
     user = relationship('User', back_populates='workout_templates')
     template_exercises = relationship('TemplateExercise', back_populates='template', cascade='all, delete-orphan')
     workout_sessions = relationship('WorkoutSession', back_populates='template')
-    schedules = db.relationship('WorkoutSchedule', back_populates='template', cascade='all, delete-orphan')
+    schedules = db.relationship('WorkoutSchedule', back_populates='template', cascade='all, delete-orphan')#исправил db.relationship на relationship
     
     def __repr__(self):
         return f'<WorkoutTemplate {self.name}>'
@@ -203,6 +203,9 @@ class WorkoutSchedule(db.Model):
     
     status = db.Column(db.String(20), default='planned')  # planned, completed, skipped, postponed
     
+    #Плановые параметры (хранятся в JSON)
+    planned_data = db.Column(db.JSON)  # {"exercise_id": {"sets": 3, "reps": 10, "weight": 50}}
+
     # Для повторяющихся программ (в будущем)
     is_recurring = db.Column(db.Boolean, default=False)
     recurring_rule = db.Column(db.String(50), nullable=True)

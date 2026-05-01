@@ -2,7 +2,7 @@ from flask import render_template, redirect, url_for, flash, request, Blueprint
 from flask_login import login_required, current_user
 from flask import jsonify  # добавьте в импорт
 from app import db
-from app.models import Exercise
+from app.models import Exercise, TemplateExercise
 from app.forms import ExerciseForm
 
 bp = Blueprint('exercises', __name__, url_prefix='/exercises')
@@ -93,8 +93,8 @@ def edit_exercise(id):
         
         exercise.name = form.name.data
         exercise.exercise_type = form.exercise_type.data
-        exercise.muscle_group = form.muscle_group.data
-        exercise.muscle_subgroup = form.muscle_subgroup.data
+        exercise.muscle_group_id = form.muscle_group_id.data
+        exercise.muscle_subgroup_id = form.muscle_subgroup_id.data
         exercise.description = form.description.data
         
         db.session.commit()
@@ -113,3 +113,23 @@ def get_subgroups():
         subgroups = MuscleSubgroup.query.filter_by(muscle_group_id=muscle_group_id).all()
         return jsonify([{'id': s.id, 'display_name': s.display_name} for s in subgroups])
     return jsonify([])
+
+@bp.route('/del_exercise/<int:exercise_id>')
+@login_required
+def del_exercise(exercise_id):
+    """Удаление упражнения из базы"""
+    exercise = Exercise.query.get_or_404(exercise_id)
+    if not (current_user.role.name in ['admin'] or exercise.created_by_id == current_user.id):
+        flash('Доступ запрещён', 'danger')
+        return redirect(url_for('exercises.list_exercises'))
+    
+    template_exercise_count = TemplateExercise.query.filter_by(exercise_id=exercise_id).count()
+
+    if template_exercise_count > 0:
+        flash(f'Нельзя удалить упражнение: оно используется в {template_exercise_count} шаблонах тренировок', 'warning')
+        return redirect(url_for('exercises.list_exercises'))
+    
+    db.session.delete(exercise)
+    db.session.commit()
+    flash('Упражнение удалено из базы', 'success')
+    return redirect(url_for('exercises.list_exercises'))
