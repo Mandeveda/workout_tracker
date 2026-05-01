@@ -99,9 +99,13 @@
             {% endif %}
         </div>
     </div>
-
-    <div class="mt-3">
+    <div class="mt-3 d-flex justify-content-between">
         <a href="{{ url_for('templates.list_templates') }}" class="btn btn-secondary">Вернуться к списку шаблонов</a>
+        <a href="{{ url_for('templates.delete_template', template_id=template.id) }}" 
+        class="btn btn-danger" 
+        onclick="return confirm('Вы уверены? Шаблон будет удалён без возможности восстановления.')">
+            Удалить шаблон
+        </a>
     </div>
 </div>
 {% endblock %}

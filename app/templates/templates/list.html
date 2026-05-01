@@ -19,6 +19,9 @@
                     </p>
                     <a href="{{ url_for('templates.edit_template', template_id=template.id) }}" class="btn btn-sm btn-outline-primary">Редактировать</a>
                     <a href="{{ url_for('program.create_program', template_id=template.id) }}" class="btn btn-sm btn-success">Создать программу</a>
+                    <a href="{{ url_for('templates.delete_template', template_id=template.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Удалить шаблон «{{ template.name }}»? Все упражнения внутри будут удалены.')">
+            Удалить
+        </a>
                 </div>
             </div>
         </div>
