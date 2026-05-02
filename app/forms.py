@@ -1,5 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, IntegerField, FloatField, BooleanField
+from flask_login import current_user
+from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, IntegerField, FloatField, BooleanField, DateField
 from wtforms.validators import DataRequired, Length, EqualTo, ValidationError, NumberRange
 # Временно убираем Email
 from app.models import User
@@ -66,11 +67,33 @@ class TemplateExerciseForm(FlaskForm):
         from app.models import Exercise
         self.exercise_id.choices = [(e.id, e.name) for e in Exercise.query.order_by('name').all()]
 
-class ProgramForm(FlaskForm):
-    """Форма для создания программы (расписания с параметрами)"""
-    template_id = SelectField('Выберите шаблон', coerce=int, validators=[DataRequired()])
+class ExerciseParametersForm(FlaskForm):
+    """Форма для параметров одного упражнения (динамическая)"""
+    input_type = SelectField('Тип нагрузки', choices=[
+        ('fixed', 'Одинаково во всех подходах'),
+        ('progressive', 'Индивидуально для каждого подхода')
+    ], validators=[DataRequired()])
     
-    # Дни недели (множественный выбор)
+    # Для fixed режима
+    sets = IntegerField('Количество подходов', default=3, validators=[NumberRange(min=1, max=20)])
+    reps = IntegerField('Повторений в подходе', default=10, validators=[NumberRange(min=1, max=100)])
+    weight = FloatField('Вес (кг)', default=0)
+    
+    # Для progressive режима (будет динамически добавляться через JS)
+    # Храним как строку JSON в отдельном поле
+    
+    def __init__(self, *args, **kwargs):
+        super(ExerciseParametersForm, self).__init__(*args, **kwargs)
+        # Убираем валидацию для progressive режима
+        self.sets.validators = []
+        self.reps.validators = []
+        self.weight.validators = []
+
+class ProgramGenerationForm(FlaskForm):
+    """Форма для генерации программы"""
+    template_id = SelectField('Шаблон тренировки', coerce=int, validators=[DataRequired()])
+    
+    # Дни недели
     monday = BooleanField('Понедельник')
     tuesday = BooleanField('Вторник')
     wednesday = BooleanField('Среда')
@@ -79,20 +102,14 @@ class ProgramForm(FlaskForm):
     saturday = BooleanField('Суббота')
     sunday = BooleanField('Воскресенье')
     
-    weeks = SelectField('Количество недель', choices=[(1, '1 неделя'), (2, '2 недели'), (4, '4 недели'), (8, '8 недель')], coerce=int, default=4)
+    # Период действия
+    start_date = DateField('Дата начала', validators=[DataRequired()], format='%Y-%m-%d')
+    end_date = DateField('Дата окончания', validators=[DataRequired()], format='%Y-%m-%d')
     
-    submit = SubmitField('Сгенерировать расписание')
+    submit = SubmitField('Продолжить')
     
     def __init__(self, *args, **kwargs):
-        super(ProgramForm, self).__init__(*args, **kwargs)
+        super(ProgramGenerationForm, self).__init__(*args, **kwargs)
         from app.models import WorkoutTemplate
+        from flask_login import current_user
         self.template_id.choices = [(0, 'Выберите шаблон')] + [(t.id, t.name) for t in WorkoutTemplate.query.filter_by(user_id=current_user.id).all()]
-
-class SetParametersForm(FlaskForm):
-    """Форма для заполнения параметров упражнения в расписании"""
-    sets = IntegerField('Количество подходов', validators=[DataRequired(), NumberRange(min=1, max=10)])
-    reps = IntegerField('Количество повторений', validators=[DataRequired(), NumberRange(min=1, max=100)])
-    weight = FloatField('Вес (кг)', default=0)
-    duration = IntegerField('Длительность (мин)', default=0)  # для кардио
-    distance = FloatField('Дистанция (км)', default=0)  # для кардио
-    submit = SubmitField('Сохранить параметры')

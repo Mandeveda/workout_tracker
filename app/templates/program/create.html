@@ -1,83 +1,181 @@
 {% extends "base.html" %}
 {% block title %}Создать программу{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <h2 class="mb-4">Создать программу из шаблона "{{ template.name }}"</h2>
-        <div class="card">
-            <div class="card-body">
-                <form method="POST">
-                    {{ form.hidden_tag() }}
-                    
-                    <div class="mb-3">
-                        {{ form.template_id.label(class="form-label") }}
-                        {{ form.template_id(class="form-select") }}
-                        {% for error in form.template_id.errors %}
-                            <div class="text-danger">{{ error }}</div>
-                        {% endfor %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Создание программы из шаблона</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-4">
+                        <strong>Шаблон: {{ template.name }}</strong><br>
+                        Упражнений в шаблоне: {{ template.template_exercises|length }}
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label">Дни недели для тренировок</label>
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.monday(class="form-check-input") }}
-                                    {{ form.monday.label(class="form-check-label") }}
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- Выбор шаблона (скрытое поле, так как шаблон уже выбран) -->
+                        {{ form.template_id(class="form-control", type="hidden") }}
+                        
+                        <!-- Дни недели -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Дни тренировок</label>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-check mb-2">
+                                        {{ form.monday(class="form-check-input") }}
+                                        {{ form.monday.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check mb-2">
+                                        {{ form.tuesday(class="form-check-input") }}
+                                        {{ form.tuesday.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check mb-2">
+                                        {{ form.wednesday(class="form-check-input") }}
+                                        {{ form.wednesday.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check mb-2">
+                                        {{ form.thursday(class="form-check-input") }}
+                                        {{ form.thursday.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check mb-2">
+                                        {{ form.friday(class="form-check-input") }}
+                                        {{ form.friday.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check mb-2">
+                                        {{ form.saturday(class="form-check-input") }}
+                                        {{ form.saturday.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check mb-2">
+                                        {{ form.sunday(class="form-check-input") }}
+                                        {{ form.sunday.label(class="form-check-label") }}
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.tuesday(class="form-check-input") }}
-                                    {{ form.tuesday.label(class="form-check-label") }}
-                                </div>
+                            {% for error in form.monday.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Период действия -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                {{ form.start_date.label(class="form-label fw-bold") }}
+                                {{ form.start_date(class="form-control", type="date") }}
+                                <div class="form-text">Дата первой тренировки</div>
+                                {% for error in form.start_date.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
                             </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.wednesday(class="form-check-input") }}
-                                    {{ form.wednesday.label(class="form-check-label") }}
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.thursday(class="form-check-input") }}
-                                    {{ form.thursday.label(class="form-check-label") }}
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.friday(class="form-check-input") }}
-                                    {{ form.friday.label(class="form-check-label") }}
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.saturday(class="form-check-input") }}
-                                    {{ form.saturday.label(class="form-check-label") }}
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    {{ form.sunday(class="form-check-input") }}
-                                    {{ form.sunday.label(class="form-check-label") }}
-                                </div>
+                            <div class="col-md-6">
+                                {{ form.end_date.label(class="form-label fw-bold") }}
+                                {{ form.end_date(class="form-control", type="date") }}
+                                <div class="form-text">Дата последней тренировки</div>
+                                {% for error in form.end_date.errors %}
+                                    <div class="text-danger">{{ error }}</div>
+                                {% endfor %}
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        {{ form.weeks.label(class="form-label") }}
-                        {{ form.weeks(class="form-select") }}
-                        {% for error in form.weeks.errors %}
-                            <div class="text-danger">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    
-                    {{ form.submit(class="btn btn-primary") }}
-                    <a href="{{ url_for('templates.list_templates') }}" class="btn btn-secondary">Отмена</a>
-                </form>
+                        
+                        <!-- Предпросмотр количества тренировок -->
+                        <div class="alert alert-secondary mb-4" id="preview">
+                            <strong>Предпросмотр:</strong> выберите дни и период
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            {{ form.submit(class="btn btn-primary") }}
+                            <a href="{{ url_for('templates.list_templates') }}" class="btn btn-secondary">Отмена</a>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    // Функция подсчёта количества тренировок
+    function calculateWorkouts() {
+        const startDate = document.getElementById('start_date').value;
+        const endDate = document.getElementById('end_date').value;
+        
+        if (!startDate || !endDate) return;
+        
+        const checkboxes = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const selectedDays = [];
+        
+        checkboxes.forEach(day => {
+            const checkbox = document.getElementById(day);
+            if (checkbox && checkbox.checked) {
+                selectedDays.push(getDayNumber(day));
+            }
+        });
+        
+        if (selectedDays.length === 0) {
+            document.getElementById('preview').innerHTML = '<strong>Предпросмотр:</strong> выберите хотя бы один день недели';
+            return;
+        }
+        
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        let count = 0;
+        let current = new Date(start);
+        
+        while (current <= end) {
+            if (selectedDays.includes(current.getDay())) {
+                count++;
+            }
+            current.setDate(current.getDate() + 1);
+        }
+        
+        document.getElementById('preview').innerHTML = `<strong>Предпросмотр:</strong> будет создано <strong>${count}</strong> тренировок за выбранный период`;
+    }
+    
+    function getDayNumber(dayName) {
+        const days = {
+            'sunday': 0,
+            'monday': 1,
+            'tuesday': 2,
+            'wednesday': 3,
+            'thursday': 4,
+            'friday': 5,
+            'saturday': 6
+        };
+        return days[dayName];
+    }
+    
+    // Слушатели событий
+    document.addEventListener('DOMContentLoaded', function() {
+        const checkboxes = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+        
+        function addListeners() {
+            checkboxes.forEach(day => {
+                const cb = document.getElementById(day);
+                if (cb) cb.addEventListener('change', calculateWorkouts);
+            });
+            if (startDateInput) startDateInput.addEventListener('change', calculateWorkouts);
+            if (endDateInput) endDateInput.addEventListener('change', calculateWorkouts);
+        }
+        
+        addListeners();
+        calculateWorkouts();
+    });
+</script>
 {% endblock %}
