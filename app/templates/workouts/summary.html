@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Результаты тренировки{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <!-- Заголовок -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>Результаты тренировки</h2>
+            <p class="text-muted">
+                {{ session.date.strftime('%d.%m.%Y %H:%M') }} | 
+                {{ session.schedule.template.name }}
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Общее выполнение</h5>
+                    <h2 class="display-4">{{ session.completion_percent|round(1) }}%</h2>
+                    <p class="mb-0">Тоннаж: {{ session.total_tonnage|round(1) }} кг</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Детали по упражнениям -->
+    {% for exercise_id, exercise_data in exercises_summary.items() %}
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">{{ exercise_data.name }}</h4>
+                <span class="badge bg-light text-dark fs-6">
+                    Выполнение: {{ exercise_data.total_completion|round(1) }}%
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 10%">Подход</th>
+                                <th style="width: 30%">План</th>
+                                <th style="width: 30%">Факт</th>
+                                <th style="width: 30%">Выполнение</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for set_log in exercise_data.sets %}
+                                <tr>
+                                    <td class="text-center fw-bold">{{ set_log.set_number }}</td>
+                                    <td class="text-center">
+                                        {{ set_log.planned_weight }} кг × {{ set_log.planned_reps }}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if set_log.actual_weight and set_log.actual_reps %}
+                                            {{ set_log.actual_weight }} кг × {{ set_log.actual_reps }}
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if set_log.completion_percent > 0 %}
+                                            {% if set_log.completion_percent >= 100 %}
+                                                <span class="badge bg-success fs-6">
+                                                    {{ set_log.completion_percent|round(1) }}%
+                                                </span>
+                                            {% elif set_log.completion_percent >= 80 %}
+                                                <span class="badge bg-warning fs-6">
+                                                    {{ set_log.completion_percent|round(1) }}%
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger fs-6">
+                                                    {{ set_log.completion_percent|round(1) }}%
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-secondary">
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold">Среднее выполнение:</td>
+                                <td class="text-center fw-bold">
+                                    {{ exercise_data.total_completion|round(1) }}%
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+
+    <!-- Кнопки навигации -->
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{{ url_for('workouts.index') }}" class="btn btn-secondary">
+            ← К списку тренировок
+        </a>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary">
+            На дашборд
+        </a>
+    </div>
+</div>
+
+<style>
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .badge {
+        padding: 8px 12px;
+        min-width: 70px;
+    }
+    
+    .display-4 {
+        font-size: 2.5rem;
+        font-weight: 300;
+    }
+    
+    .card-header .badge {
+        font-size: 1rem;
+        padding: 5px 10px;
+    }
+</style>
+{% endblock %}

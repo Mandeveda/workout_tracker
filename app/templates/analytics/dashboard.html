@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Детальная аналитика{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Детальная аналитика</h2>
+    <div class="alert alert-info">
+        Функция аналитики находится в разработке.
+    </div>
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">Вернуться на дашборд</a>
+</div>
+{% endblock %}

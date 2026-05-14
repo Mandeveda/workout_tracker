@@ -44,12 +44,14 @@ class User(UserMixin, db.Model):
     def __repr__(self):
         return f'<User {self.username}>'
 
+# Группы тренируемых мышц
 class MuscleGroup(db.Model):
     __tablename__ = 'muscle_groups'  # Обратите внимание: имя во множественном числе
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True)
     display_name = db.Column(db.String(50))
 
+# Подгркппа тренируемых мышц
 class MuscleSubgroup(db.Model):
     __tablename__ = 'muscle_subgroups'  # тоже во множественном числе
     id = db.Column(db.Integer, primary_key=True)
@@ -139,58 +141,67 @@ class WorkoutSession(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    template_id = db.Column(db.Integer, db.ForeignKey('workout_templates.id'), nullable=True)  # NULL если ручная тренировка
+    schedule_id = db.Column(db.Integer, db.ForeignKey('workout_schedules.id'), nullable=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('workout_templates.id'), nullable=True)
     date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    
-    # Статус тренировки
-    status = db.Column(db.String(20), default='planned')  # planned, completed, skipped, postponed
+    status = db.Column(db.String(20), default='completed')  # completed, skipped
     
     # Общая оценка выполнения
     completion_percent = db.Column(db.Float, default=0.0)
+    total_tonnage = db.Column(db.Float, default=0.0)  # общий тоннаж тренировки
     
     # Связи
     user = relationship('User', back_populates='workout_sessions')
-    template = relationship('WorkoutTemplate', back_populates='workout_sessions')
+    schedule = relationship('WorkoutSchedule', back_populates='session')
+    template = relationship('WorkoutTemplate', back_populates='workout_sessions')  # уже есть
     set_logs = relationship('SetLog', back_populates='session', cascade='all, delete-orphan')
-    
-    # Связь с расписанием
-    schedule_id = db.Column(db.Integer, db.ForeignKey('workout_schedules.id'), nullable=True)
-    schedule = db.relationship('WorkoutSchedule', back_populates='session')
     
     def __repr__(self):
         return f'<WorkoutSession {self.date} completion={self.completion_percent}%>'
 
 # Лог каждого подхода (или кардио-сегмента)
 class SetLog(db.Model):
-
     __tablename__ = 'set_logs'
     
     id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.Integer, db.ForeignKey('workout_sessions.id'), nullable=False)
-    template_exercise_id = db.Column(db.Integer, db.ForeignKey('template_exercises.id'), nullable=True)  # NULL если ручное упражнение
+    exercise_id = db.Column(db.Integer, db.ForeignKey('exercises.id'), nullable=False)
+    template_exercise_id = db.Column(db.Integer, db.ForeignKey('template_exercises.id'), nullable=True)
+    set_number = db.Column(db.Integer, nullable=False)
     
-    # Фактические данные
-    set_number = db.Column(db.Integer)  # номер подхода (1, 2, 3...)
+    # Плановые значения
+    planned_reps = db.Column(db.Integer, nullable=False)  # исправлено с planned_reqs
+    planned_weight = db.Column(db.Float, nullable=False)
     
-    # Для силовых/bodyweight
+    # Фактические значения
     actual_reps = db.Column(db.Integer)
     actual_weight = db.Column(db.Float)
     
-    # Для кардио
-    actual_duration = db.Column(db.Integer)  # минут
-    actual_distance = db.Column(db.Float)  # км
-    actual_heart_rate = db.Column(db.Integer)  # средний/макс пульс
-    
-    # Процент выполнения этого подхода
+    # Процент выполнения подхода (по тоннажу)
     completion_percent = db.Column(db.Float, default=0.0)
     
     # Связи
     session = relationship('WorkoutSession', back_populates='set_logs')
+    exercise = relationship('Exercise')
     template_exercise = relationship('TemplateExercise', back_populates='set_logs')
     
+    def calculate_completion(self):
+        """Расчёт процента выполнения по тоннажу (ограничение 100%)"""
+        if self.actual_reps and self.actual_weight:
+            planned_volume = self.planned_reps * self.planned_weight
+            actual_volume = self.actual_reps * self.actual_weight
+            if planned_volume > 0:
+                self.completion_percent = min(100, (actual_volume / planned_volume) * 100)
+            else:
+                self.completion_percent = 0
+        else:
+            self.completion_percent = 0
+        return self.completion_percent
+    
     def __repr__(self):
-        return f'<SetLog set={self.set_number} completion={self.completion_percent}%>'
+        return f'<SetLog exercise={self.exercise_id} set={self.set_number} completion={self.completion_percent}%>'
 
+# График тренировок
 class WorkoutSchedule(db.Model):
     __tablename__ = 'workout_schedules'
     
@@ -213,7 +224,7 @@ class WorkoutSchedule(db.Model):
     # Связи
     user = db.relationship('User', back_populates='schedules')
     template = db.relationship('WorkoutTemplate', back_populates='schedules')
-    session = db.relationship('WorkoutSession', uselist=False, back_populates='schedule')
+    session = relationship('WorkoutSession', back_populates='schedule', uselist=False)
     
     def __repr__(self):
         return f'<WorkoutSchedule {self.scheduled_date} - {self.template.name}>'

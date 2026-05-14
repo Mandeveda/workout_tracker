@@ -4,8 +4,8 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Мои тренировки</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="#" class="btn btn-sm btn-outline-primary me-2">📅 Расписание</a>
-        <a href="#" class="btn btn-sm btn-outline-success">+ Новая программа</a>
+        <a href="{{ url_for('workouts.index') }}" class="btn btn-sm btn-outline-primary me-2">📅 Расписание</a>
+        <a href="{{ url_for('templates.list_templates') }}" class="btn btn-sm btn-outline-success">+ Новая программа</a>
     </div>
 </div>
 
@@ -30,12 +30,12 @@
                 {% if today_workout %}
                     <p><strong>Программа:</strong> {{ today_workout.template.name }}</p>
                     <p><strong>Упражнений:</strong> {{ today_workout.template.template_exercises|length }}</p>
-                    <a href="#" class="btn btn-success">▶ Начать тренировку</a>
-                    <a href="#" class="btn btn-secondary">⏩ Перенести</a>
-                    <a href="#" class="btn btn-danger">✖ Пропустить</a>
+                    <a href="{{ url_for('workouts.start_workout', schedule_id=today_workout.id) }}" class="btn btn-success">▶ Начать тренировку</a>
+                    <a href="{{ url_for('workouts.postpone_workout', schedule_id=today_workout.id) }}" class="btn btn-secondary">⏩ Перенести</a>
+                    <a href="{{ url_for('workouts.skip_workout', schedule_id=today_workout.id) }}" class="btn btn-danger" onclick="return confirm('Вы уверены, что хотите пропустить тренировку?')">✖ Пропустить</a>
                 {% else %}
                     <p class="text-muted">Сегодня нет запланированных тренировок.</p>
-                    <button class="btn btn-outline-primary">➕ Ручная тренировка</button>
+                    <a href="{{ url_for('workouts.free_workout') }}" class="btn btn-outline-primary">➕ Ручная тренировка</a>
                 {% endif %}
             </div>
         </div>
@@ -49,7 +49,7 @@
                 {% if recent_workouts %}
                     <div class="list-group">
                         {% for session in recent_workouts %}
-                            <div class="list-group-item">
+                            <a href="{{ url_for('workouts.summary', session_id=session.id) }}" class="list-group-item list-group-item-action">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">{{ session.date.strftime('%d.%m.%Y') }}</h6>
                                     <small>Выполнение: {{ session.completion_percent|round(1) }}%</small>
@@ -61,7 +61,8 @@
                                         Ручная тренировка
                                     {% endif %}
                                 </p>
-                            </div>
+                                <small class="text-muted">Тоннаж: {{ session.total_tonnage|round(1) }} кг</small>
+                            </a>
                         {% endfor %}
                     </div>
                 {% else %}
@@ -91,9 +92,9 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <button class="btn btn-sm btn-outline-secondary">📋 Все мои шаблоны</button>
-                    <button class="btn btn-sm btn-outline-secondary">🏆 Мои рекорды</button>
-                    <button class="btn btn-sm btn-outline-secondary">📊 Детальная аналитика</button>
+                    <a href="{{ url_for('templates.list_templates') }}" class="btn btn-sm btn-outline-secondary">📋 Все мои шаблоны</a>
+                    <a href="{{ url_for('analytics.records') }}" class="btn btn-sm btn-outline-secondary">🏆 Мои рекорды</a>
+                    <a href="{{ url_for('analytics.dashboard') }}" class="btn btn-sm btn-outline-secondary">📊 Детальная аналитика</a>
                 </div>
             </div>
         </div>

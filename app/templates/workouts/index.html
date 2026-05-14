@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Мои тренировки{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Мои тренировки</h2>
+    
+    <!-- Сегодняшние тренировки -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0">📅 Сегодня ({{ today_workouts|length }})</h4>
+        </div>
+        <div class="card-body">
+            {% if today_workouts %}
+                {% for workout in today_workouts %}
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-2 border rounded">
+                        <div>
+                            <h5 class="mb-1">{{ workout.template.name }}</h5>
+                            <small class="text-muted">{{ workout.scheduled_date.strftime('%d.%m.%Y') }}</small>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('workouts.start_workout', schedule_id=workout.id) }}" class="btn btn-primary">▶ Начать</a>
+                            <a href="{{ url_for('workouts.postpone_workout', schedule_id=workout.id) }}" class="btn btn-secondary">⏩ Перенести</a>
+                            <a href="{{ url_for('workouts.skip_workout', schedule_id=workout.id) }}" class="btn btn-danger">✖ Пропустить</a>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">На сегодня тренировок нет</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Предстоящие тренировки -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0">📆 Предстоящие тренировки</h4>
+        </div>
+        <div class="card-body">
+            {% if upcoming %}
+                {% for workout in upcoming %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                        <div>
+                            <strong>{{ workout.template.name }}</strong>
+                            <span class="text-muted ms-3">{{ workout.scheduled_date.strftime('%d.%m.%Y') }}</span>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('workouts.start_workout', schedule_id=workout.id) }}" class="btn btn-sm btn-primary">Начать</a>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">Нет запланированных тренировок</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- История -->
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h4 class="mb-0">📊 История тренировок</h4>
+        </div>
+        <div class="card-body">
+            {% if history %}
+                {% for session in history %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                        <div>
+                            <strong>{{ session.date.strftime('%d.%m.%Y') }}</strong>
+                            <span class="text-muted ms-3">Тоннаж: {{ session.total_tonnage|round(1) }} кг</span>
+                        </div>
+                        <div>
+                            <span class="badge bg-success">Выполнение: {{ session.completion_percent|round(1) }}%</span>
+                            <a href="{{ url_for('workouts.summary', session_id=session.id) }}" class="btn btn-sm btn-info ms-2">Детали</a>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">Нет завершённых тренировок</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Выполнение тренировки{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Тренировка: {{ session.schedule.template.name }}</h2>
+    <p class="text-muted">{{ session.date.strftime('%d.%m.%Y %H:%M') }}</p>
+    
+    <form method="POST">
+        {% for exercise in exercises_data %}
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">{{ exercise.exercise_name }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Подход</th>
+                                    <th>План (вес × повторения)</th>
+                                    <th>Факт (вес × повторения)</th>
+                                    <th>Выполнение</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for set_info in exercise.sets %}
+                                    <tr>
+                                        <td class="text-center fw-bold">{{ set_info.set_number }}</td>
+                                        <td class="text-center">{{ set_info.planned_weight }} кг × {{ set_info.planned_reps }}</td>
+                                        <td>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <input type="number" step="0.5" 
+                                                           name="weight_{{ exercise.exercise_id }}_{{ set_info.set_number }}"
+                                                           class="form-control" placeholder="Вес" value="{{ set_info.planned_weight }}">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <input type="number" 
+                                                           name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"
+                                                           class="form-control" placeholder="Повторы" value="{{ set_info.planned_reps }}">
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center" id="completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}">—</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        
+        <div class="text-center">
+            <button type="submit" class="btn btn-success btn-lg">Сохранить тренировку</button>
+            <a href="{{ url_for('workouts.index') }}" class="btn btn-secondary btn-lg">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Функция расчёта процента выполнения на лету
+    function calculateCompletion(weightInput, repsInput, plannedWeight, plannedReps, completionSpan) {
+        const weight = parseFloat(weightInput.value);
+        const reps = parseInt(repsInput.value);
+        
+        if (!isNaN(weight) && !isNaN(reps) && weight > 0 && reps > 0) {
+            const plannedVolume = plannedReps * plannedWeight;
+            const actualVolume = reps * weight;
+            
+            if (plannedVolume > 0) {
+                let percent = (actualVolume / plannedVolume) * 100;
+                percent = Math.min(100, percent); // Ограничиваем 100%
+                completionSpan.textContent = percent.toFixed(1) + '%';
+                
+                if (percent >= 100) {
+                    completionSpan.style.color = 'green';
+                    completionSpan.style.fontWeight = 'bold';
+                } else if (percent >= 80) {
+                    completionSpan.style.color = 'orange';
+                } else {
+                    completionSpan.style.color = 'red';
+                }
+                return;
+            }
+        }
+        completionSpan.textContent = '—';
+    }
+    
+    // Добавляем обработчики для всех полей ввода
+    document.addEventListener('DOMContentLoaded', function() {
+        {% for exercise in exercises_data %}
+            {% for set_info in exercise.sets %}
+                const weightInput = document.querySelector('input[name="weight_{{ exercise.exercise_id }}_{{ set_info.set_number }}"]');
+                const repsInput = document.querySelector('input[name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"]');
+                const completionSpan = document.getElementById('completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}');
+                const plannedWeight = {{ set_info.planned_weight }};
+                const plannedReps = {{ set_info.planned_reps }};
+                
+                function update() {
+                    calculateCompletion(weightInput, repsInput, plannedWeight, plannedReps, completionSpan);
+                }
+                
+                weightInput.addEventListener('input', update);
+                repsInput.addEventListener('input', update);
+                update();
+            {% endfor %}
+        {% endfor %}
+    });
+</script>
+{% endblock %}
