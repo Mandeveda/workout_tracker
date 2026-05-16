@@ -44,7 +44,6 @@ def start_workout(schedule_id=None):
     """Начать тренировку"""
     today = datetime.utcnow().date()
     
-    # Если schedule_id не передан, ищем тренировку на сегодня
     if schedule_id is None:
         schedule = WorkoutSchedule.query.filter_by(
             user_id=current_user.id,
@@ -56,37 +55,31 @@ def start_workout(schedule_id=None):
             flash('Нет запланированных тренировок на сегодня', 'warning')
             return redirect(url_for('workouts.index'))
     else:
-        # Если передан schedule_id, проверяем что это тренировка на сегодня
         schedule = WorkoutSchedule.query.get_or_404(schedule_id)
         
-        # Проверяем, что тренировка принадлежит пользователю
         if schedule.user_id != current_user.id:
             flash('Доступ запрещён', 'danger')
             return redirect(url_for('workouts.index'))
         
-        # Проверяем, что тренировка запланирована на сегодня
         if schedule.scheduled_date != today:
             flash('Можно выполнять только тренировки, запланированные на сегодня', 'warning')
             return redirect(url_for('workouts.index'))
     
-    # Проверяем статус тренировки
     if schedule.status != 'planned':
         flash('Эта тренировка уже выполнена или пропущена', 'warning')
         return redirect(url_for('workouts.index'))
     
-    # Проверяем, нет ли уже активной сессии для этого расписания
-    existing_session = WorkoutSession.query.filter_by(
-        schedule_id=schedule.id
-    ).first()
+    existing_session = WorkoutSession.query.filter_by(schedule_id=schedule.id).first()
     
     if existing_session:
         flash('Тренировка уже была начата. Продолжите выполнение.', 'info')
         return redirect(url_for('workouts.perform', session_id=existing_session.id))
     
-    # Создаём сессию тренировки
+    # ИСПРАВЛЕНИЕ: добавляем template_id из расписания
     session = WorkoutSession(
         user_id=current_user.id,
         schedule_id=schedule.id,
+        template_id=schedule.template_id,  # <-- ДОБАВИТЬ ЭТУ СТРОКУ
         date=datetime.utcnow(),
         status='completed'
     )

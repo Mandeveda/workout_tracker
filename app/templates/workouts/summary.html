@@ -6,14 +6,16 @@
     <div class="row mb-4">
         <div class="col-md-8">
             <h2>Результаты тренировки</h2>
-            <p class="text-muted">
-                {{ session.date.strftime('%d.%m.%Y %H:%M') }}
-                {% if session.schedule %}
-                    | {{ session.schedule.template.name }}
-                {% else %}
-                    | Свободная тренировка
-                {% endif %}
-            </p>
+                <p class="text-muted">
+                    {{ session.date.strftime('%d.%m.%Y %H:%M') }}
+                    {% if session.template %}
+                        | {{ session.template.name }}
+                    {% elif session.schedule and session.schedule.template %}
+                        | {{ session.schedule.template.name }}
+                    {% else %}
+                        | Свободная тренировка
+                    {% endif %}
+                </p>
         </div>
         <div class="col-md-4 text-end">
             <div class="card bg-success text-white">
