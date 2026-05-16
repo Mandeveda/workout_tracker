@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Календарь активности{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">📅 Календарь активности</h2>
+    <p class="text-muted">Цвет показывает интенсивность тренировок (тоннаж).</p>
+    
+    <div class="card">
+        <div class="card-body">
+            <div id="calendar" class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4 text-center">
+        <div class="d-inline-block me-4">
+            <span class="badge p-2" style="background-color: #ebedf0;">😴 Нет</span>
+        </div>
+        <div class="d-inline-block me-4">
+            <span class="badge p-2" style="background-color: #c6e48b;">📊 Лёгкая (1-500 кг)</span>
+        </div>
+        <div class="d-inline-block me-4">
+            <span class="badge p-2" style="background-color: #7bc96f;">💪 Средняя (500-1000 кг)</span>
+        </div>
+        <div class="d-inline-block me-4">
+            <span class="badge p-2" style="background-color: #239a3b;">🔥 Интенсивная (1000-2000 кг)</span>
+        </div>
+        <div class="d-inline-block">
+            <span class="badge p-2" style="background-color: #196127;">🏆 Максимум (2000+ кг)</span>
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="{{ url_for('analytics.dashboard') }}" class="btn btn-outline-secondary">← К аналитике</a>
+    </div>
+</div>
+
+<script>
+    fetch('/analytics/calendar_data')
+        .then(response => response.json())
+        .then(data => {
+            // Группируем данные по месяцам
+            const months = {};
+            for (const [dateStr, value] of Object.entries(data)) {
+                const [year, month] = dateStr.split('-');
+                const monthKey = `${year}-${month}`;
+                if (!months[monthKey]) {
+                    months[monthKey] = {};
+                }
+                months[monthKey][dateStr] = value.total_tonnage;
+            }
+            
+            // Сортируем месяцы
+            const sortedMonths = Object.keys(months).sort();
+            
+            if (sortedMonths.length === 0) {
+                document.getElementById('calendar').innerHTML = '<div class="alert alert-info">Нет данных о тренировках</div>';
+                return;
+            }
+            
+            // Создаём HTML календаря
+            let html = '<div class="row">';
+            
+            sortedMonths.forEach(monthKey => {
+                const [year, month] = monthKey.split('-');
+                const monthName = new Date(year, month - 1, 1).toLocaleString('ru', { month: 'long' });
+                
+                // Получаем количество дней в месяце
+                const daysInMonth = new Date(year, month, 0).getDate();
+                
+                // Узнаём, какой день недели у первого дня месяца (0 = воскресенье)
+                const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
+                
+                // Создаём сетку календаря
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <strong>${monthName} ${year}</strong>
+                            </div>
+                            <div class="card-body p-2">
+                                <div class="calendar-grid">
+                                    <div class="calendar-weekdays">
+                                        <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
+                                    </div>
+                                    <div class="calendar-days">
+                `;
+                
+                // Добавляем пустые ячейки для первого дня недели
+                let startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+                for (let i = 0; i < startOffset; i++) {
+                    html += '<div class="calendar-day empty"></div>';
+                }
+                
+                // Заполняем дни месяца
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const tonnage = months[monthKey][dateStr] || 0;
+                    
+                    let colorClass = 'level-0';
+                    if (tonnage === 0) colorClass = 'level-0';
+                    else if (tonnage < 500) colorClass = 'level-1';
+                    else if (tonnage < 1000) colorClass = 'level-2';
+                    else if (tonnage < 2000) colorClass = 'level-3';
+                    else colorClass = 'level-4';
+                    
+                    html += `
+                        <div class="calendar-day ${colorClass}" title="${dateStr}: ${tonnage} кг">
+                            ${day}
+                        </div>
+                    `;
+                }
+                
+                html += `
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            document.getElementById('calendar').innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Ошибка загрузки данных:', error);
+            document.getElementById('calendar').innerHTML = '<div class="alert alert-danger">Ошибка загрузки календаря</div>';
+        });
+</script>
+
+<style>
+    .calendar-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .calendar-weekdays {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        text-align: center;
+        font-weight: bold;
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 5px;
+    }
+    
+    .calendar-days {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+    }
+    
+    .calendar-day {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    .calendar-day:hover {
+        transform: scale(1.05);
+    }
+    
+    .calendar-day.empty {
+        background: transparent;
+        cursor: default;
+    }
+    
+    .calendar-day.level-0 {
+        background-color: #ebedf0;
+        color: #666;
+    }
+    
+    .calendar-day.level-1 {
+        background-color: #c6e48b;
+        color: #333;
+    }
+    
+    .calendar-day.level-2 {
+        background-color: #7bc96f;
+        color: #333;
+    }
+    
+    .calendar-day.level-3 {
+        background-color: #239a3b;
+        color: white;
+    }
+    
+    .calendar-day.level-4 {
+        background-color: #196127;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .card-header {
+        font-size: 14px;
+    }
+</style>
+{% endblock %}

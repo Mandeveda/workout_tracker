@@ -269,20 +269,53 @@ def postpone_workout(schedule_id):
 @bp.route('/free_workout', methods=['GET', 'POST'])
 @login_required
 def free_workout():
-    """Свободная тренировка (без шаблона)"""
+    """Свободная тренировка (без шаблона, ручной ввод упражнений)"""
+    
     if request.method == 'POST':
         # Создаём сессию без расписания
         session = WorkoutSession(
             user_id=current_user.id,
             schedule_id=None,
+            template_id=None,
             date=datetime.utcnow(),
             status='completed'
         )
         db.session.add(session)
         db.session.commit()
         
-        # Здесь будет форма для добавления упражнений вручную
-        flash('Функция свободной тренировки в разработке', 'info')
+        # Сохраняем упражнения из формы
+        exercise_ids = request.form.getlist('exercise_id')
+        reps_list = request.form.getlist('reps')
+        weights_list = request.form.getlist('weight')
+        set_numbers = request.form.getlist('set_number')
+        
+        for i in range(len(exercise_ids)):
+            if exercise_ids[i] and reps_list[i] and weights_list[i]:
+                exercise_id = int(exercise_ids[i])
+                reps = int(reps_list[i])
+                weight = float(weights_list[i])
+                set_number = int(set_numbers[i]) if i < len(set_numbers) and set_numbers[i] else 1
+                
+                set_log = SetLog(
+                    session_id=session.id,
+                    exercise_id=exercise_id,
+                    set_number=set_number,
+                    planned_reps=reps,  # Для свободной тренировки план = факт
+                    planned_weight=weight,
+                    actual_reps=reps,
+                    actual_weight=weight
+                )
+                set_log.calculate_completion()
+                db.session.add(set_log)
+        
+        db.session.commit()
+        
+        # Обновляем проценты и тоннаж
+        update_session_completion(session.id)
+        
+        flash('Свободная тренировка сохранена!', 'success')
         return redirect(url_for('workouts.summary', session_id=session.id))
     
-    return render_template('workouts/free_workout.html')
+    # GET запрос — показываем форму
+    exercises = Exercise.query.order_by(Exercise.name).all()
+    return render_template('workouts/free_workout.html', exercises=exercises)

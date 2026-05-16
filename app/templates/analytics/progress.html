@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Прогресс упражнений{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">📈 Прогресс упражнений</h2>
+    
+    <div class="card mb-4">
+        <div class="card-body">
+            <label class="form-label fw-bold">Выберите упражнение:</label>
+            <select id="exerciseSelect" class="form-select mb-3">
+                <option value="">-- Выберите упражнение --</option>
+                {% for exercise in exercises %}
+                    <option value="{{ exercise.id }}">{{ exercise.name }}</option>
+                {% endfor %}
+            </select>
+            
+            <div id="chartContainer" style="display: none;">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Тип прогресса:</label>
+                    <select id="metricSelect" class="form-select">
+                        <option value="weight">Максимальный вес (кг)</option>
+                        <option value="reps">Максимальные повторения</option>
+                        <option value="tonnage">Максимальный тоннаж</option>
+                    </select>
+                </div>
+                <canvas id="progressChart" width="400" height="200"></canvas>
+            </div>
+            
+            <div id="noDataMessage" class="alert alert-info mt-3" style="display: none;">
+                <strong>Нет данных</strong> — для этого упражнения пока нет выполненных подходов.
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="{{ url_for('analytics.records') }}" class="btn btn-outline-primary">🏆 Рекорды</a>
+        <a href="{{ url_for('analytics.dashboard') }}" class="btn btn-outline-secondary">📊 Детальная аналитика</a>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">← На дашборд</a>
+    </div>
+</div>
+
+<script>
+    let chart = null;
+    
+    document.getElementById('exerciseSelect').addEventListener('change', function() {
+        const exerciseId = this.value;
+        if (exerciseId) {
+            loadProgressData(exerciseId);
+        } else {
+            document.getElementById('chartContainer').style.display = 'none';
+            document.getElementById('noDataMessage').style.display = 'none';
+        }
+    });
+    
+    document.getElementById('metricSelect').addEventListener('change', function() {
+        const exerciseId = document.getElementById('exerciseSelect').value;
+        if (exerciseId && chart) {
+            const metric = this.value;
+            updateChartMetric(metric);
+        }
+    });
+    
+    function loadProgressData(exerciseId) {
+        fetch(`/analytics/progress_data/${exerciseId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.dates && data.dates.length > 0) {
+                    document.getElementById('chartContainer').style.display = 'block';
+                    document.getElementById('noDataMessage').style.display = 'none';
+                    
+                    // Сохраняем данные для смены метрики
+                    window.progressData = data;
+                    
+                    // Создаём график
+                    const metric = document.getElementById('metricSelect').value;
+                    createChart(data, metric);
+                } else {
+                    document.getElementById('chartContainer').style.display = 'none';
+                    document.getElementById('noDataMessage').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки данных:', error);
+                document.getElementById('chartContainer').style.display = 'none';
+                document.getElementById('noDataMessage').style.display = 'block';
+            });
+    }
+    
+    function createChart(data, metric) {
+        const ctx = document.getElementById('progressChart').getContext('2d');
+        
+        let label, values, color;
+        switch(metric) {
+            case 'weight':
+                label = 'Максимальный вес (кг)';
+                values = data.weights;
+                color = 'rgb(54, 162, 235)';
+                break;
+            case 'reps':
+                label = 'Максимальные повторения';
+                values = data.reps;
+                color = 'rgb(75, 192, 192)';
+                break;
+            case 'tonnage':
+                label = 'Максимальный тоннаж';
+                values = data.tonnage;
+                color = 'rgb(255, 99, 132)';
+                break;
+        }
+        
+        if (chart) {
+            chart.destroy();
+        }
+        
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.dates,
+                datasets: [{
+                    label: label,
+                    data: values,
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                let value = context.raw;
+                                if (metric === 'weight') {
+                                    return label + ': ' + value + ' кг';
+                                } else if (metric === 'tonnage') {
+                                    return label + ': ' + value;
+                                } else {
+                                    return label + ': ' + value;
+                                }
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: metric === 'weight' ? 'кг' : (metric === 'reps' ? 'повторения' : 'тоннаж')
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Дата тренировки'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function updateChartMetric(metric) {
+        if (window.progressData) {
+            createChart(window.progressData, metric);
+        }
+    }
+</script>
+{% endblock %}

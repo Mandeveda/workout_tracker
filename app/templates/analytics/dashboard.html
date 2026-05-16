@@ -2,10 +2,56 @@
 {% block title %}Детальная аналитика{% endblock %}
 {% block content %}
 <div class="container mt-4">
-    <h2>Детальная аналитика</h2>
-    <div class="alert alert-info">
-        Функция аналитики находится в разработке.
+    <h2 class="mb-4">📊 Детальная аналитика</h2>
+    
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Тренировок за 30 дней</h5>
+                    <h2 class="display-4">{{ workouts_last_month }}</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Общий тоннаж за 30 дней</h5>
+                    <h2 class="display-4">{{ total_tonnage|round(0) }} кг</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Всего рекордов</h5>
+                    <h2 class="display-4">{{ records_count }}</h2>
+                    <p class="mb-0">максимальный вес и повторения</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h5 class="card-title">Лучшая тренировка</h5>
+                    {% if best_workout %}
+                        <h3 class="mb-0">{{ best_workout.total_tonnage|round(0) }} кг</h3>
+                        <small>{{ best_workout.date.strftime('%d.%m.%Y') }}</small>
+                    {% else %}
+                        <p class="mb-0">Нет данных</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
-    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">Вернуться на дашборд</a>
+    
+    <div class="mt-3">
+        <a href="{{ url_for('analytics.records') }}" class="btn btn-outline-primary">🏆 Рекорды</a>
+        <a href="{{ url_for('analytics.progress') }}" class="btn btn-outline-success">📈 Прогресс</a>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">← На дашборд</a>
+    </div>
 </div>
 {% endblock %}

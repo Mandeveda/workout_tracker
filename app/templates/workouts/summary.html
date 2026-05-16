@@ -7,8 +7,12 @@
         <div class="col-md-8">
             <h2>Результаты тренировки</h2>
             <p class="text-muted">
-                {{ session.date.strftime('%d.%m.%Y %H:%M') }} | 
-                {{ session.schedule.template.name }}
+                {{ session.date.strftime('%d.%m.%Y %H:%M') }}
+                {% if session.schedule %}
+                    | {{ session.schedule.template.name }}
+                {% else %}
+                    | Свободная тренировка
+                {% endif %}
             </p>
         </div>
         <div class="col-md-4 text-end">
@@ -23,74 +27,84 @@
     </div>
 
     <!-- Детали по упражнениям -->
-    {% for exercise_id, exercise_data in exercises_summary.items() %}
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">{{ exercise_data.name }}</h4>
-                <span class="badge bg-light text-dark fs-6">
-                    Выполнение: {{ exercise_data.total_completion|round(1) }}%
-                </span>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 10%">Подход</th>
-                                <th style="width: 30%">План</th>
-                                <th style="width: 30%">Факт</th>
-                                <th style="width: 30%">Выполнение</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for set_log in exercise_data.sets %}
+    {% if exercises_summary %}
+        {% for exercise_id, exercise_data in exercises_summary.items() %}
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">{{ exercise_data.name }}</h4>
+                    <span class="badge bg-light text-dark fs-6">
+                        Выполнение: {{ exercise_data.total_completion|round(1) }}%
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
                                 <tr>
-                                    <td class="text-center fw-bold">{{ set_log.set_number }}</td>
-                                    <td class="text-center">
-                                        {{ set_log.planned_weight }} кг × {{ set_log.planned_reps }}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if set_log.actual_weight and set_log.actual_reps %}
-                                            {{ set_log.actual_weight }} кг × {{ set_log.actual_reps }}
-                                        {% else %}
-                                            <span class="text-muted">—</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if set_log.completion_percent > 0 %}
-                                            {% if set_log.completion_percent >= 100 %}
-                                                <span class="badge bg-success fs-6">
-                                                    {{ set_log.completion_percent|round(1) }}%
-                                                </span>
-                                            {% elif set_log.completion_percent >= 80 %}
-                                                <span class="badge bg-warning fs-6">
-                                                    {{ set_log.completion_percent|round(1) }}%
-                                                </span>
+                                    <th style="width: 10%">Подход</th>
+                                    <th style="width: 30%">План</th>
+                                    <th style="width: 30%">Факт</th>
+                                    <th style="width: 30%">Выполнение</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for set_log in exercise_data.sets %}
+                                    <tr>
+                                        <td class="text-center fw-bold">{{ set_log.set_number }}</td>
+                                        <td class="text-center">
+                                            {% if set_log.planned_weight and set_log.planned_reps %}
+                                                {{ set_log.planned_weight }} кг × {{ set_log.planned_reps }}
                                             {% else %}
-                                                <span class="badge bg-danger fs-6">
-                                                    {{ set_log.completion_percent|round(1) }}%
-                                                </span>
+                                                <span class="text-muted">—</span>
                                             {% endif %}
-                                        {% else %}
-                                            <span class="text-muted">—</span>
-                                        {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            {% if set_log.actual_weight and set_log.actual_reps %}
+                                                {{ set_log.actual_weight }} кг × {{ set_log.actual_reps }}
+                                            {% else %}
+                                                <span class="text-muted">—</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            {% if set_log.completion_percent > 0 %}
+                                                {% if set_log.completion_percent >= 100 %}
+                                                    <span class="badge bg-success fs-6">
+                                                        {{ set_log.completion_percent|round(1) }}%
+                                                    </span>
+                                                {% elif set_log.completion_percent >= 80 %}
+                                                    <span class="badge bg-warning fs-6">
+                                                        {{ set_log.completion_percent|round(1) }}%
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-danger fs-6">
+                                                        {{ set_log.completion_percent|round(1) }}%
+                                                    </span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">—</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-secondary">
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold">Среднее выполнение:</td>
+                                    <td class="text-center fw-bold">
+                                        {{ exercise_data.total_completion|round(1) }}%
                                     </td>
                                 </tr>
-                            {% endfor %}
-                        </tbody>
-                        <tfoot class="table-secondary">
-                            <tr>
-                                <td colspan="3" class="text-end fw-bold">Среднее выполнение:</td>
-                                <td class="text-center fw-bold">
-                                    {{ exercise_data.total_completion|round(1) }}%
-                                </td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
             </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">
+            Нет данных о подходах в этой тренировке.
         </div>
-    {% endfor %}
+    {% endif %}
 
     <!-- Кнопки навигации -->
     <div class="d-flex justify-content-between mt-4">

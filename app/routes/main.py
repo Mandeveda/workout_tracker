@@ -1,7 +1,9 @@
 from flask import render_template, Blueprint
 from flask_login import login_required, current_user
 from datetime import datetime
-from app.models import WorkoutSchedule, WorkoutSession
+from app.models import WorkoutSchedule, WorkoutSession, SetLog, Exercise
+from sqlalchemy import func
+from app import db
 
 bp = Blueprint('main', __name__)
 
@@ -37,8 +39,10 @@ def dashboard():
     best_workout = WorkoutSession.query.filter_by(user_id=current_user.id).order_by(WorkoutSession.total_tonnage.desc()).first()
     best_tonnage = best_workout.total_tonnage if best_workout else 0
     
-    # Количество рекордов (пока заглушка, потом реализуем)
-    pr_count = 0
+    # Количество рекордов
+    # Получаем уникальные упражнения пользователя
+    exercises_count = db.session.query(SetLog.exercise_id).filter(SetLog.session.has(user_id=current_user.id)).distinct().count()
+    pr_count = exercises_count * 2  # вес и повторения
     
     # Процент выполнения плана
     plan_completion_percent = 0
