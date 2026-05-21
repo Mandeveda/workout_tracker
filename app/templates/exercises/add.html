@@ -19,23 +19,23 @@
                     
                     <div class="mb-3">
                         {{ form.exercise_type.label(class="form-label") }}
-                        {{ form.exercise_type(class="form-select") }}
+                        {{ form.exercise_type(class="form-select", id="exercise_type") }}
                         {% for error in form.exercise_type.errors %}
                             <div class="text-danger">{{ error }}</div>
                         {% endfor %}
                     </div>
                     
-                    <div class="mb-3">
+                    <div id="muscle_group_block" class="mb-3">
                         {{ form.muscle_group_id.label(class="form-label") }}
-                        {{ form.muscle_group_id(class="form-select") }}
+                        {{ form.muscle_group_id(class="form-select", id="muscle_group_id") }}
                         {% for error in form.muscle_group_id.errors %}
                             <div class="text-danger">{{ error }}</div>
                         {% endfor %}
                     </div>
                     
-                    <div class="mb-3">
+                    <div id="muscle_subgroup_block" class="mb-3">
                         {{ form.muscle_subgroup_id.label(class="form-label") }}
-                        {{ form.muscle_subgroup_id(class="form-select") }}
+                        {{ form.muscle_subgroup_id(class="form-select", id="muscle_subgroup_id") }}
                         <div class="form-text">Сначала выберите группу мышц</div>
                         {% for error in form.muscle_subgroup_id.errors %}
                             <div class="text-danger">{{ error }}</div>
@@ -59,7 +59,21 @@
 </div>
 
 <script>
-    // Динамическая загрузка уточнений при выборе группы мышц
+    function toggleMuscleFields() {
+        const exerciseType = document.getElementById('exercise_type').value;
+        const muscleGroupBlock = document.getElementById('muscle_group_block');
+        const muscleSubgroupBlock = document.getElementById('muscle_subgroup_block');
+        
+        if (exerciseType === 'cardio') {
+            muscleGroupBlock.style.display = 'none';
+            muscleSubgroupBlock.style.display = 'none';
+        } else {
+            muscleGroupBlock.style.display = 'block';
+            muscleSubgroupBlock.style.display = 'block';
+        }
+    }
+    
+    // Динамическая загрузка уточнений
     document.getElementById('muscle_group_id').addEventListener('change', function() {
         var groupId = this.value;
         if (groupId && groupId != '0') {
@@ -77,5 +91,8 @@
                 });
         }
     });
+    
+    document.getElementById('exercise_type').addEventListener('change', toggleMuscleFields);
+    toggleMuscleFields();
 </script>
 {% endblock %}

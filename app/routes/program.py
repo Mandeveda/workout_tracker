@@ -60,49 +60,115 @@ def set_parameters():
         parameters = {}
         
         for te in template_exercises:
-            form = ExerciseParametersForm(request.form, prefix=f'ex_{te.id}')
+            exercise_type = te.exercise.exercise_type
             
-            # Определяем тип нагрузки из POST данных
-            input_type = request.form.get(f'ex_{te.id}-input_type')
-            
-            if input_type == 'fixed':
-                # Фиксированный режим
-                sets = int(request.form.get(f'ex_{te.id}-sets', 3))
-                reps = int(request.form.get(f'ex_{te.id}-reps', 10))
-                weight = float(request.form.get(f'ex_{te.id}-weight', 0))
+            if exercise_type == 'cardio':
+                # Обработка кардио параметров
+                duration = request.form.get(f'duration_{te.id}', type=int)
+                distance = request.form.get(f'distance_{te.id}', type=float)
+                heart_rate = request.form.get(f'heart_rate_{te.id}', type=int)
+                
+                if not duration:
+                    duration = 30
+                if not distance:
+                    distance = 0
                 
                 parameters[str(te.exercise_id)] = {
-                    'input_type': 'fixed',
-                    'sets': sets,
-                    'reps': reps,
-                    'weight': weight,
-                    'exercise_name': te.exercise.name
+                    'input_type': 'cardio',
+                    'duration': duration,
+                    'distance': distance,
+                    'target_heart_rate': heart_rate,
+                    'exercise_name': te.exercise.name,
+                    'exercise_type': 'cardio'
                 }
                 
-            else:
-                # Progressive режим
-                progressive_data_json = request.form.get(f'progressive_data_{te.id}')
-                if progressive_data_json:
-                    try:
-                        progressive_sets = json.loads(progressive_data_json)
-                        if not progressive_sets:
-                            flash(f'Для упражнения "{te.exercise.name}" не добавлено ни одного подхода', 'danger')
+            elif exercise_type == 'bodyweight':
+                # Обработка упражнений с собственным весом (без веса)
+                input_type = request.form.get(f'ex_{te.id}-input_type')
+                
+                if input_type == 'fixed':
+                    sets = int(request.form.get(f'ex_{te.id}-sets', 3))
+                    reps = int(request.form.get(f'ex_{te.id}-reps', 10))
+                    
+                    parameters[str(te.exercise_id)] = {
+                        'input_type': 'fixed',
+                        'sets': sets,
+                        'reps': reps,
+                        'weight': 0,  # Нет веса
+                        'exercise_name': te.exercise.name,
+                        'exercise_type': 'bodyweight'
+                    }
+                else:
+                    # Progressive для bodyweight
+                    progressive_data_json = request.form.get(f'progressive_data_{te.id}')
+                    if progressive_data_json:
+                        try:
+                            progressive_sets = json.loads(progressive_data_json)
+                            if not progressive_sets:
+                                flash(f'Для упражнения "{te.exercise.name}" не добавлено ни одного подхода', 'danger')
+                                all_valid = False
+                                continue
+                            
+                            # Убираем вес из данных (только повторения)
+                            for set_info in progressive_sets:
+                                set_info['weight'] = 0
+                            
+                            parameters[str(te.exercise_id)] = {
+                                'input_type': 'progressive',
+                                'sets': progressive_sets,
+                                'exercise_name': te.exercise.name,
+                                'exercise_type': 'bodyweight'
+                            }
+                        except json.JSONDecodeError:
+                            flash(f'Ошибка в данных упражнения "{te.exercise.name}"', 'danger')
                             all_valid = False
                             continue
-                        
-                        parameters[str(te.exercise_id)] = {
-                            'input_type': 'progressive',
-                            'sets': progressive_sets,
-                            'exercise_name': te.exercise.name
-                        }
-                    except json.JSONDecodeError:
-                        flash(f'Ошибка в данных упражнения "{te.exercise.name}"', 'danger')
+                    else:
+                        flash(f'Для упражнения "{te.exercise.name}" не заполнены параметры', 'danger')
                         all_valid = False
                         continue
+                        
+            else:  # strength (силовые с весом)
+                input_type = request.form.get(f'ex_{te.id}-input_type')
+                
+                if input_type == 'fixed':
+                    sets = int(request.form.get(f'ex_{te.id}-sets', 3))
+                    reps = int(request.form.get(f'ex_{te.id}-reps', 10))
+                    weight = float(request.form.get(f'ex_{te.id}-weight', 0))
+                    
+                    parameters[str(te.exercise_id)] = {
+                        'input_type': 'fixed',
+                        'sets': sets,
+                        'reps': reps,
+                        'weight': weight,
+                        'exercise_name': te.exercise.name,
+                        'exercise_type': 'strength'
+                    }
                 else:
-                    flash(f'Для упражнения "{te.exercise.name}" не заполнены параметры', 'danger')
-                    all_valid = False
-                    continue
+                    # Progressive для strength
+                    progressive_data_json = request.form.get(f'progressive_data_{te.id}')
+                    if progressive_data_json:
+                        try:
+                            progressive_sets = json.loads(progressive_data_json)
+                            if not progressive_sets:
+                                flash(f'Для упражнения "{te.exercise.name}" не добавлено ни одного подхода', 'danger')
+                                all_valid = False
+                                continue
+                            
+                            parameters[str(te.exercise_id)] = {
+                                'input_type': 'progressive',
+                                'sets': progressive_sets,
+                                'exercise_name': te.exercise.name,
+                                'exercise_type': 'strength'
+                            }
+                        except json.JSONDecodeError:
+                            flash(f'Ошибка в данных упражнения "{te.exercise.name}"', 'danger')
+                            all_valid = False
+                            continue
+                    else:
+                        flash(f'Для упражнения "{te.exercise.name}" не заполнены параметры', 'danger')
+                        all_valid = False
+                        continue
         
         if all_valid:
             # Генерируем расписание

@@ -56,9 +56,9 @@
                                 </div>
                                 <p class="mb-1 text-muted">
                                     {% if session.template %}
-                                        Шаблон: {{ session.template.name }}
+                                        {{ session.template.name }}
                                     {% elif session.schedule and session.schedule.template %}
-                                        Шаблон: {{ session.schedule.template.name }}
+                                        {{ session.schedule.template.name }}
                                     {% else %}
                                         Ручная тренировка
                                     {% endif %}

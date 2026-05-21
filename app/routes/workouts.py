@@ -111,58 +111,92 @@ def perform(session_id):
     # Получаем упражнения из шаблона
     template_exercises = TemplateExercise.query.filter_by(template_id=schedule.template.id).order_by(TemplateExercise.order).all()
     
-    # Собираем информацию об упражнениях и их плановых подходах
+    # Собираем информацию об упражнениях
     exercises_data = []
     for te in template_exercises:
         exercise_id = str(te.exercise_id)
+        exercise_type = te.exercise.exercise_type
+        
         if exercise_id in planned_data:
             exercise_plan = planned_data[exercise_id]
-            sets_data = []
             
-            if exercise_plan['input_type'] == 'fixed':
-                # Фиксированные подходы
-                for i in range(1, exercise_plan['sets'] + 1):
-                    sets_data.append({
-                        'set_number': i,
-                        'planned_reps': exercise_plan['reps'],
-                        'planned_weight': exercise_plan['weight']
-                    })
+            if exercise_type == 'cardio':
+                exercises_data.append({
+                    'template_exercise_id': te.id,
+                    'exercise_id': te.exercise_id,
+                    'exercise_name': te.exercise.name,
+                    'exercise_type': 'cardio',
+                    'planned_duration': exercise_plan.get('duration', 30),
+                    'planned_distance': exercise_plan.get('distance', 0),
+                    'planned_heart_rate': exercise_plan.get('target_heart_rate')
+                })
             else:
-                # Progressive подходы
-                for set_info in exercise_plan['sets']:
-                    sets_data.append({
-                        'set_number': set_info['set_number'],
-                        'planned_reps': set_info['reps'],
-                        'planned_weight': set_info['weight']
-                    })
-            
-            exercises_data.append({
-                'template_exercise_id': te.id,
-                'exercise_id': te.exercise_id,
-                'exercise_name': te.exercise.name,
-                'sets': sets_data
-            })
+                # strength или bodyweight
+                sets_data = []
+                if exercise_plan['input_type'] == 'fixed':
+                    for i in range(1, exercise_plan['sets'] + 1):
+                        sets_data.append({
+                            'set_number': i,
+                            'planned_reps': exercise_plan['reps'],
+                            'planned_weight': exercise_plan.get('weight', 0)
+                        })
+                else:
+                    for set_info in exercise_plan['sets']:
+                        sets_data.append({
+                            'set_number': set_info['set_number'],
+                            'planned_reps': set_info['reps'],
+                            'planned_weight': set_info.get('weight', 0)
+                        })
+                
+                exercises_data.append({
+                    'template_exercise_id': te.id,
+                    'exercise_id': te.exercise_id,
+                    'exercise_name': te.exercise.name,
+                    'exercise_type': exercise_type,
+                    'sets': sets_data
+                })
     
     if request.method == 'POST':
         # Сохраняем результаты
         for exercise in exercises_data:
-            for set_info in exercise['sets']:
-                set_number = set_info['set_number']
-                actual_reps = request.form.get(f'reps_{exercise["exercise_id"]}_{set_number}', type=int)
-                actual_weight = request.form.get(f'weight_{exercise["exercise_id"]}_{set_number}', type=float)
+            if exercise['exercise_type'] == 'cardio':
+                # Сохраняем кардио данные как один "сет"
+                actual_duration = request.form.get(f'actual_duration_{exercise["exercise_id"]}', type=int)
+                actual_distance = request.form.get(f'actual_distance_{exercise["exercise_id"]}', type=float)
+                actual_heart_rate = request.form.get(f'actual_heart_rate_{exercise["exercise_id"]}', type=int)
                 
-                if actual_reps is not None and actual_weight is not None:
-                    set_log = SetLog(
-                        session_id=session.id,
-                        exercise_id=exercise['exercise_id'],
-                        set_number=set_number,
-                        planned_reps=set_info['planned_reps'],
-                        planned_weight=set_info['planned_weight'],
-                        actual_reps=actual_reps,
-                        actual_weight=actual_weight
-                    )
-                    set_log.calculate_completion()
-                    db.session.add(set_log)
+                # Для кардио создаём один лог подхода
+                set_log = SetLog(
+                    session_id=session.id,
+                    exercise_id=exercise['exercise_id'],
+                    set_number=1,
+                    planned_reps=1,  # Условно
+                    planned_weight=exercise.get('planned_duration', 0),  # Храним длительность
+                    actual_reps=actual_duration,
+                    actual_weight=actual_distance
+                )
+                set_log.calculate_completion()
+                db.session.add(set_log)
+                
+            else:
+                # Силовые и bodyweight
+                for set_info in exercise['sets']:
+                    set_number = set_info['set_number']
+                    actual_reps = request.form.get(f'reps_{exercise["exercise_id"]}_{set_number}', type=int)
+                    actual_weight = request.form.get(f'weight_{exercise["exercise_id"]}_{set_number}', type=float)
+                    
+                    if actual_reps is not None:
+                        set_log = SetLog(
+                            session_id=session.id,
+                            exercise_id=exercise['exercise_id'],
+                            set_number=set_number,
+                            planned_reps=set_info['planned_reps'],
+                            planned_weight=set_info['planned_weight'],
+                            actual_reps=actual_reps,
+                            actual_weight=actual_weight if actual_weight else 0
+                        )
+                        set_log.calculate_completion()
+                        db.session.add(set_log)
         
         db.session.commit()
         

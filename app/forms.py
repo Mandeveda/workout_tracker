@@ -35,6 +35,7 @@ class ExerciseForm(FlaskForm):
         ('cardio', 'Кардио')
     ], validators=[DataRequired()])
     
+    # Для силовых и bodyweight
     muscle_group_id = SelectField('Группа мышц', coerce=int, choices=[])
     muscle_subgroup_id = SelectField('Уточнение', coerce=int, choices=[])
     
@@ -45,11 +46,9 @@ class ExerciseForm(FlaskForm):
         super(ExerciseForm, self).__init__(*args, **kwargs)
         from app.models import MuscleGroup, MuscleSubgroup
         
-        # Загружаем группы мышц
         groups = MuscleGroup.query.order_by('display_name').all()
         self.muscle_group_id.choices = [(0, 'Не выбрано')] + [(g.id, g.display_name) for g in groups]
         
-        # Загружаем ВСЕ уточнения для валидации (WTForms требует, чтобы значение было в choices)
         all_subgroups = MuscleSubgroup.query.all()
         self.muscle_subgroup_id.choices = [(0, 'Не выбрано')] + [(s.id, s.display_name) for s in all_subgroups]
 

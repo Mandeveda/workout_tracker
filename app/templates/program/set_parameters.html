@@ -8,67 +8,97 @@
     <form method="POST" id="mainForm">
         {% for te in template_exercises %}
             {% set form = forms[te.id] %}
-            <div class="card mb-4" id="exercise_card_{{ te.id }}">
+            <div class="card mb-4" data-exercise-id="{{ te.id }}">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">{{ te.exercise.name }}</h4>
+                    <small>{{ te.exercise.exercise_type }}</small>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Тип нагрузки</label>
-                        <select class="form-select" id="input_type_{{ te.id }}" name="{{ form.input_type.name }}">
-                            <option value="fixed" {% if form.input_type.data == 'fixed' %}selected{% endif %}>Одинаково во всех подходах</option>
-                            <option value="progressive" {% if form.input_type.data == 'progressive' %}selected{% endif %}>Индивидуально для каждого подхода</option>
-                        </select>
-                    </div>
+                    {{ form.hidden_tag() }}
                     
-                    <!-- FIXED режим -->
-                    <div id="fixed_mode_{{ te.id }}" class="fixed-mode">
+                    {% if te.exercise.exercise_type == 'strength' or te.exercise.exercise_type == 'bodyweight' %}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Тип нагрузки</label>
+                            <select class="form-select input-type-select" name="{{ form.input_type.name }}" data-exercise-id="{{ te.id }}">
+                                <option value="fixed" {% if form.input_type.data == 'fixed' %}selected{% endif %}>Одинаково во всех подходах</option>
+                                <option value="progressive" {% if form.input_type.data == 'progressive' %}selected{% endif %}>Индивидуально для каждого подхода</option>
+                            </select>
+                        </div>
+                        
+                        <!-- FIXED режим -->
+                        <div id="fixed_mode_{{ te.id }}" class="fixed-mode">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Количество подходов</label>
+                                    <input type="number" name="{{ form.sets.name }}" class="form-control" value="{{ form.sets.data or 3 }}" min="1" max="20">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Повторений в подходе</label>
+                                    <input type="number" name="{{ form.reps.name }}" class="form-control" value="{{ form.reps.data or 10 }}" min="1" max="100">
+                                </div>
+                                {% if te.exercise.exercise_type == 'strength' %}
+                                <div class="col-md-4">
+                                    <label class="form-label">Вес (кг)</label>
+                                    <input type="number" step="0.5" name="{{ form.weight.name }}" class="form-control" value="{{ form.weight.data or 0 }}">
+                                </div>
+                                {% elif te.exercise.exercise_type == 'bodyweight' %}
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted">Вес (не используется)</label>
+                                    <input type="hidden" name="{{ form.weight.name }}" value="0">
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- PROGRESSIVE режим -->
+                        <div id="progressive_mode_{{ te.id }}" class="progressive-mode" style="display: none;">
+                            <div class="alert alert-info mb-3">
+                                <strong>Индивидуальные подходы</strong> — добавьте подходы с разными параметрами
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Вес (кг)</label>
+                                    <input type="number" step="0.5" class="form-control progressive-weight" data-exercise-id="{{ te.id }}" placeholder="50">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Повторения</label>
+                                    <input type="number" class="form-control progressive-reps" data-exercise-id="{{ te.id }}" placeholder="10">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">&nbsp;</label>
+                                    <button type="button" class="btn btn-success form-control add-set-btn" data-exercise-id="{{ te.id }}">+ Добавить подход</button>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <label class="form-label fw-bold">Добавленные подходы:</label>
+                                <div id="sets_list_{{ te.id }}" class="list-group">
+                                    <div class="list-group-item text-muted">Нет добавленных подходов</div>
+                                </div>
+                            </div>
+                            
+                            <input type="hidden" name="progressive_data_{{ te.id }}" id="progressive_data_{{ te.id }}" value="">
+                        </div>
+                        
+                    {% elif te.exercise.exercise_type == 'cardio' %}
+                        <!-- Кардио параметры -->
                         <div class="row">
                             <div class="col-md-4">
-                                <label class="form-label">Количество подходов</label>
-                                <input type="number" name="{{ form.sets.name }}" class="form-control" value="{{ form.sets.data or 3 }}" min="1" max="20">
+                                <label class="form-label">Длительность (минуты)</label>
+                                <input type="number" name="duration_{{ te.id }}" class="form-control" value="30" min="1" max="300">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Повторений в подходе</label>
-                                <input type="number" name="{{ form.reps.name }}" class="form-control" value="{{ form.reps.data or 10 }}" min="1" max="100">
+                                <label class="form-label">Дистанция (км)</label>
+                                <input type="number" step="0.1" name="distance_{{ te.id }}" class="form-control" value="5" min="0">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Вес (кг)</label>
-                                <input type="number" step="0.5" name="{{ form.weight.name }}" class="form-control" value="{{ form.weight.data or 0 }}">
+                                <label class="form-label">Целевой пульс</label>
+                                <input type="number" name="heart_rate_{{ te.id }}" class="form-control" placeholder="120-160">
                             </div>
                         </div>
-                    </div>
-                    
-                    <!-- PROGRESSIVE режим -->
-                    <div id="progressive_mode_{{ te.id }}" class="progressive-mode" style="display: none;">
-                        <div class="alert alert-info mb-3">
-                            <strong>Индивидуальные подходы</strong> — добавьте необходимое количество подходов
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-5">
-                                <label class="form-label">Вес (кг)</label>
-                                <input type="number" step="0.5" class="form-control" id="new_weight_{{ te.id }}" placeholder="50">
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label">Повторения</label>
-                                <input type="number" class="form-control" id="new_reps_{{ te.id }}" placeholder="10">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">&nbsp;</label>
-                                <button type="button" class="btn btn-success form-control add-set-btn" data-exercise="{{ te.id }}">+ Добавить</button>
-                            </div>
-                        </div>
-                        
-                        <div class="mt-3">
-                            <label class="form-label fw-bold">Добавленные подходы:</label>
-                            <div id="sets_list_{{ te.id }}" class="list-group">
-                                <div class="list-group-item text-muted">Нет добавленных подходов</div>
-                            </div>
-                        </div>
-                        
-                        <input type="hidden" name="progressive_data_{{ te.id }}" id="progressive_data_{{ te.id }}" value="">
-                    </div>
+                        <input type="hidden" name="cardio_data_{{ te.id }}" value="1">
+                    {% endif %}
                 </div>
             </div>
         {% endfor %}
