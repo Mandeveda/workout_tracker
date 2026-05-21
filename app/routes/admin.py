@@ -76,6 +76,10 @@ def reset_password(user_id):
     
     user = User.query.get_or_404(user_id)
     
+    if user.is_blocked:
+        flash(f'Пользователь "{user.username}" заблокирован. Сначала разблокируйте.', 'danger')
+        return redirect(url_for('admin.users'))
+    
     # Генерируем временный пароль
     import secrets
     import string

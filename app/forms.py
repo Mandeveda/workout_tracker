@@ -2,7 +2,6 @@ from flask_wtf import FlaskForm
 from flask_login import current_user
 from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, IntegerField, FloatField, BooleanField, DateField
 from wtforms.validators import DataRequired, Length, EqualTo, ValidationError, NumberRange
-# Временно убираем Email
 from app.models import User
 
 class RegistrationForm(FlaskForm):
@@ -140,3 +139,15 @@ class MeasurementForm(FlaskForm):
     hips_circumference = FloatField('Бёдра (см)', default=0)
     biceps_circumference = FloatField('Бицепс (см)', default=0)
     submit = SubmitField('Сохранить измерение')
+
+class ChangePasswordForm(FlaskForm):
+    old_password = PasswordField('Текущий пароль', validators=[DataRequired()])
+    new_password = PasswordField('Новый пароль', validators=[
+        DataRequired(),
+        Length(min=6, message='Пароль должен быть не менее 6 символов')
+    ])
+    confirm_password = PasswordField('Подтвердите пароль', validators=[
+        DataRequired(),
+        EqualTo('new_password', message='Пароли должны совпадать')
+    ])
+    submit = SubmitField('Сменить пароль')
