@@ -36,6 +36,25 @@ class User(UserMixin, db.Model):
     # Внешний ключ на роль (одна роль у пользователя)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False, default=2)  # 2 = обычный пользователь по умолчанию
     
+    # Антропометрические данные
+    weight = db.Column(db.Float, default=70.0)  # вес в кг
+    height = db.Column(db.Float, default=170.0)  # рост в см
+    age = db.Column(db.Integer, default=25)  # возраст
+    gender = db.Column(db.String(10), default='male')  # male/female
+
+    # Объёмы мышц (в см)
+    chest_circumference = db.Column(db.Float, default=0)  # грудь
+    waist_circumference = db.Column(db.Float, default=0)  # талия
+    hips_circumference = db.Column(db.Float, default=0)  # бёдра
+    biceps_circumference = db.Column(db.Float, default=0)  # бицепс
+    forearm_circumference = db.Column(db.Float, default=0)  # предплечье
+    thigh_circumference = db.Column(db.Float, default=0)  # бедро
+    calf_circumference = db.Column(db.Float, default=0)  # икра
+    neck_circumference = db.Column(db.Float, default=0)  # шея
+
+    # История измерений (JSON)
+    measurements_history = db.Column(db.JSON, default=list)  # [{"date": "2024-01-01", "weight": 70, "biceps": 35, ...}]
+
     # Связи
     role = relationship('Role', back_populates='users')
     workout_templates = relationship('WorkoutTemplate', back_populates='user', cascade='all, delete-orphan')
@@ -44,17 +63,25 @@ class User(UserMixin, db.Model):
     
     def __repr__(self):
         return f'<User {self.username}>'
-
+    
+    @property
+    def bmi(self):
+        """Индекс массы тела"""
+        if self.height and self.weight:
+            height_m = self.height / 100
+            return round(self.weight / (height_m ** 2), 1)
+        return 0
+    
 # Группы тренируемых мышц
 class MuscleGroup(db.Model):
-    __tablename__ = 'muscle_groups'  # Обратите внимание: имя во множественном числе
+    __tablename__ = 'muscle_groups'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True)
     display_name = db.Column(db.String(50))
 
 # Подгркппа тренируемых мышц
 class MuscleSubgroup(db.Model):
-    __tablename__ = 'muscle_subgroups'  # тоже во множественном числе
+    __tablename__ = 'muscle_subgroups'
     id = db.Column(db.Integer, primary_key=True)
     muscle_group_id = db.Column(db.Integer, db.ForeignKey('muscle_groups.id'))  # ссылается на muscle_groups
     name = db.Column(db.String(50))

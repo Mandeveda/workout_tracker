@@ -41,21 +41,26 @@ def init_muscle_subgroups(data):
         'upper_chest': 'chest',
         'middle_chest': 'chest',
         'lower_chest': 'chest',
+        'all_chest': 'chest',
         'upper_shoulders': 'shoulders',
         'middle_shoulders': 'shoulders',
         'lower_shoulders': 'shoulders',
+        'all_shoulders': 'shoulders',
         'upper_arms': 'arms',
         'middle_arms': 'arms',
         'lower_arms': 'arms',
         'upper_back': 'back',
         'middle_back': 'back',
         'lower_back': 'back',
+        'all_back': 'back',
         'quads': 'legs',
         'hamstrings': 'legs',
         'calves': 'legs',
         'glutes': 'legs',
+        'all_legs': 'legs',
         'press': 'core',
-        'muscl_core': 'core'
+        'muscl_core': 'core',
+        'all_body_yet': 'all_body'
     }
 
     for subgroup_data in data['muscle_subgroups']:

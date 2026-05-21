@@ -10,27 +10,33 @@
     {"name": "arms", "display_name": "Руки"},
     {"name": "back", "display_name": "Спина"},
     {"name": "legs", "display_name": "Ноги"},
-    {"name": "core", "display_name": "Кор/Пресс"}
+    {"name": "core", "display_name": "Кор/Пресс"},
+    {"name": "all_body", "display_name": "Все тело"}
   ],
   "muscle_subgroups": [
     {"muscle_group_id": 1, "name": "upper_chest", "display_name": "Верхняя часть"},
     {"muscle_group_id": 1, "name": "middle_chest", "display_name": "Средняя часть"},
     {"muscle_group_id": 1, "name": "lower_chest", "display_name": "Нижняя часть"},
+    {"muscle_group_id": 1, "name": "all_chest", "display_name": "На всю группу"},
     {"muscle_group_id": 2, "name": "upper_shoulders", "display_name": "Передний пучок"},
     {"muscle_group_id": 2, "name": "middle_shoulders", "display_name": "Средняя часть"},
     {"muscle_group_id": 2, "name": "lower_shoulders", "display_name": "Задний пучок"},
+    {"muscle_group_id": 2, "name": "all_shoulders", "display_name": "На всю группу"},
     {"muscle_group_id": 3, "name": "upper_arms", "display_name": "Бицепс"},
     {"muscle_group_id": 3, "name": "middle_arms", "display_name": "Трицепс"},
     {"muscle_group_id": 3, "name": "lower_arms", "display_name": "Кисти"},
     {"muscle_group_id": 4, "name": "upper_back", "display_name": "Верхняя часть спины"},
     {"muscle_group_id": 4, "name": "middle_back", "display_name": "Средняя часть спины"},
     {"muscle_group_id": 4, "name": "lower_back", "display_name": "Нижняя часть спины"},
+    {"muscle_group_id": 4, "name": "all_back", "display_name": "На всю группу"},
     {"muscle_group_id": 5, "name": "quads", "display_name": "Квадрицепсы"},
     {"muscle_group_id": 5, "name": "hamstrings", "display_name": "Бицепс бедра"},
     {"muscle_group_id": 5, "name": "calves", "display_name": "Икроножные"},
     {"muscle_group_id": 5, "name": "glutes", "display_name": "Ягодичные"},
+    {"muscle_group_id": 5, "name": "all_legs", "display_name": "На всю группу"},
     {"muscle_group_id": 6, "name": "press", "display_name": "Пресс"},
-    {"muscle_group_id": 6, "name": "muscl_core", "display_name": "Косые мышцы"}
+    {"muscle_group_id": 6, "name": "muscl_core", "display_name": "Косые мышцы"},
+    {"muscle_group_id": 7, "name": "all_body_yet", "display_name": "Все тело"}
   ],
   "users": [
     {"username": "admin_user", "email": "admin@example.com", "password": "admin123", "role_id": 1},

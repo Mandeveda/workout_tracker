@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Мой профиль{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <!-- Карточка пользователя -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">{{ user.username }}</h4>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <div class="display-1">👤</div>
+                    </div>
+                    <p><strong>Email:</strong> {{ user.email }}</p>
+                    <p><strong>Роль:</strong> {{ user.role.name }}</p>
+                    <p><strong>Регистрация:</strong> {{ user.created_at.strftime('%d.%m.%Y') }}</p>
+                    <a href="{{ url_for('profile.edit') }}" class="btn btn-primary">✏️ Редактировать профиль</a>
+                </div>
+            </div>
+            
+            <!-- Краткая статистика -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📊 Параметры</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Вес:</strong></td>
+                            <td>{{ user.weight|round(1) }} кг</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Рост:</strong></td>
+                            <td>{{ user.height|round(1) }} см</td>
+                        </tr>
+                        <tr>
+                            <td><strong>ИМТ:</strong></td>
+                            <td>
+                                {{ user.bmi }}
+                                {% if user.bmi < 18.5 %}
+                                    <span class="badge bg-warning">Недостаток веса</span>
+                                {% elif user.bmi < 25 %}
+                                    <span class="badge bg-success">Норма</span>
+                                {% elif user.bmi < 30 %}
+                                    <span class="badge bg-warning">Избыток веса</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Ожирение</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Возраст:</strong></td>
+                            <td>{{ user.age }} лет</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Пол:</strong></td>
+                            <td>{{ 'Мужской' if user.gender == 'male' else 'Женский' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <!-- Антропометрия -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">📏 Антропометрия (см)</h5>
+                    <button type="button" class="btn btn-sm btn-light" data-bs-toggle="modal" data-bs-target="#measurementModal">
+                        + Добавить измерение
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr><td><strong>Грудь:</strong></td><td>{{ user.chest_circumference|round(1) }}</td></tr>
+                                <tr><td><strong>Талия:</strong></td><td>{{ user.waist_circumference|round(1) }}</td></tr>
+                                <tr><td><strong>Бёдра:</strong></td><td>{{ user.hips_circumference|round(1) }}</td></tr>
+                                <tr><td><strong>Бицепс:</strong></td><td>{{ user.biceps_circumference|round(1) }}</td></tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr><td><strong>Предплечье:</strong></td><td>{{ user.forearm_circumference|round(1) }}</td></tr>
+                                <tr><td><strong>Бедро:</strong></td><td>{{ user.thigh_circumference|round(1) }}</td></tr>
+                                <tr><td><strong>Икра:</strong></td><td>{{ user.calf_circumference|round(1) }}</td></tr>
+                                <tr><td><strong>Шея:</strong></td><td>{{ user.neck_circumference|round(1) }}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- График прогресса -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">📈 Прогресс измерений</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="progressChart" width="400" height="200"></canvas>
+                    <div class="mt-2 text-center">
+                        <button class="btn btn-sm btn-outline-primary" onclick="updateChart('weight')">Вес</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="updateChart('chest')">Грудь</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="updateChart('waist')">Талия</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="updateChart('biceps')">Бицепс</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для добавления измерения -->
+<div class="modal fade" id="measurementModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">📏 Новое измерение</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('profile.add_measurement') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Вес (кг)</label>
+                        <input type="number" step="0.1" name="weight" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Грудь (см)</label>
+                        <input type="number" step="0.1" name="chest_circumference" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Талия (см)</label>
+                        <input type="number" step="0.1" name="waist_circumference" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Бёдра (см)</label>
+                        <input type="number" step="0.1" name="hips_circumference" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Бицепс (см)</label>
+                        <input type="number" step="0.1" name="biceps_circumference" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    let chart = null;
+    let measurementsData = null;
+    
+    fetch('/profile/measurements_data')
+        .then(response => response.json())
+        .then(data => {
+            measurementsData = data;
+            createChart(data, 'weight');
+        });
+    
+    function createChart(data, metric) {
+        const ctx = document.getElementById('progressChart').getContext('2d');
+        
+        let label, values, color, unit;
+        switch(metric) {
+            case 'weight':
+                label = 'Вес (кг)';
+                values = data.weights;
+                color = 'rgb(54, 162, 235)';
+                unit = 'кг';
+                break;
+            case 'chest':
+                label = 'Грудь (см)';
+                values = data.chest;
+                color = 'rgb(75, 192, 192)';
+                unit = 'см';
+                break;
+            case 'waist':
+                label = 'Талия (см)';
+                values = data.waist;
+                color = 'rgb(255, 99, 132)';
+                unit = 'см';
+                break;
+            case 'biceps':
+                label = 'Бицепс (см)';
+                values = data.biceps;
+                color = 'rgb(255, 159, 64)';
+                unit = 'см';
+                break;
+        }
+        
+        if (chart) chart.destroy();
+        
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.dates,
+                datasets: [{
+                    label: label,
+                    data: values,
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.raw + ' ' + unit;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function updateChart(metric) {
+        if (measurementsData) {
+            createChart(measurementsData, metric);
+        }
+    }
+</script>
+{% endblock %}

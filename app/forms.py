@@ -112,3 +112,31 @@ class ProgramGenerationForm(FlaskForm):
         from app.models import WorkoutTemplate
         from flask_login import current_user
         self.template_id.choices = [(0, 'Выберите шаблон')] + [(t.id, t.name) for t in WorkoutTemplate.query.filter_by(user_id=current_user.id).all()]
+
+class ProfileForm(FlaskForm):
+    """Форма редактирования профиля"""
+    weight = FloatField('Вес (кг)', validators=[NumberRange(min=30, max=300)], default=70)
+    height = FloatField('Рост (см)', validators=[NumberRange(min=100, max=250)], default=170)
+    age = IntegerField('Возраст', validators=[NumberRange(min=10, max=120)], default=25)
+    gender = SelectField('Пол', choices=[('male', 'Мужской'), ('female', 'Женский')])
+    
+    # Антропометрия
+    chest_circumference = FloatField('Грудь (см)', validators=[NumberRange(min=0, max=200)], default=0)
+    waist_circumference = FloatField('Талия (см)', validators=[NumberRange(min=0, max=200)], default=0)
+    hips_circumference = FloatField('Бёдра (см)', validators=[NumberRange(min=0, max=200)], default=0)
+    biceps_circumference = FloatField('Бицепс (см)', validators=[NumberRange(min=0, max=100)], default=0)
+    forearm_circumference = FloatField('Предплечье (см)', validators=[NumberRange(min=0, max=100)], default=0)
+    thigh_circumference = FloatField('Бедро (см)', validators=[NumberRange(min=0, max=150)], default=0)
+    calf_circumference = FloatField('Икра (см)', validators=[NumberRange(min=0, max=100)], default=0)
+    neck_circumference = FloatField('Шея (см)', validators=[NumberRange(min=0, max=100)], default=0)
+    
+    submit = SubmitField('Сохранить изменения')
+
+class MeasurementForm(FlaskForm):
+    """Форма для добавления нового измерения"""
+    weight = FloatField('Вес (кг)', validators=[NumberRange(min=30, max=300)])
+    chest_circumference = FloatField('Грудь (см)', default=0)
+    waist_circumference = FloatField('Талия (см)', default=0)
+    hips_circumference = FloatField('Бёдра (см)', default=0)
+    biceps_circumference = FloatField('Бицепс (см)', default=0)
+    submit = SubmitField('Сохранить измерение')
