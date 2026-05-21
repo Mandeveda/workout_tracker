@@ -19,7 +19,7 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
 
     # Регистрация blueprints (пока заглушки)
-    from app.routes import auth, main, exercises, templates, program, workouts, analytics
+    from app.routes import auth, main, exercises, templates, program, workouts, analytics, admin
     app.register_blueprint(auth.bp)
     app.register_blueprint(main.bp)
     app.register_blueprint(exercises.bp)
@@ -27,5 +27,6 @@ def create_app(config_class=Config):
     app.register_blueprint(workouts.bp)
     app.register_blueprint(program.bp)
     app.register_blueprint(analytics.bp)
+    app.register_blueprint(admin.bp)
 
     return app

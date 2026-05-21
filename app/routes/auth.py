@@ -50,6 +50,11 @@ def login():
         ).first()
         
         if user and check_password_hash(user.password_hash, form.password.data):
+            
+            if user.is_blocked:
+                flash('Ваш аккаунт заблокирован. Обратитесь к администратору.', 'danger')
+                return redirect(url_for('auth.login'))
+            
             login_user(user)
             next_page = request.args.get('next')
             flash(f'Добро пожаловать, {user.username}!', 'success')

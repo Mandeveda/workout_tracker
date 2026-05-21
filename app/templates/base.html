@@ -17,6 +17,16 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     {% if current_user.is_authenticated %}
+                    {% if current_user.is_authenticated and current_user.role.name == 'admin' %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                ⚙️ Админ
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ url_for('admin.users') }}">👥 Управление пользователями</a></li>
+                            </ul>
+                        </li>
+                    {% endif %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('main.dashboard') }}">Дашборд</a>
                         </li>

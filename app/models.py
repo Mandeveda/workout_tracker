@@ -31,6 +31,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))  # будет хранить хеш пароля
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_blocked = db.Column(db.Boolean, default=False)
     
     # Внешний ключ на роль (одна роль у пользователя)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False, default=2)  # 2 = обычный пользователь по умолчанию
