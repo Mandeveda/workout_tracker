@@ -2,6 +2,7 @@ from app import db, login_manager
 from flask_login import UserMixin
 from datetime import datetime
 from sqlalchemy.orm import relationship
+from math import log10
 
 # Загрузка пользователя для Flask-Login
 @login_manager.user_loader
@@ -71,6 +72,60 @@ class User(UserMixin, db.Model):
             height_m = self.height / 100
             return round(self.weight / (height_m ** 2), 1)
         return 0
+    
+    @property
+    def body_fat_percentage(self):
+        """Процент жира по методике ВМС США (только при наличии замеров)"""
+        # Проверяем наличие всех необходимых данных
+        if not (self.height and self.weight and self.neck_circumference and self.waist_circumference):
+            return None
+        
+        # Для женщин нужен ещё обхват бёдер
+        if self.gender == 'female' and not self.hips_circumference:
+            return None
+        
+        try:
+            if self.gender == 'male':
+                # Формула для мужчин (размеры в см)
+                result = 495 / (
+                    1.0324 - 
+                    0.19077 * log10(self.waist_circumference - self.neck_circumference) + 
+                    0.15456 * log10(self.height)
+                ) - 450
+            else:  # female
+                result = 495 / (
+                    1.29579 - 
+                    0.35004 * log10(
+                        self.waist_circumference + self.hips_circumference - self.neck_circumference
+                    ) + 
+                    0.22100 * log10(self.height)
+                ) - 450
+            
+            # Ограничиваем результат разумными пределами
+            if result < 5:
+                result = 5
+            elif result > 50:
+                result = 50
+                
+            return round(result, 1)
+        except (ValueError, ZeroDivisionError):
+            return None
+    
+    @property
+    def ffmi(self):
+        """Индекс мышечной массы (FFMI)"""
+        body_fat = self.body_fat_percentage
+        if body_fat is None or body_fat <= 0 or body_fat >= 100:
+            return None
+        
+        if self.height and self.weight:
+            height_m = self.height / 100
+            # Безжировая масса (кг) = вес * (100 - %жира) / 100
+            lean_mass = self.weight * (100 - body_fat) / 100
+            # FFMI = безжировая масса / рост²
+            ffmi_value = lean_mass / (height_m ** 2)
+            return round(ffmi_value, 1)
+        return None
     
 # Группы тренируемых мышц
 class MuscleGroup(db.Model):
@@ -213,17 +268,54 @@ class SetLog(db.Model):
     exercise = relationship('Exercise')
     template_exercise = relationship('TemplateExercise', back_populates='set_logs')
     
-    def calculate_completion(self):
-        """Расчёт процента выполнения по тоннажу (ограничение 100%)"""
-        if self.actual_reps and self.actual_weight:
-            planned_volume = self.planned_reps * self.planned_weight
-            actual_volume = self.actual_reps * self.actual_weight
+    def calculate_completion(self, user_weight=None):
+        """Расчёт процента выполнения по тоннажу (ограничение 100%)
+        
+        Для упражнений с собственным весом использует вес пользователя
+        """
+        # Для кардио
+        if self.exercise and self.exercise.exercise_type == 'cardio':
+            # Кардио: сравниваем длительность и дистанцию
+            if self.actual_reps and self.planned_reps:
+                planned_volume = self.planned_reps  # длительность в минутах
+                actual_volume = self.actual_reps
+                if planned_volume > 0:
+                    self.completion_percent = min(100, (actual_volume / planned_volume) * 100)
+                else:
+                    self.completion_percent = 0
+            else:
+                self.completion_percent = 0
+            return self.completion_percent
+        
+        # Для bodyweight (собственный вес)
+        if self.exercise and self.exercise.exercise_type == 'bodyweight':
+            if self.actual_reps and self.planned_reps > 0:
+                # Используем вес пользователя если передан, иначе 70 (средний вес)
+                weight = user_weight if user_weight and user_weight > 0 else 70
+                
+                planned_volume = self.planned_reps * weight
+                actual_volume = self.actual_reps * weight
+                
+                if planned_volume > 0:
+                    self.completion_percent = min(100, (actual_volume / planned_volume) * 100)
+                else:
+                    self.completion_percent = 0
+            else:
+                self.completion_percent = 0
+            return self.completion_percent
+        
+        # Для силовых (с весом)
+        if self.actual_reps and self.actual_weight is not None and self.planned_reps > 0:
+            planned_volume = self.planned_reps * (self.planned_weight or 0)
+            actual_volume = self.actual_reps * (self.actual_weight or 0)
+            
             if planned_volume > 0:
                 self.completion_percent = min(100, (actual_volume / planned_volume) * 100)
             else:
                 self.completion_percent = 0
         else:
             self.completion_percent = 0
+            
         return self.completion_percent
     
     def __repr__(self):

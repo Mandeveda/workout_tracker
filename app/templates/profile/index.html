@@ -50,6 +50,64 @@
                                 {% endif %}
                             </td>
                         </tr>
+                        <!-- 👇 НОВАЯ СТРОКА: Процент жира -->
+                        <tr>
+                            <td><strong>% жира:</strong></td>
+                            <td>
+                                {% set body_fat = user.body_fat_percentage %}
+                                {% if body_fat %}
+                                    {{ body_fat }}%
+                                    {% if user.gender == 'male' %}
+                                        {% if body_fat < 10 %}
+                                            <span class="badge bg-info">Атлет</span>
+                                        {% elif body_fat < 20 %}
+                                            <span class="badge bg-success">Норма</span>
+                                        {% elif body_fat < 25 %}
+                                            <span class="badge bg-warning">Избыток</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Высокий</span>
+                                        {% endif %}
+                                    {% else %}
+                                        {% if body_fat < 18 %}
+                                            <span class="badge bg-info">Атлет</span>
+                                        {% elif body_fat < 28 %}
+                                            <span class="badge bg-success">Норма</span>
+                                        {% elif body_fat < 33 %}
+                                            <span class="badge bg-warning">Избыток</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Высокий</span>
+                                        {% endif %}
+                                    {% endif %}
+                                {% else %}
+                                    —
+                                    <small class="text-muted">(нужны замеры талии, шеи)</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <!-- 👇 НОВАЯ СТРОКА: FFMI -->
+                        <tr>
+                            <td><strong>FFMI:</strong></td>
+                            <td>
+                                {% set ffmi = user.ffmi %}
+                                {% if ffmi %}
+                                    {{ ffmi }}
+                                    {% if ffmi < 18 %}
+                                        <span class="badge bg-secondary">Низкая мышечная масса</span>
+                                    {% elif ffmi < 20 %}
+                                        <span class="badge bg-info">Средняя</span>
+                                    {% elif ffmi < 22 %}
+                                        <span class="badge bg-success">Хорошая</span>
+                                    {% elif ffmi < 25 %}
+                                        <span class="badge bg-warning">Отличная</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Элитный уровень</span>
+                                    {% endif %}
+                                {% else %}
+                                    —
+                                    <small class="text-muted">(требуется % жира)</small>
+                                {% endif %}
+                            </td>
+                        </tr>
                         <tr>
                             <td><strong>Возраст:</strong></td>
                             <td>{{ user.age }} лет</td>

@@ -58,7 +58,7 @@ class Config:
     # Максимальный размер загружаемых данных (в байтах)
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB, ДОБАВИТЬ
     
-    # Настройки для загрузки файлов (если используете)
+    # Настройки для загрузки файлов
     UPLOAD_FOLDER = BASE_DIR / 'uploads'
     UPLOAD_FOLDER.mkdir(exist_ok=True)
     

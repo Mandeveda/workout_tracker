@@ -15,6 +15,8 @@ def is_expert():
 @login_required
 def list_exercises():
     """Список всех упражнений (с поиском и фильтрацией)"""
+    from app.models import MuscleGroup  # <-- ДОБАВИТЬ ИМПОРТ
+    
     search = request.args.get('search', '')
     muscle_group = request.args.get('muscle_group', '')
     
@@ -29,7 +31,6 @@ def list_exercises():
     exercises = query.order_by(Exercise.name).all()
     
     # Получаем список групп мышц для фильтра
-    from app.models import MuscleGroup
     muscle_groups = MuscleGroup.query.order_by('display_name').all()
     
     return render_template('exercises/list.html', 
@@ -133,3 +134,39 @@ def del_exercise(exercise_id):
     db.session.commit()
     flash('Упражнение удалено из базы', 'success')
     return redirect(url_for('exercises.list_exercises'))
+
+@bp.route('/filter')
+@login_required
+def filter_exercises():
+    """AJAX фильтрация упражнений"""
+    from app.models import MuscleGroup  # <-- ДОБАВИТЬ ИМПОРТ
+    
+    search = request.args.get('search', '')
+    muscle_group = request.args.get('muscle_group', '')
+    
+    query = Exercise.query
+    
+    if search:
+        query = query.filter(Exercise.name.ilike(f'%{search}%'))
+    
+    if muscle_group:
+        # Присоединяем таблицу muscle_groups и фильтруем по name
+        query = query.join(Exercise.muscle_group).filter(MuscleGroup.name == muscle_group)
+    
+    exercises = query.order_by(Exercise.name).all()
+    
+    # Формируем JSON ответ
+    exercises_data = []
+    for exercise in exercises:
+        exercises_data.append({
+            'id': exercise.id,
+            'name': exercise.name,
+            'exercise_type': exercise.exercise_type,
+            'muscle_group': exercise.muscle_group.name if exercise.muscle_group else None,
+            'muscle_group_display': exercise.muscle_group.display_name if exercise.muscle_group else None,
+            'muscle_subgroup_display': exercise.muscle_subgroup.display_name if exercise.muscle_subgroup else None,
+            'description': exercise.description or '',
+            'can_edit': current_user.role.name in ['expert', 'admin'] and exercise.created_by_id == current_user.id
+        })
+    
+    return jsonify(exercises_data)

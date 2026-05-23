@@ -6,16 +6,14 @@
     <div class="row mb-4">
         <div class="col-md-8">
             <h2>Результаты тренировки</h2>
-                <p class="text-muted">
-                    {{ session.date.strftime('%d.%m.%Y %H:%M') }}
-                    {% if session.template %}
-                        | {{ session.template.name }}
-                    {% elif session.schedule and session.schedule.template %}
-                        | {{ session.schedule.template.name }}
-                    {% else %}
-                        | Свободная тренировка
-                    {% endif %}
-                </p>
+            <p class="text-muted">
+                {{ session.date.strftime('%d.%m.%Y %H:%M') }}
+                {% if session.schedule %}
+                    | {{ session.schedule.template.name }}
+                {% else %}
+                    | Свободная тренировка
+                {% endif %}
+            </p>
         </div>
         <div class="col-md-4 text-end">
             <div class="card bg-success text-white">
@@ -33,7 +31,10 @@
         {% for exercise_id, exercise_data in exercises_summary.items() %}
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">{{ exercise_data.name }}</h4>
+                    <div>
+                        <h4 class="mb-0">{{ exercise_data.name }}</h4>
+                        <small>{{ exercise_data.exercise_type }}</small>
+                    </div>
                     <span class="badge bg-light text-dark fs-6">
                         Выполнение: {{ exercise_data.total_completion|round(1) }}%
                     </span>
@@ -44,9 +45,9 @@
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 10%">Подход</th>
-                                    <th style="width: 30%">План</th>
-                                    <th style="width: 30%">Факт</th>
-                                    <th style="width: 30%">Выполнение</th>
+                                    <th style="width: 35%">План</th>
+                                    <th style="width: 35%">Факт</th>
+                                    <th style="width: 20%">Выполнение</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -54,17 +55,47 @@
                                     <tr>
                                         <td class="text-center fw-bold">{{ set_log.set_number }}</td>
                                         <td class="text-center">
-                                            {% if set_log.planned_weight and set_log.planned_reps %}
-                                                {{ set_log.planned_weight }} кг × {{ set_log.planned_reps }}
+                                            {% if exercise_data.exercise_type == 'strength' %}
+                                                {{ set_log.planned_weight|round(1) if set_log.planned_weight else 0 }} кг × {{ set_log.planned_reps }} повтор.
+                                            {% elif exercise_data.exercise_type == 'bodyweight' %}
+                                                {{ set_log.planned_reps }} повторений
+                                            {% elif exercise_data.exercise_type == 'cardio' %}
+                                                {% if set_log.planned_weight %}
+                                                    {{ set_log.planned_weight|round(1) }} км × {{ set_log.planned_reps }} мин
+                                                {% else %}
+                                                    Длительность: {{ set_log.planned_reps }} мин
+                                                {% endif %}
                                             {% else %}
-                                                <span class="text-muted">—</span>
+                                                {{ set_log.planned_reps }} повтор.
                                             {% endif %}
                                         </td>
                                         <td class="text-center">
-                                            {% if set_log.actual_weight and set_log.actual_reps %}
-                                                {{ set_log.actual_weight }} кг × {{ set_log.actual_reps }}
+                                            {% if exercise_data.exercise_type == 'strength' %}
+                                                {% if set_log.actual_weight and set_log.actual_reps %}
+                                                    {{ set_log.actual_weight|round(1) if set_log.actual_weight else 0 }} кг × {{ set_log.actual_reps }} повтор.
+                                                {% else %}
+                                                    <span class="text-muted">—</span>
+                                                {% endif %}
+                                            {% elif exercise_data.exercise_type == 'bodyweight' %}
+                                                {% if set_log.actual_reps %}
+                                                    {{ set_log.actual_reps }} повтор.
+                                                {% else %}
+                                                    <span class="text-muted">—</span>
+                                                {% endif %}
+                                            {% elif exercise_data.exercise_type == 'cardio' %}
+                                                {% if set_log.actual_weight and set_log.actual_reps %}
+                                                    {{ set_log.actual_weight|round(1) if set_log.actual_weight else 0 }} км × {{ set_log.actual_reps }} мин
+                                                {% elif set_log.actual_reps %}
+                                                    {{ set_log.actual_reps }} мин
+                                                {% else %}
+                                                    <span class="text-muted">—</span>
+                                                {% endif %}
                                             {% else %}
-                                                <span class="text-muted">—</span>
+                                                {% if set_log.actual_reps %}
+                                                    {{ set_log.actual_reps }} повтор.
+                                                {% else %}
+                                                    <span class="text-muted">—</span>
+                                                {% endif %}
                                             {% endif %}
                                         </td>
                                         <td class="text-center">
@@ -137,6 +168,11 @@
     .card-header .badge {
         font-size: 1rem;
         padding: 5px 10px;
+    }
+    
+    .card-header small {
+        font-size: 0.8rem;
+        opacity: 0.9;
     }
 </style>
 {% endblock %}

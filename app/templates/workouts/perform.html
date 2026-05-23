@@ -5,7 +5,12 @@
     <h2 class="mb-4">Тренировка: {{ session.schedule.template.name }}</h2>
     <p class="text-muted">{{ session.date.strftime('%d.%m.%Y %H:%M') }}</p>
     
-    <form method="POST">
+    <!-- Индикатор сохранения -->
+    <div id="saveIndicator" class="alert alert-success" style="display: none;">
+        ✓ Прогресс сохранён!
+    </div>
+    
+    <form method="POST" id="workoutForm">
         {% for exercise in exercises_data %}
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
@@ -14,46 +19,64 @@
                 </div>
                 <div class="card-body">
                     {% if exercise.exercise_type == 'strength' or exercise.exercise_type == 'bodyweight' %}
-                        <!-- Таблица подходов для силовых -->
+                        <!-- Таблица подходов для силовых и bodyweight -->
                         <div class="table-responsive">
                             <table class="table table-bordered">
-                                <thead>
+                                <thead class="table-light">
                                     <tr>
-                                        <th>Подход</th>
-                                        <th>План</th>
-                                        <th>Факт</th>
-                                        <th>Выполнение</th>
+                                        <th style="width: 10%">Подход</th>
+                                        <th style="width: 25%">План</th>
+                                        <th style="width: 45%">Факт</th>
+                                        <th style="width: 20%">Выполнение</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for set_info in exercise.sets %}
-                                    <tr>
-                                        <td class="text-center">{{ set_info.set_number }}</td>
-                                        <td class="text-center">
-                                            {% if exercise.exercise_type == 'strength' %}
-                                                {{ set_info.planned_weight }} кг × {{ set_info.planned_reps }}
-                                            {% else %}
-                                                {{ set_info.planned_reps }} повторений
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <div class="row">
+                                        <tr>
+                                            <td class="text-center fw-bold">{{ set_info.set_number }}</td>
+                                            <td class="text-center">
                                                 {% if exercise.exercise_type == 'strength' %}
-                                                <div class="col-md-6">
-                                                    <input type="number" step="0.5" 
-                                                        name="weight_{{ exercise.exercise_id }}_{{ set_info.set_number }}"
-                                                        class="form-control" placeholder="Вес">
-                                                </div>
+                                                    {{ set_info.planned_weight }} кг × {{ set_info.planned_reps }}
+                                                {% else %}
+                                                    {{ set_info.planned_reps }} повторений
                                                 {% endif %}
-                                                <div class="col-md-6">
-                                                    <input type="number" 
-                                                        name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"
-                                                        class="form-control" placeholder="Повторы">
+                                            </td>
+                                            <td>
+                                                <div class="row g-2">
+                                                    {% if exercise.exercise_type == 'strength' %}
+                                                        <div class="col-md-5">
+                                                            <input type="number" step="0.5" 
+                                                                   name="weight_{{ exercise.exercise_id }}_{{ set_info.set_number }}"
+                                                                   class="form-control" placeholder="Вес"
+                                                                   data-exercise="{{ exercise.exercise_id }}"
+                                                                   data-set="{{ set_info.set_number }}">
+                                                        </div>
+                                                        <div class="col-md-5">
+                                                            <input type="number" 
+                                                                   name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"
+                                                                   class="form-control" placeholder="Повторы"
+                                                                   data-exercise="{{ exercise.exercise_id }}"
+                                                                   data-set="{{ set_info.set_number }}">
+                                                        </div>
+                                                        <div class="col-md-2 text-center">
+                                                            <span class="badge bg-secondary" id="check_{{ exercise.exercise_id }}_{{ set_info.set_number }}">⏳</span>
+                                                        </div>
+                                                    {% else %}
+                                                        <div class="col-md-5">
+                                                            <input type="number" 
+                                                                   name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"
+                                                                   class="form-control" placeholder="Повторы"
+                                                                   data-exercise="{{ exercise.exercise_id }}"
+                                                                   data-set="{{ set_info.set_number }}">
+                                                        </div>
+                                                        <div class="col-md-2">
+                                                            <span class="badge bg-secondary" id="check_{{ exercise.exercise_id }}_{{ set_info.set_number }}">⏳</span>
+                                                        </div>
+                                                    {% endif %}
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td class="text-center" id="completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}">—</td>
-                                    </tr>
+                                            </td>
+                                            <td class="text-center" id="completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}">—</td>
+                                        </tr>
                                     {% endfor %}
                                 </tbody>
                             </table>
@@ -81,60 +104,169 @@
         {% endfor %}
         
         <div class="text-center">
-            <button type="submit" class="btn btn-success btn-lg">Сохранить тренировку</button>
-            <a href="{{ url_for('workouts.index') }}" class="btn btn-secondary btn-lg">Отмена</a>
+            <button type="button" id="saveProgressBtn" class="btn btn-warning btn-lg me-3">
+                💾 Сохранить прогресс
+            </button>
+            <button type="button" id="completeWorkoutBtn" class="btn btn-success btn-lg" disabled>
+                🏁 Завершить тренировку
+            </button>
+            <a href="{{ url_for('workouts.index') }}" class="btn btn-secondary btn-lg ms-3">Отмена</a>
         </div>
     </form>
 </div>
 
 <script>
-    // Функция расчёта процента выполнения на лету
-    function calculateCompletion(weightInput, repsInput, plannedWeight, plannedReps, completionSpan) {
-        const weight = parseFloat(weightInput.value);
+    // Хранилище сохранённых данных
+    let savedData = {};
+    let hasUnsavedChanges = false;
+    
+    // Функция расчёта процента выполнения
+    function calculateCompletion(weightInput, repsInput, plannedWeight, plannedReps, completionSpan, exerciseType) {
+        const weight = weightInput ? parseFloat(weightInput.value) : null;
         const reps = parseInt(repsInput.value);
         
-        if (!isNaN(weight) && !isNaN(reps) && weight > 0 && reps > 0) {
-            const plannedVolume = plannedReps * plannedWeight;
-            const actualVolume = reps * weight;
-            
-            if (plannedVolume > 0) {
-                let percent = (actualVolume / plannedVolume) * 100;
-                percent = Math.min(100, percent); // Ограничиваем 100%
-                completionSpan.textContent = percent.toFixed(1) + '%';
-                
-                if (percent >= 100) {
-                    completionSpan.style.color = 'green';
-                    completionSpan.style.fontWeight = 'bold';
-                } else if (percent >= 80) {
-                    completionSpan.style.color = 'orange';
-                } else {
-                    completionSpan.style.color = 'red';
+        if (!isNaN(reps) && reps > 0) {
+            let percent = 0;
+            if (exerciseType === 'strength' && weightInput && !isNaN(weight) && weight > 0) {
+                // Силовые с весом
+                const plannedVolume = plannedReps * plannedWeight;
+                const actualVolume = reps * weight;
+                if (plannedVolume > 0) {
+                    percent = Math.min(100, (actualVolume / plannedVolume) * 100);
                 }
-                return;
+            } else if (exerciseType === 'bodyweight') {
+                // Собственный вес — считаем только по повторениям
+                percent = Math.min(100, (reps / plannedReps) * 100);
+            } else {
+                // Только повторения
+                percent = Math.min(100, (reps / plannedReps) * 100);
             }
+            
+            completionSpan.textContent = percent.toFixed(1) + '%';
+            
+            if (percent >= 100) {
+                completionSpan.style.color = 'green';
+                completionSpan.style.fontWeight = 'bold';
+            } else if (percent >= 80) {
+                completionSpan.style.color = 'orange';
+            } else {
+                completionSpan.style.color = 'red';
+            }
+            return percent;
+        } else {
+            completionSpan.textContent = '—';
+            return 0;
         }
-        completionSpan.textContent = '—';
     }
     
-    // Добавляем обработчики для всех полей ввода
-    document.addEventListener('DOMContentLoaded', function() {
-        {% for exercise in exercises_data %}
-            {% for set_info in exercise.sets %}
-                const weightInput = document.querySelector('input[name="weight_{{ exercise.exercise_id }}_{{ set_info.set_number }}"]');
-                const repsInput = document.querySelector('input[name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"]');
-                const completionSpan = document.getElementById('completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}');
-                const plannedWeight = {{ set_info.planned_weight }};
-                const plannedReps = {{ set_info.planned_reps }};
+    // Функция сохранения прогресса (AJAX)
+    function saveProgress() {
+        const formData = new FormData(document.getElementById('workoutForm'));
+        
+        fetch('/workouts/save_progress/{{ session.id }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Показываем индикатор сохранения
+                const indicator = document.getElementById('saveIndicator');
+                indicator.style.display = 'block';
+                setTimeout(() => {
+                    indicator.style.display = 'none';
+                }, 2000);
                 
-                function update() {
-                    calculateCompletion(weightInput, repsInput, plannedWeight, plannedReps, completionSpan);
+                // Обновляем галочки
+                for (const [key, percent] of Object.entries(data.completions)) {
+                    const [exerciseId, setNum] = key.split('_');
+                    const checkSpan = document.getElementById(`check_${exerciseId}_${setNum}`);
+                    if (checkSpan) {
+                        checkSpan.textContent = percent >= 100 ? '✓' : '📝';
+                        checkSpan.className = percent >= 100 ? 'badge bg-success' : 'badge bg-warning';
+                    }
                 }
                 
-                weightInput.addEventListener('input', update);
-                repsInput.addEventListener('input', update);
-                update();
-            {% endfor %}
+                hasUnsavedChanges = false;
+                document.getElementById('completeWorkoutBtn').disabled = false;
+                flashMessage('Прогресс сохранён!', 'success');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка сохранения:', error);
+            flashMessage('Ошибка сохранения прогресса', 'danger');
+        });
+    }
+    
+    // Функция завершения тренировки
+    function completeWorkout() {
+        if (confirm('Завершить тренировку? Сохранённые результаты будут окончательно записаны.')) {
+            document.getElementById('workoutForm').submit();
+        }
+    }
+    
+    // Функция отображения flash сообщений
+    function flashMessage(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.role = 'alert';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.container.mt-4').insertBefore(alertDiv, document.querySelector('.container.mt-4').firstChild);
+        
+        setTimeout(() => alertDiv.remove(), 3000);
+    }
+    
+    // Инициализация обработчиков
+    document.addEventListener('DOMContentLoaded', function() {
+        // Обработчики для полей ввода
+        {% for exercise in exercises_data %}
+            {% if exercise.exercise_type == 'strength' %}
+                {% for set_info in exercise.sets %}
+                    (function() {
+                        const weightInput = document.querySelector('input[name="weight_{{ exercise.exercise_id }}_{{ set_info.set_number }}"]');
+                        const repsInput = document.querySelector('input[name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"]');
+                        const completionSpan = document.getElementById('completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}');
+                        const plannedWeight = {{ set_info.planned_weight }};
+                        const plannedReps = {{ set_info.planned_reps }};
+                        
+                        function update() {
+                            calculateCompletion(weightInput, repsInput, plannedWeight, plannedReps, completionSpan, 'strength');
+                            hasUnsavedChanges = true;
+                            document.getElementById('completeWorkoutBtn').disabled = true;
+                        }
+                        
+                        if (weightInput) weightInput.addEventListener('input', update);
+                        if (repsInput) repsInput.addEventListener('input', update);
+                        update();
+                    })();
+                {% endfor %}
+                
+            {% elif exercise.exercise_type == 'bodyweight' %}
+                {% for set_info in exercise.sets %}
+                    (function() {
+                        const repsInput = document.querySelector('input[name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"]');
+                        const completionSpan = document.getElementById('completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}');
+                        const plannedReps = {{ set_info.planned_reps }};
+                        
+                        function update() {
+                            calculateCompletion(null, repsInput, 0, plannedReps, completionSpan, 'bodyweight');
+                            hasUnsavedChanges = true;
+                            document.getElementById('completeWorkoutBtn').disabled = true;
+                        }
+                        
+                        if (repsInput) repsInput.addEventListener('input', update);
+                        update();
+                    })();
+                {% endfor %}
+            {% endif %}
         {% endfor %}
     });
+    
+    // Обработчики кнопок
+    document.getElementById('saveProgressBtn').addEventListener('click', saveProgress);
+    document.getElementById('completeWorkoutBtn').addEventListener('click', completeWorkout);
 </script>
 {% endblock %}

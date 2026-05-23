@@ -191,12 +191,16 @@ def perform(session_id):
                             exercise_id=exercise['exercise_id'],
                             set_number=set_number,
                             planned_reps=set_info['planned_reps'],
-                            planned_weight=set_info['planned_weight'],
+                            planned_weight=set_info.get('planned_weight', 0),
                             actual_reps=actual_reps,
                             actual_weight=actual_weight if actual_weight else 0
                         )
-                        set_log.calculate_completion()
+                        if exercise['exercise_type'] == 'bodyweight':
+                            set_log.calculate_completion(current_user.weight)
+                        else:
+                            set_log.calculate_completion()
                         db.session.add(set_log)
+
         
         db.session.commit()
         
@@ -246,6 +250,7 @@ def summary(session_id):
         if log.exercise_id not in exercises_summary:
             exercises_summary[log.exercise_id] = {
                 'name': log.exercise.name,
+                'exercise_type': log.exercise.exercise_type,  # <-- ДОБАВИТЬ ТИП
                 'sets': [],
                 'total_completion': 0
             }
@@ -254,7 +259,10 @@ def summary(session_id):
     # Считаем средний процент по упражнениям
     for ex_id in exercises_summary:
         sets = exercises_summary[ex_id]['sets']
-        exercises_summary[ex_id]['total_completion'] = sum(s.completion_percent for s in sets) / len(sets)
+        if sets:
+            exercises_summary[ex_id]['total_completion'] = sum(s.completion_percent for s in sets) / len(sets)
+        else:
+            exercises_summary[ex_id]['total_completion'] = 0
     
     return render_template('workouts/summary.html', 
                          session=session,
@@ -325,14 +333,17 @@ def free_workout():
                 
                 set_log = SetLog(
                     session_id=session.id,
-                    exercise_id=exercise_id,
+                    exercise_id=exercise['exercise_id'],
                     set_number=set_number,
-                    planned_reps=reps,  # Для свободной тренировки план = факт
-                    planned_weight=weight,
-                    actual_reps=reps,
-                    actual_weight=weight
+                    planned_reps=set_info['planned_reps'],
+                    planned_weight=set_info.get('planned_weight', 0),
+                    actual_reps=actual_reps,
+                    actual_weight=actual_weight if actual_weight else 0
                 )
-                set_log.calculate_completion()
+                if exercise['exercise_type'] == 'bodyweight':
+                    set_log.calculate_completion(current_user.weight)
+                else:
+                    set_log.calculate_completion()
                 db.session.add(set_log)
         
         db.session.commit()
@@ -346,3 +357,105 @@ def free_workout():
     # GET запрос — показываем форму
     exercises = Exercise.query.order_by(Exercise.name).all()
     return render_template('workouts/free_workout.html', exercises=exercises)
+
+@bp.route('/save_progress/<int:session_id>', methods=['POST'])
+@login_required
+def save_progress(session_id):
+    """Сохранение текущего прогресса тренировки (без завершения)"""
+    from flask import jsonify
+    
+    session = WorkoutSession.query.get_or_404(session_id)
+    
+    if session.user_id != current_user.id:
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    # Удаляем старые логи для этой сессии (если есть)
+    SetLog.query.filter_by(session_id=session.id).delete()
+    
+    schedule = session.schedule
+    planned_data = schedule.planned_data
+    
+    template_exercises = TemplateExercise.query.filter_by(template_id=schedule.template.id).order_by(TemplateExercise.order).all()
+    
+    completions = {}
+    
+    for te in template_exercises:
+        exercise_id = str(te.exercise_id)
+        exercise_type = te.exercise.exercise_type
+        
+        if exercise_id in planned_data:
+            exercise_plan = planned_data[exercise_id]
+            
+            if exercise_type == 'cardio':
+                actual_duration = request.form.get(f'actual_duration_{te.exercise_id}', type=int)
+                actual_distance = request.form.get(f'actual_distance_{te.exercise_id}', type=float)
+                
+                if actual_duration:
+                    set_log = SetLog(
+                        session_id=session.id,
+                        exercise_id=te.exercise_id,
+                        set_number=1,
+                        planned_reps=exercise_plan.get('duration', 30),
+                        planned_weight=exercise_plan.get('distance', 0),
+                        actual_reps=actual_duration,
+                        actual_weight=actual_distance
+                    )
+                    set_log.calculate_completion()
+                    db.session.add(set_log)
+                    completions[f'{te.exercise_id}_1'] = set_log.completion_percent
+                    
+            else:
+                # Strength или bodyweight
+                if exercise_plan['input_type'] == 'fixed':
+                    for i in range(1, exercise_plan['sets'] + 1):
+                        actual_reps = request.form.get(f'reps_{te.exercise_id}_{i}', type=int)
+                        actual_weight = request.form.get(f'weight_{te.exercise_id}_{i}', type=float)
+                        
+                        if actual_reps:
+                            set_log = SetLog(
+                                session_id=session.id,
+                                exercise_id=te.exercise_id,
+                                set_number=i,
+                                planned_reps=exercise_plan['reps'],
+                                planned_weight=exercise_plan.get('weight', 0),
+                                actual_reps=actual_reps,
+                                actual_weight=actual_weight if actual_weight else 0
+                            )
+                            if exercise_type == 'bodyweight':
+                                set_log.calculate_completion(current_user.weight)
+                            else:
+                                set_log.calculate_completion()
+                            
+                            db.session.add(set_log)
+                            completions[f'{te.exercise_id}_{i}'] = set_log.completion_percent
+                else:
+                    # Progressive
+                    for set_info in exercise_plan['sets']:
+                        set_num = set_info['set_number']
+                        actual_reps = request.form.get(f'reps_{te.exercise_id}_{set_num}', type=int)
+                        actual_weight = request.form.get(f'weight_{te.exercise_id}_{set_num}', type=float)
+                        
+                        if actual_reps:
+                            set_log = SetLog(
+                                session_id=session.id,
+                                exercise_id=te.exercise_id,
+                                set_number=set_num,
+                                planned_reps=set_info['reps'],
+                                planned_weight=set_info.get('weight', 0),
+                                actual_reps=actual_reps,
+                                actual_weight=actual_weight if actual_weight else 0
+                            )
+                            if exercise_type == 'bodyweight':
+                                set_log.calculate_completion(current_user.weight)
+                            else:
+                                set_log.calculate_completion()
+                            
+                            db.session.add(set_log)
+                            completions[f'{te.exercise_id}_{set_num}'] = set_log.completion_percent
+    
+    db.session.commit()
+    
+    # Обновляем общий процент выполнения
+    update_session_completion(session.id)
+    
+    return jsonify({'success': True, 'completions': completions})
