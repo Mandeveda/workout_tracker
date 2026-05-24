@@ -37,10 +37,5 @@
     {"muscle_group_id": 6, "name": "press", "display_name": "Пресс"},
     {"muscle_group_id": 6, "name": "muscl_core", "display_name": "Косые мышцы"},
     {"muscle_group_id": 7, "name": "all_body_yet", "display_name": "Все тело"}
-  ],
-  "users": [
-    {"username": "Mandeveda", "email": "kandyba23@yandex.ru", "password": "VjzRbhf2018!", "role_id": 1},
-    {"username": "expert_user", "email": "expert@example.com", "password": "K7845231s!", "role_id": 3},
-    {"username": "regular_user", "email": "user@example.com", "password": "K7845231s!", "role_id": 2}
   ]
 }
