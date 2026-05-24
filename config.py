@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from pathlib import Path
-from datetime import timedelta  # ДОБАВИТЬ этот импорт
+from datetime import timedelta
 
 # Корень проекта (папка, где лежит config.py)
 BASE_DIR = Path(__file__).resolve().parent
@@ -10,70 +10,116 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / '.env')
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-    
-    # Абсолютный путь к папке instance
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        raise ValueError("SECRET_KEY не установлен в переменных окружения")
+
+    # Абсолютный путь к папке instance (для SQLite, если не используем PostgreSQL)
     INSTANCE_PATH = BASE_DIR / 'instance'
-    
-    # Создаём папку instance принудительно
     INSTANCE_PATH.mkdir(exist_ok=True)
     
-    # Путь к базе данных
-    DB_PATH = INSTANCE_PATH / 'workout.db'
+    # ===== НАСТРОЙКИ БАЗЫ ДАННЫХ =====
+    # Поддерживаем PostgreSQL для продакшена и SQLite для разработки
+    DATABASE_URL = os.environ.get('DATABASE_URL')
     
-    # Используем абсолютный путь для SQLAlchemy
-    SQLALCHEMY_DATABASE_URI = f'sqlite:///{DB_PATH}'
+    if DATABASE_URL and DATABASE_URL.startswith('postgresql://'):
+        # PostgreSQL для продакшена
+        SQLALCHEMY_DATABASE_URI = DATABASE_URL
+        # Дополнительные настройки для PostgreSQL
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            'pool_size': int(os.environ.get('DB_POOL_SIZE', 10)),
+            'pool_recycle': 3600,
+            'pool_pre_ping': True,  # Проверка соединения перед использованием
+        }
+    else:
+        # SQLite для разработки
+        DB_PATH = INSTANCE_PATH / 'workout.db'
+        SQLALCHEMY_DATABASE_URI = f'sqlite:///{DB_PATH}'
+        SQLALCHEMY_ENGINE_OPTIONS = {}
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # ===== НАСТРОЙКИ БЕЗОПАСНОСТИ СЕССИИ =====
-    # Основные настройки сессии
     SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
-    SESSION_COOKIE_NAME = 'workout_session'  # ДОБАВИТЬ - имя cookie сессии
-    SESSION_COOKIE_PATH = '/'  # ДОБАВИТЬ - путь для cookie
-    SESSION_COOKIE_DOMAIN = None  # ДОБАВИТЬ - домен (None = текущий)
+    SESSION_COOKIE_NAME = 'workout_session'
+    SESSION_COOKIE_PATH = '/'
+    SESSION_COOKIE_DOMAIN = os.environ.get('SESSION_COOKIE_DOMAIN', None)
     
-    # Время жизни сессии (в секундах) - ДОБАВИТЬ
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=24)  # 24 часа
-    
-    # Обновлять сессию при каждом запросе - ДОБАВИТЬ
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=int(os.environ.get('SESSION_LIFETIME_HOURS', 24)))
     SESSION_REFRESH_EACH_REQUEST = True
     
     # ===== НАСТРОЙКИ CSRF ЗАЩИТЫ =====
-    WTF_CSRF_ENABLED = True  # ДОБАВИТЬ - включаем CSRF защиту
-    WTF_CSRF_TIME_LIMIT = 3600  # ДОБАВИТЬ - время жизни CSRF токена (1 час)
-    WTF_CSRF_SECRET_KEY = os.environ.get('WTF_CSRF_SECRET_KEY', SECRET_KEY)  # ДОБАВИТЬ - ключ для CSRF
+    WTF_CSRF_ENABLED = True
+    WTF_CSRF_TIME_LIMIT = 1800
+    WTF_CSRF_SECRET_KEY = os.environ.get('WTF_CSRF_SECRET_KEY', SECRET_KEY)
     
     # ===== НАСТРОЙКИ FLASK-LIMITER =====
-    RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
+    # Поддерживаем Redis для продакшена
+    REDIS_URL = os.environ.get('REDIS_URL')
+    if REDIS_URL:
+        RATELIMIT_STORAGE_URI = REDIS_URL
+    else:
+        RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
+    
     RATELIMIT_STRATEGY = 'fixed-window'
-    RATELIMIT_DEFAULT_LIMITS = ["200 per day", "50 per hour"]
-    RATELIMIT_HEADERS_ENABLED = True  # ДОБАВИТЬ - показывать заголовки с лимитами
+    RATELIMIT_DEFAULT_LIMITS = ["100 per day", "20 per hour"]
+    RATELIMIT_HEADERS_ENABLED = True
+    RATELIMIT_STORAGE_OPTIONS = {
+        'socket_connect_timeout': 30,
+        'socket_timeout': 30,
+    } if REDIS_URL else {}
     
     # ===== ДОПОЛНИТЕЛЬНЫЕ НАСТРОЙКИ БЕЗОПАСНОСТИ =====
-    # Защита от атак через Referer
-    REFERRER_POLICY = 'same-origin'  # ДОБАВИТЬ
+    REFERRER_POLICY = 'strict-origin-when-cross-origin'
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB
     
-    # Максимальный размер загружаемых данных (в байтах)
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB, ДОБАВИТЬ
-    
-    # Настройки для загрузки файлов
     UPLOAD_FOLDER = BASE_DIR / 'uploads'
     UPLOAD_FOLDER.mkdir(exist_ok=True)
     
     @staticmethod
     def init_app(app):
         """Дополнительная инициализация приложения"""
-        # Настройка заголовков безопасности
         @app.after_request
         def add_security_headers(response):
-            # Защита от MIME-сниффинга
             response.headers['X-Content-Type-Options'] = 'nosniff'
-            # Защита от кликджекинга
             response.headers['X-Frame-Options'] = 'DENY'
-            # Защита от XSS (для старых браузеров)
             response.headers['X-XSS-Protection'] = '1; mode=block'
-            # Referrer Policy
             response.headers['Referrer-Policy'] = Config.REFERRER_POLICY
+            
+            # Более мягкий CSP для разработки (можно усилить для продакшена)
+            if os.environ.get('ENVIRONMENT') == 'production':
+                response.headers['Content-Security-Policy'] = (
+                    "default-src 'self'; "
+                    "script-src 'self' https://cdn.jsdelivr.net; "
+                    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                    "font-src 'self' data:; "
+                    "img-src 'self' data:;"
+                )
             return response
+
+# Настройки для разных окружений
+class DevelopmentConfig(Config):
+    DEBUG = True
+    SESSION_COOKIE_SECURE = False
+    ENVIRONMENT = 'development'
+
+class ProductionConfig(Config):
+    DEBUG = False
+    ENVIRONMENT = 'production'
+    
+    # Более строгие настройки для продакшена
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = 'Strict'
+
+# Выбор конфигурации на основе переменной окружения
+config_map = {
+    'development': DevelopmentConfig,
+    'production': ProductionConfig,
+    'default': DevelopmentConfig
+}
+
+def get_config():
+    env = os.environ.get('ENVIRONMENT', 'development')
+    return config_map.get(env, DevelopmentConfig)

@@ -4,9 +4,8 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from config import Config
+from config import get_config, Config
 import os
-from datetime import timedelta
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -17,6 +16,8 @@ login_manager.login_message = 'Пожалуйста, войдите для до�
 limiter = Limiter(key_func=get_remote_address)
 
 def create_app(config_class=Config):
+    if config_class is None:
+        config_class = get_config()
     app = Flask(__name__)
     app.config.from_object(config_class)
     
