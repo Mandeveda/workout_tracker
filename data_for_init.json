@@ -39,8 +39,8 @@
     {"muscle_group_id": 7, "name": "all_body_yet", "display_name": "Все тело"}
   ],
   "users": [
-    {"username": "admin_user", "email": "admin@example.com", "password": "admin123", "role_id": 1},
-    {"username": "expert_user", "email": "expert@example.com", "password": "expert123", "role_id": 3},
-    {"username": "regular_user", "email": "user@example.com", "password": "user123", "role_id": 2}
+    {"username": "Mandeveda", "email": "kandyba23@yandex.ru", "password": "VjzRbhf2018!", "role_id": 1},
+    {"username": "expert_user", "email": "expert@example.com", "password": "K7845231s!", "role_id": 3},
+    {"username": "regular_user", "email": "user@example.com", "password": "K7845231s!", "role_id": 2}
   ]
 }
