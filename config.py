@@ -20,27 +20,18 @@ class Config:
     
     # ===== НАСТРОЙКИ БАЗЫ ДАННЫХ =====
     # Поддерживаем PostgreSQL для продакшена и SQLite для разработки
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-    
-    if DATABASE_URL and DATABASE_URL.startswith('postgresql://'):
-        # PostgreSQL для продакшена
-        SQLALCHEMY_DATABASE_URI = DATABASE_URL
-        # Дополнительные настройки для PostgreSQL
-        SQLALCHEMY_ENGINE_OPTIONS = {
-            'pool_size': int(os.environ.get('DB_POOL_SIZE', 10)),
-            'pool_recycle': 3600,
-            'pool_pre_ping': True,  # Проверка соединения перед использованием
-        }
+   # База данных
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        SQLALCHEMY_DATABASE_URI = database_url
     else:
-        # SQLite для разработки
         DB_PATH = INSTANCE_PATH / 'workout.db'
         SQLALCHEMY_DATABASE_URI = f'sqlite:///{DB_PATH}'
-        SQLALCHEMY_ENGINE_OPTIONS = {}
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # ===== НАСТРОЙКИ БЕЗОПАСНОСТИ СЕССИИ =====
-    SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
+    SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_NAME = 'workout_session'
@@ -91,11 +82,12 @@ class Config:
             # Более мягкий CSP для разработки (можно усилить для продакшена)
             if os.environ.get('ENVIRONMENT') == 'production':
                 response.headers['Content-Security-Policy'] = (
-                    "default-src 'self'; "
-                    "script-src 'self' https://cdn.jsdelivr.net; "
+                    "default-src 'self' https://cdn.jsdelivr.net; "
+                    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
                     "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-                    "font-src 'self' data:; "
-                    "img-src 'self' data:;"
+                    "font-src 'self' data: https://cdn.jsdelivr.net; "
+                    "img-src 'self' data:; "
+                    "connect-src 'self' https://cdn.jsdelivr.net;"
                 )
             return response
 

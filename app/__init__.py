@@ -5,6 +5,7 @@ from flask_login import LoginManager
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from config import get_config, Config
+from flask_wtf.csrf import CSRFProtect
 import os
 
 db = SQLAlchemy()
@@ -13,11 +14,14 @@ login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Пожалуйста, войдите для доступа к этой странице.'
 
+csrf = CSRFProtect()
+
 limiter = Limiter(key_func=get_remote_address)
 
 def create_app(config_class=Config):
     if config_class is None:
         config_class = get_config()
+        
     app = Flask(__name__)
     app.config.from_object(config_class)
     
@@ -31,6 +35,8 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+    
+    csrf.init_app(app)
     
     # Инициализация limiter
     limiter.init_app(app)

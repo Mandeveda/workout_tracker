@@ -1,28 +1,17 @@
-import os
 import sys
+import os
+import logging
 
-# Пути на Beget
-HOME_DIR = '/home/ваш_логин'
-SITE_DIR = f'{HOME_DIR}/ваш-домен.beget.tech'
-VENV_DIR = f'{SITE_DIR}/venv'
+# Путь к виртуальному окружению
+SITE_DIR = '/home/k/kandybd9/tracker-workout.ru'
+VENV_DIR = f'{SITE_DIR}/venv_tw'
 
-# Добавляем пути
 sys.path.insert(0, SITE_DIR)
-sys.path.insert(0, f'{VENV_DIR}/lib/python3.11/site-packages')
+sys.path.insert(0, f'{VENV_DIR}/lib/python3.10/site-packages')
 
-# Устанавливаем переменные окружения
-os.environ['ENVIRONMENT'] = 'production'
+os.environ['DATABASE_URL'] = 'sqlite:////home/k/kandybd9/tracker-workout.ru/instance/workout.db'
 
-# Загружаем .env файл
-from dotenv import load_dotenv
-load_dotenv(f'{SITE_DIR}/.env')
+logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
 
-# Создаём приложение
 from app import create_app
-
 application = create_app()
-
-# Инициализация базы данных при первом запуске
-with application.app_context():
-    from app import db
-    db.create_all()

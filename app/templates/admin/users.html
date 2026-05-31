@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Управление пользователями{% endblock %}
 {% block content %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>👥 Управление пользователями</h2>
@@ -53,9 +54,9 @@
                                 </td>
                                 <td>{{ user.email }}</td>
                                 <td>
-                                    <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id) }}" 
-                                          style="display: inline;" onchange="this.submit()">
+                                    <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id) }}" style="display: inline;">
                                         <select name="role_id" class="form-select form-select-sm" style="width: auto; display: inline-block;" 
+                                                onchange="this.form.submit()"
                                                 {% if user.id == current_user.id %}disabled{% endif %}>
                                             {% for role in roles %}
                                                 <option value="{{ role.id }}" {% if user.role_id == role.id %}selected{% endif %}>
@@ -63,7 +64,7 @@
                                                 </option>
                                             {% endfor %}
                                         </select>
-                                        <input type="hidden" name="search" value="{{ search }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     </form>
                                 </td>
                                 <td>

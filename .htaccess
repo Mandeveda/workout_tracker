@@ -1,0 +1,3 @@
+PassengerEnabled On
+PassengerAppEnv production
+PassengerPython /home/k/kandybd9/tracker-workout.ru/venv_tw/bin/python3.10

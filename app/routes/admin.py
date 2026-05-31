@@ -63,7 +63,7 @@ def change_role(user_id):
         flash(f'Роль пользователя "{user.username}" изменена на "{role.name}"', 'success')
     else:
         flash('Неверная роль', 'danger')
-    
+    search = request.args.get('search', '')
     return redirect(url_for('admin.users', search=request.args.get('search', '')))
 
 @bp.route('/user/<int:user_id>/reset_password', methods=['POST'])
