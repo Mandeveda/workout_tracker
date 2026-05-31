@@ -14,13 +14,18 @@ def is_expert():
 @bp.route('/')
 @login_required
 def list_exercises():
-    """Список всех упражнений (с поиском и фильтрацией)"""
-    from app.models import MuscleGroup  # <-- ДОБАВИТЬ ИМПОРТ
+    """Список всех упражнений (админ видит все, остальные — по правам)"""
+    from app.models import MuscleGroup
     
     search = request.args.get('search', '')
     muscle_group = request.args.get('muscle_group', '')
     
-    query = Exercise.query
+    if current_user.role.name == 'admin':
+        # Админ видит все упражнения
+        query = Exercise.query
+    else:
+        # Эксперты видят свои, обычные пользователи — все (но не могут редактировать)
+        query = Exercise.query
     
     if search:
         query = query.filter(Exercise.name.ilike(f'%{search}%'))
@@ -30,7 +35,6 @@ def list_exercises():
     
     exercises = query.order_by(Exercise.name).all()
     
-    # Получаем список групп мышц для фильтра
     muscle_groups = MuscleGroup.query.order_by('display_name').all()
     
     return render_template('exercises/list.html', 
@@ -80,7 +84,7 @@ def edit_exercise(id):
     exercise = Exercise.query.get_or_404(id)
     
     # Проверка прав
-    if not (current_user.role.name in ['admin'] or exercise.created_by_id == current_user.id):
+    if not current_user.can_edit(exercise):
         flash('Вы можете редактировать только свои упражнения', 'danger')
         return redirect(url_for('exercises.list_exercises'))
     
@@ -120,7 +124,7 @@ def get_subgroups():
 def del_exercise(exercise_id):
     """Удаление упражнения из базы"""
     exercise = Exercise.query.get_or_404(exercise_id)
-    if not (current_user.role.name in ['admin'] or exercise.created_by_id == current_user.id):
+    if not current_user.can_edit(exercise):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('exercises.list_exercises'))
     

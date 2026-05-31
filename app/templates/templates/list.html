@@ -2,7 +2,7 @@
 {% block title %}Мои шаблоны{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Мои шаблоны тренировок</h2>
+    <h2>{% if current_user.role.name == 'admin' %}Все шаблоны пользователей{% else %}Мои шаблоны тренировок{% endif %}</h2>
     <a href="{{ url_for('templates.create_template') }}" class="btn btn-primary">+ Создать шаблон</a>
 </div>
 
@@ -16,19 +16,33 @@
                         <small class="text-muted">
                             Упражнений: {{ template.template_exercises|length }}
                         </small>
+                        {% if current_user.role.name == 'admin' %}
+                            <br>
+                            <small class="text-muted">
+                                👤 Владелец: {{ template.user.username }}
+                            </small>
+                        {% endif %}
                     </p>
-                    <a href="{{ url_for('templates.edit_template', template_id=template.id) }}" class="btn btn-sm btn-outline-primary">Редактировать</a>
-                    <a href="{{ url_for('program.create_program', template_id=template.id) }}" class="btn btn-sm btn-success">Создать программу</a>
-                    <a href="{{ url_for('templates.delete_template', template_id=template.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Удалить шаблон «{{ template.name }}»? Все упражнения внутри будут удалены.')">
-            Удалить
-        </a>
+                    <div class="btn-group w-100" role="group">
+                        <a href="{{ url_for('templates.edit_template', template_id=template.id) }}" class="btn btn-sm btn-outline-primary">Редактировать</a>
+                        <a href="{{ url_for('program.create_program', template_id=template.id) }}" class="btn btn-sm btn-outline-success">Создать программу</a>
+                        {% if current_user.role.name == 'admin' or template.user_id == current_user.id %}
+                            <a href="{{ url_for('templates.delete_template', template_id=template.id) }}" 
+                               class="btn btn-sm btn-outline-danger"
+                               onclick="return confirm('Удалить шаблон «{{ template.name }}»? Все упражнения внутри будут удалены.')">Удалить</a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
     {% else %}
         <div class="col-12">
             <div class="alert alert-info">
-                У вас пока нет шаблонов. <a href="{{ url_for('templates.create_template') }}">Создайте первый шаблон</a>
+                {% if current_user.role.name == 'admin' %}
+                    Нет ни одного шаблона у пользователей.
+                {% else %}
+                    У вас пока нет шаблонов. <a href="{{ url_for('templates.create_template') }}">Создайте первый шаблон</a>
+                {% endif %}
             </div>
         </div>
     {% endfor %}

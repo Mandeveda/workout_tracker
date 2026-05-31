@@ -9,8 +9,14 @@ bp = Blueprint('templates', __name__, url_prefix='/templates')
 @bp.route('/')
 @login_required
 def list_templates():
-    """Список шаблонов пользователя"""
-    templates = WorkoutTemplate.query.filter_by(user_id=current_user.id).order_by(WorkoutTemplate.created_at.desc()).all()
+    """Список шаблонов (админ видит все, обычный пользователь — только свои)"""
+    if current_user.role.name == 'admin':
+        # Админ видит все шаблоны
+        templates = WorkoutTemplate.query.order_by(WorkoutTemplate.created_at.desc()).all()
+    else:
+        # Обычный пользователь видит только свои
+        templates = WorkoutTemplate.query.filter_by(user_id=current_user.id).order_by(WorkoutTemplate.created_at.desc()).all()
+    
     return render_template('templates/list.html', templates=templates)
 
 @bp.route('/create', methods=['GET', 'POST'])
@@ -35,7 +41,7 @@ def edit_template(template_id):
     """Редактирование шаблона"""
     template = WorkoutTemplate.query.get_or_404(template_id)
     
-    if template.user_id != current_user.id:
+    if not current_user.can_edit(template):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
     
@@ -58,7 +64,7 @@ def edit_template(template_id):
 def add_exercise(template_id):
     """Добавление упражнения в шаблон"""
     template = WorkoutTemplate.query.get_or_404(template_id)
-    if template.user_id != current_user.id:
+    if not current_user.can_edit(template):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
     
@@ -91,7 +97,9 @@ def add_exercise(template_id):
 def delete_exercise(template_id, exercise_id):
     """Удаление упражнения из шаблона"""
     template_exercise = TemplateExercise.query.get_or_404(exercise_id)
-    if template_exercise.template.user_id != current_user.id:
+    
+    # проверяем шаблон, к которому относится упражнение
+    if not current_user.can_edit(template_exercise.template):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
     
@@ -106,7 +114,7 @@ def move_up_exercise(template_id, exercise_id):
     """Переместить упражнение вверх по порядку"""
     template_exercise = TemplateExercise.query.get_or_404(exercise_id)
     
-    if template_exercise.template.user_id != current_user.id:
+    if not current_user.can_edit(template_exercise.template):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
     
@@ -138,7 +146,7 @@ def move_down_exercise(template_id, exercise_id):
     """Переместить упражнение вниз по порядку"""
     template_exercise = TemplateExercise.query.get_or_404(exercise_id)
     
-    if template_exercise.template.user_id != current_user.id:
+    if not current_user.can_edit(template_exercise.template):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
     
@@ -171,7 +179,7 @@ def delete_template(template_id):
     template = WorkoutTemplate.query.get_or_404(template_id)
     
     # Проверка прав
-    if template.user_id != current_user.id:
+    if not current_user.can_edit(template):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
     

@@ -50,12 +50,12 @@
                                     {% if exercise.muscle_subgroup %} → {{ exercise.muscle_subgroup.display_name }}{% endif %}
                                 </small>
                             </p>
-                        {% endif %}
+                        {% endif %}                        
                         {% if exercise.description %}
                             <p class="card-text">{{ exercise.description[:100] }}{% if exercise.description|length > 100 %}...{% endif %}</p>
                         {% endif %}
-                        <div class="mt-2">
-                            {% if current_user.role.name in ['expert', 'admin'] and exercise.created_by_id == current_user.id %}
+                        <div class="mt-2">                            
+                            {% if current_user.role.name in ['expert', 'admin'] and (exercise.created_by_id == current_user.id or current_user.role.name == 'admin') %}
                                 <a href="{{ url_for('exercises.edit_exercise', id=exercise.id) }}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
                                 <a href="{{ url_for('exercises.del_exercise', exercise_id=exercise.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Удалить упражнение?')">Удалить</a>
                             {% endif %}

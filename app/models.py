@@ -61,7 +61,24 @@ class User(UserMixin, db.Model):
     workout_templates = relationship('WorkoutTemplate', back_populates='user', cascade='all, delete-orphan')
     workout_sessions = relationship('WorkoutSession', back_populates='user', cascade='all, delete-orphan')
     schedules = db.relationship('WorkoutSchedule', back_populates='user', cascade='all, delete-orphan')
+
+    def can_edit(self, resource):
+        """Проверка, может ли пользователь редактировать ресурс (упражнение, шаблон и т.д.)"""
+        if not self.is_authenticated:
+            return False
+        if self.role.name == 'admin':
+            return True
+        # Проверяем, есть ли у ресурса атрибут user_id или created_by_id
+        if hasattr(resource, 'user_id'):
+            return resource.user_id == self.id
+        if hasattr(resource, 'created_by_id'):
+            return resource.created_by_id == self.id
+        return False
     
+    def can_delete(self, resource):
+        """Проверка, может ли пользователь удалить ресурс"""
+        return self.can_edit(resource)
+
     def __repr__(self):
         return f'<User {self.username}>'
     
