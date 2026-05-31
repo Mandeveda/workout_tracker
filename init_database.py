@@ -35,7 +35,6 @@ def init_muscle_groups(data):
 def init_muscle_subgroups(data):
     print("Инициализация подгрупп мышц...")
 
-
     # Словарь соответствия: подгруппа → группа мышц
     SUBGROUP_TO_GROUP = {
         'upper_chest': 'chest',
@@ -64,26 +63,23 @@ def init_muscle_subgroups(data):
     }
 
     for subgroup_data in data['muscle_subgroups']:
-        # Получаем название группы мышц из словаря соответствия
         group_name = SUBGROUP_TO_GROUP.get(subgroup_data['name'])
 
         if not group_name:
             print(f"Предупреждение: для подгруппы '{subgroup_data['name']}' не найдено соответствие группы мышц. Пропускаем.")
             continue
 
-        # Находим группу мышц по имени
         muscle_group = MuscleGroup.query.filter_by(name=group_name).first()
 
         if muscle_group:
-            # Проверяем, не существует ли уже такая подгруппа
             if not MuscleSubgroup.query.filter_by(
                 name=subgroup_data['name'],
                 muscle_group_id=muscle_group.id
             ).first():
                 subgroup = MuscleSubgroup(
                     muscle_group_id=muscle_group.id,
-            name=subgroup_data['name'],
-            display_name=subgroup_data['display_name']
+                    name=subgroup_data['name'],
+                    display_name=subgroup_data['display_name']
                 )
                 db.session.add(subgroup)
         else:
@@ -109,6 +105,12 @@ def init_users(data):
 def main():
     app = create_app()
     with app.app_context():
+        # ===== ВАЖНО: Сначала создаем все таблицы =====
+        print("Создание таблиц в базе данных...")
+        db.create_all()
+        print("Таблицы успешно созданы!")
+        
+        # Затем загружаем данные
         data = load_data_from_json('data_for_init.json')
         init_roles(data)
         init_muscle_groups(data)

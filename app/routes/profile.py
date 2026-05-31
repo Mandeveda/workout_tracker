@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 from app import db
 from app.forms import ProfileForm, MeasurementForm
+from app.models import User
 import json
 
 bp = Blueprint('profile', __name__, url_prefix='/profile')
@@ -20,6 +21,14 @@ def edit():
     form = ProfileForm(obj=current_user)
     
     if form.validate_on_submit():
+        
+        if form.username.data != current_user.username:
+            existing_user = User.query.filter_by(username=form.username.data).first()
+            if existing_user:
+                flash('Это имя пользователя уже занято', 'danger')
+                return render_template('profile/edit.html', form=form, user=current_user)
+            current_user.username = form.username.data
+
         current_user.weight = form.weight.data
         current_user.height = form.height.data
         current_user.age = form.age.data

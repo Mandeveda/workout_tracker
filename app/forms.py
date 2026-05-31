@@ -114,6 +114,7 @@ class ProgramGenerationForm(FlaskForm):
 
 class ProfileForm(FlaskForm):
     """Форма редактирования профиля"""
+    username = StringField('Имя пользователя', validators=[DataRequired(), Length(min=3, max=80)])
     weight = FloatField('Вес (кг)', validators=[NumberRange(min=30, max=300)], default=70)
     height = FloatField('Рост (см)', validators=[NumberRange(min=100, max=250)], default=170)
     age = IntegerField('Возраст', validators=[NumberRange(min=10, max=120)], default=25)

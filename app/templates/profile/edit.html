@@ -13,6 +13,16 @@
                         {{ form.hidden_tag() }}
                         
                         <h5 class="mb-3">Основные данные</h5>
+                        
+                        <!-- НОВОЕ ПОЛЕ: Имя пользователя -->
+                        <div class="mb-3">
+                            {{ form.username.label(class="form-label") }}
+                            {{ form.username(class="form-control") }}
+                            {% for error in form.username.errors %}
+                                <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 {{ form.weight.label(class="form-label") }}
