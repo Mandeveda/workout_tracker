@@ -11,6 +11,8 @@
     </div>
     
     <form method="POST" id="workoutForm">
+        {{ form.hidden_tag() if form else '' }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         {% for exercise in exercises_data %}
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
@@ -162,7 +164,7 @@
     // Функция сохранения прогресса (AJAX)
     function saveProgress() {
         const formData = new FormData(document.getElementById('workoutForm'));
-        
+        formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
         fetch('/workouts/save_progress/{{ session.id }}', {
             method: 'POST',
             body: formData
@@ -201,7 +203,11 @@
     // Функция завершения тренировки
     function completeWorkout() {
         if (confirm('Завершить тренировку? Сохранённые результаты будут окончательно записаны.')) {
-            document.getElementById('workoutForm').submit();
+            // Сначала сохраняем прогресс, потом отправляем форму
+            saveProgress();
+            setTimeout(() => {
+                document.getElementById('workoutForm').submit();
+            }, 500);
         }
     }
     

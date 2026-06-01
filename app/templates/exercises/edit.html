@@ -1,74 +1,108 @@
 {% extends "base.html" %}
-
 {% block title %}Редактировать упражнение{% endblock %}
-
 {% block content %}
-<div class="container mt-5">
-    <h1>Редактировать упражнение</h1>
-    
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-warning">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <form method="POST">
-        {{ form.hidden_tag() }}
-
-        <div class="mb-3">
-            {{ form.name.label(class="form-label") }}
-            {{ form.name(class="form-control") }}
-            {% if form.name.errors %}
-                {% for error in form.name.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            {% endif %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2 class="mb-4">Редактировать упражнение: {{ exercise.name }}</h2>
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control") }}
+                        {% for error in form.name.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.exercise_type.label(class="form-label") }}
+                        {{ form.exercise_type(class="form-select", id="exercise_type") }}
+                        {% for error in form.exercise_type.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div id="muscle_group_block" class="mb-3">
+                        {{ form.muscle_group_id.label(class="form-label") }}
+                        {{ form.muscle_group_id(class="form-select", id="muscle_group_id") }}
+                        {% for error in form.muscle_group_id.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div id="muscle_subgroup_block" class="mb-3">
+                        {{ form.muscle_subgroup_id.label(class="form-label") }}
+                        <select name="muscle_subgroup_id" id="muscle_subgroup_id" class="form-select">
+                            <option value="0">Не выбрано</option>
+                            {% for subgroup in current_subgroups %}
+                                <option value="{{ subgroup.id }}" {% if exercise.muscle_subgroup_id == subgroup.id %}selected{% endif %}>
+                                    {{ subgroup.display_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% for error in form.muscle_subgroup_id.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control", rows=4) }}
+                        {% for error in form.description.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    {{ form.submit(class="btn btn-primary") }}
+                    <a href="{{ url_for('exercises.list_exercises') }}" class="btn btn-secondary">Отмена</a>
+                </form>
+            </div>
         </div>
-
-        <div class="mb-3">
-            {{ form.exercise_type.label(class="form-label") }}
-            {{ form.exercise_type(class="form-select") }}
-            {% if form.exercise_type.errors %}
-                {% for error in form.exercise_type.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            {{ form.muscle_group_id.label(class="form-label") }}
-            {{ form.muscle_group_id(class="form-select") }}
-            {% if form.muscle_group_id.errors %}
-                {% for error in form.muscle_group_id.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            {{ form.muscle_subgroup_id.label(class="form-label") }}
-            {{ form.muscle_subgroup_id(class="form-select") }}
-            {% if form.muscle_subgroup_id.errors %}
-                {% for error in form.muscle_subgroup_id.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            {{ form.description.label(class="form-label") }}
-            {{ form.description(class="form-control", rows="3") }}
-            {% if form.description.errors %}
-                {% for error in form.description.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            {% endif %}
-        </div>
-
-        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
-        <a href="{{ url_for('exercises.list_exercises') }}" class="btn btn-secondary">Вернуться к списку</a>
-    </form>
+    </div>
 </div>
+
+<script>
+    function toggleMuscleFields() {
+        const exerciseType = document.getElementById('exercise_type').value;
+        const muscleGroupBlock = document.getElementById('muscle_group_block');
+        const muscleSubgroupBlock = document.getElementById('muscle_subgroup_block');
+        
+        if (exerciseType === 'cardio') {
+            muscleGroupBlock.style.display = 'none';
+            muscleSubgroupBlock.style.display = 'none';
+        } else {
+            muscleGroupBlock.style.display = 'block';
+            muscleSubgroupBlock.style.display = 'block';
+        }
+    }
+    
+    // Динамическая загрузка подгрупп при выборе группы мышц
+    document.getElementById('muscle_group_id').addEventListener('change', function() {
+        const groupId = this.value;
+        const subgroupSelect = document.getElementById('muscle_subgroup_id');
+        
+        if (groupId && groupId != '0') {
+            fetch('/exercises/get_subgroups?muscle_group_id=' + groupId)
+                .then(response => response.json())
+                .then(data => {
+                    subgroupSelect.innerHTML = '<option value="0">Не выбрано</option>';
+                    data.forEach(function(subgroup) {
+                        const option = document.createElement('option');
+                        option.value = subgroup.id;
+                        option.textContent = subgroup.display_name;
+                        subgroupSelect.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Ошибка:', error));
+        } else {
+            subgroupSelect.innerHTML = '<option value="0">Не выбрано</option>';
+        }
+    });
+    
+    document.getElementById('exercise_type').addEventListener('change', toggleMuscleFields);
+    toggleMuscleFields();
+</script>
 {% endblock %}

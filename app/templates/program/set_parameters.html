@@ -6,105 +6,80 @@
     <p class="text-muted">Заполните параметры для каждого упражнения</p>
     
     <form method="POST" id="mainForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
         {% for te in template_exercises %}
             {% set form = forms[te.id] %}
-            <div class="card mb-4" data-exercise-id="{{ te.id }}">
+            <div class="card mb-4" id="exercise_card_{{ te.id }}">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">{{ te.exercise.name }}</h4>
                     <small>{{ te.exercise.exercise_type }}</small>
                 </div>
                 <div class="card-body">
-                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Тип нагрузки</label>
+                        <select class="form-select input-type-select" name="ex_{{ te.id }}-input_type" data-exercise-id="{{ te.id }}">
+                            <option value="fixed" {% if form.input_type.data == 'fixed' %}selected{% endif %}>Одинаково во всех подходах</option>
+                            <option value="progressive" {% if form.input_type.data == 'progressive' %}selected{% endif %}>Индивидуально для каждого подхода</option>
+                        </select>
+                    </div>
                     
-                    {% if te.exercise.exercise_type == 'strength' or te.exercise.exercise_type == 'bodyweight' %}
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Тип нагрузки</label>
-                            <select class="form-select input-type-select" name="{{ form.input_type.name }}" data-exercise-id="{{ te.id }}">
-                                <option value="fixed" {% if form.input_type.data == 'fixed' %}selected{% endif %}>Одинаково во всех подходах</option>
-                                <option value="progressive" {% if form.input_type.data == 'progressive' %}selected{% endif %}>Индивидуально для каждого подхода</option>
-                            </select>
-                        </div>
-                        
-                        <!-- FIXED режим -->
-                        <div id="fixed_mode_{{ te.id }}" class="fixed-mode">
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label class="form-label">Количество подходов</label>
-                                    <input type="number" name="{{ form.sets.name }}" class="form-control" value="{{ form.sets.data or 3 }}" min="1" max="20">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Повторений в подходе</label>
-                                    <input type="number" name="{{ form.reps.name }}" class="form-control" value="{{ form.reps.data or 10 }}" min="1" max="100">
-                                </div>
-                                {% if te.exercise.exercise_type == 'strength' %}
-                                <div class="col-md-4">
-                                    <label class="form-label">Вес (кг)</label>
-                                    <input type="number" step="0.5" name="{{ form.weight.name }}" class="form-control" value="{{ form.weight.data or 0 }}">
-                                </div>
-                                {% elif te.exercise.exercise_type == 'bodyweight' %}
-                                <div class="col-md-4">
-                                    <label class="form-label text-muted">Вес (не используется)</label>
-                                    <input type="hidden" name="{{ form.weight.name }}" value="0">
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        
-                        <!-- PROGRESSIVE режим -->
-                        <div id="progressive_mode_{{ te.id }}" class="progressive-mode" style="display: none;">
-                            <div class="alert alert-info mb-3">
-                                <strong>Индивидуальные подходы</strong> — добавьте подходы с разными параметрами
-                            </div>
-                            
-                            <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <label class="form-label">Вес (кг)</label>
-                                    <input type="number" step="0.5" class="form-control progressive-weight" data-exercise-id="{{ te.id }}" placeholder="50">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Повторения</label>
-                                    <input type="number" class="form-control progressive-reps" data-exercise-id="{{ te.id }}" placeholder="10">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">&nbsp;</label>
-                                    <button type="button" class="btn btn-success form-control add-set-btn" data-exercise-id="{{ te.id }}">+ Добавить подход</button>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-3">
-                                <label class="form-label fw-bold">Добавленные подходы:</label>
-                                <div id="sets_list_{{ te.id }}" class="list-group">
-                                    <div class="list-group-item text-muted">Нет добавленных подходов</div>
-                                </div>
-                            </div>
-                            
-                            <input type="hidden" name="progressive_data_{{ te.id }}" id="progressive_data_{{ te.id }}" value="">
-                        </div>
-                        
-                    {% elif te.exercise.exercise_type == 'cardio' %}
-                        <!-- Кардио параметры -->
+                    <!-- FIXED режим -->
+                    <div id="fixed_mode_{{ te.id }}" class="fixed-mode">
                         <div class="row">
                             <div class="col-md-4">
-                                <label class="form-label">Длительность (минуты)</label>
-                                <input type="number" name="duration_{{ te.id }}" class="form-control" value="30" min="1" max="300">
+                                <label class="form-label">Количество подходов</label>
+                                <input type="number" name="ex_{{ te.id }}-sets" class="form-control" value="{{ form.sets.data or 3 }}" min="1" max="20">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Дистанция (км)</label>
-                                <input type="number" step="0.1" name="distance_{{ te.id }}" class="form-control" value="5" min="0">
+                                <label class="form-label">Повторений в подходе</label>
+                                <input type="number" name="ex_{{ te.id }}-reps" class="form-control" value="{{ form.reps.data or 10 }}" min="1" max="100">
                             </div>
+                            {% if te.exercise.exercise_type == 'strength' %}
                             <div class="col-md-4">
-                                <label class="form-label">Целевой пульс</label>
-                                <input type="number" name="heart_rate_{{ te.id }}" class="form-control" placeholder="120-160">
+                                <label class="form-label">Вес (кг)</label>
+                                <input type="number" step="0.5" name="ex_{{ te.id }}-weight" class="form-control" value="{{ form.weight.data or 0 }}">
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- PROGRESSIVE режим -->
+                    <div id="progressive_mode_{{ te.id }}" class="progressive-mode" style="display: none;">
+                        <div class="alert alert-info mb-3">
+                            <strong>Индивидуальные подходы</strong> — добавьте необходимое количество подходов
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-5">
+                                <label class="form-label">Вес (кг)</label>
+                                <input type="number" step="0.5" class="form-control progressive-weight" data-exercise-id="{{ te.id }}" placeholder="50">
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Повторения</label>
+                                <input type="number" class="form-control progressive-reps" data-exercise-id="{{ te.id }}" placeholder="10">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn btn-success form-control add-set-btn" data-exercise-id="{{ te.id }}">+ Добавить</button>
                             </div>
                         </div>
-                        <input type="hidden" name="cardio_data_{{ te.id }}" value="1">
-                    {% endif %}
+                        
+                        <div class="mt-3">
+                            <label class="form-label fw-bold">Добавленные подходы:</label>
+                            <div id="sets_list_{{ te.id }}" class="list-group">
+                                <div class="list-group-item text-muted">Нет добавленных подходов</div>
+                            </div>
+                        </div>
+                        
+                        <input type="hidden" name="progressive_data_{{ te.id }}" id="progressive_data_{{ te.id }}" value="">
+                    </div>
                 </div>
             </div>
         {% endfor %}
         
         <div class="text-center">
-            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">Создать программу</button>
+            <button type="submit" class="btn btn-primary btn-lg">Создать программу</button>
             <a href="{{ url_for('templates.list_templates') }}" class="btn btn-secondary btn-lg">Отмена</a>
         </div>
     </form>
@@ -116,7 +91,7 @@
     
     // Функция переключения режимов
     function toggleMode(exerciseId) {
-        const select = document.getElementById(`input_type_${exerciseId}`);
+        const select = document.querySelector(`.input-type-select[data-exercise-id="${exerciseId}"]`);
         const fixedDiv = document.getElementById(`fixed_mode_${exerciseId}`);
         const progressiveDiv = document.getElementById(`progressive_mode_${exerciseId}`);
         
@@ -134,8 +109,8 @@
     
     // Функция добавления подхода
     function addSet(exerciseId) {
-        const weightInput = document.getElementById(`new_weight_${exerciseId}`);
-        const repsInput = document.getElementById(`new_reps_${exerciseId}`);
+        const weightInput = document.querySelector(`.progressive-weight[data-exercise-id="${exerciseId}"]`);
+        const repsInput = document.querySelector(`.progressive-reps[data-exercise-id="${exerciseId}"]`);
         
         const weight = parseFloat(weightInput.value);
         const reps = parseInt(repsInput.value);
@@ -150,30 +125,25 @@
             return;
         }
         
-        // Инициализируем массив для этого упражнения
         if (!progressiveData[exerciseId]) {
             progressiveData[exerciseId] = [];
         }
         
-        // Добавляем подход
         progressiveData[exerciseId].push({
             set_number: progressiveData[exerciseId].length + 1,
             weight: weight,
             reps: reps
         });
         
-        // Очищаем поля
         weightInput.value = '';
         repsInput.value = '';
         
-        // Обновляем отображение
         renderSetsList(exerciseId);
     }
     
     // Функция удаления подхода
     function removeSet(exerciseId, index) {
         progressiveData[exerciseId].splice(index, 1);
-        // Перенумеровываем
         progressiveData[exerciseId].forEach((set, idx) => {
             set.set_number = idx + 1;
         });
@@ -205,48 +175,37 @@
     }
     
     // Подготовка данных перед отправкой
-    function prepareAndSubmit(event) {
+    function prepareProgressiveData(event) {
         let hasError = false;
         
-        // Проходим по всем селекторам
-        const selectors = document.querySelectorAll('[id^="input_type_"]');
-        
-        for (let i = 0; i < selectors.length; i++) {
-            const select = selectors[i];
-            const exerciseId = select.id.replace('input_type_', '');
+        document.querySelectorAll('.input-type-select').forEach(select => {
+            const exerciseId = select.getAttribute('data-exercise-id');
             
             if (select.value === 'progressive') {
                 const hiddenInput = document.getElementById(`progressive_data_${exerciseId}`);
                 const sets = progressiveData[exerciseId] || [];
                 
                 if (sets.length === 0) {
-                    // Находим название упражнения по карточке
-                    const card = document.getElementById(`exercise_card_${exerciseId}`);
-                    const exerciseName = card ? card.querySelector('.card-header h4').innerText : exerciseId;
-                    alert(`Для упражнения "${exerciseName}" добавьте хотя бы один подход`);
+                    alert(`Для упражнения добавьте хотя бы один подход`);
                     hasError = true;
-                    break;
                 } else {
                     hiddenInput.value = JSON.stringify(sets);
                 }
             }
-        }
+        });
         
         if (hasError) {
             event.preventDefault();
             return false;
         }
-        
         return true;
     }
     
     // Инициализация при загрузке страницы
     document.addEventListener('DOMContentLoaded', function() {
         // Находим все селекторы и добавляем обработчики
-        const selectors = document.querySelectorAll('[id^="input_type_"]');
-        
-        selectors.forEach(select => {
-            const exerciseId = select.id.replace('input_type_', '');
+        document.querySelectorAll('.input-type-select').forEach(select => {
+            const exerciseId = select.getAttribute('data-exercise-id');
             
             // Добавляем обработчик изменения
             select.addEventListener('change', function() {
@@ -258,47 +217,39 @@
         });
         
         // Находим все кнопки добавления
-        const addButtons = document.querySelectorAll('.add-set-btn');
-        
-        addButtons.forEach(btn => {
-            const exerciseId = btn.getAttribute('data-exercise');
-            // Убираем старые обработчики
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            newBtn.addEventListener('click', function() {
+        document.querySelectorAll('.add-set-btn').forEach(btn => {
+            const exerciseId = btn.getAttribute('data-exercise-id');
+            btn.addEventListener('click', function() {
                 addSet(exerciseId);
             });
         });
         
-        // Восстанавливаем сохранённые данные из hidden полей (при ошибке валидации)
-        const hiddenInputs = document.querySelectorAll('[id^="progressive_data_"]');
-        
-        hiddenInputs.forEach(hiddenInput => {
+        // Восстанавливаем сохранённые данные
+        document.querySelectorAll('[id^="progressive_data_"]').forEach(hiddenInput => {
             if (hiddenInput.value) {
                 try {
                     const exerciseId = hiddenInput.id.replace('progressive_data_', '');
                     const parsed = JSON.parse(hiddenInput.value);
                     if (parsed && parsed.length > 0) {
                         progressiveData[exerciseId] = parsed;
-                        // Переключаем в progressive режим
-                        const select = document.getElementById(`input_type_${exerciseId}`);
+                        const select = document.querySelector(`.input-type-select[data-exercise-id="${exerciseId}"]`);
                         if (select) {
                             select.value = 'progressive';
                             toggleMode(exerciseId);
                         }
                     }
                 } catch(e) {
-                    console.error('Ошибка парсинга данных:', e);
+                    console.error(e);
                 }
             }
         });
     });
     
     // Назначаем обработчик на кнопку отправки
-    const submitBtn = document.getElementById('submitBtn');
+    const submitBtn = document.querySelector('button[type="submit"]');
     if (submitBtn) {
         submitBtn.addEventListener('click', function(event) {
-            if (!prepareAndSubmit(event)) {
+            if (!prepareProgressiveData(event)) {
                 return;
             }
             document.getElementById('mainForm').submit();

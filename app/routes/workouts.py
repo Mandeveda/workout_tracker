@@ -75,7 +75,7 @@ def start_workout(schedule_id=None):
         flash('Тренировка уже была начата. Продолжите выполнение.', 'info')
         return redirect(url_for('workouts.perform', session_id=existing_session.id))
     
-    # ИСПРАВЛЕНИЕ: добавляем template_id из расписания
+    # добавляем template_id из расписания
     session = WorkoutSession(
         user_id=current_user.id,
         schedule_id=schedule.id,
@@ -93,6 +93,7 @@ def start_workout(schedule_id=None):
 @login_required
 def perform(session_id):
     """Выполнение тренировки (ввод результатов)"""
+    from flask_wtf.csrf import CSRFProtect
     session = WorkoutSession.query.get_or_404(session_id)
     
     if session.user_id != current_user.id:
@@ -363,7 +364,8 @@ def free_workout():
 def save_progress(session_id):
     """Сохранение текущего прогресса тренировки (без завершения)"""
     from flask import jsonify
-    
+    from flask_wtf.csrf import CSRFProtect
+
     session = WorkoutSession.query.get_or_404(session_id)
     
     if session.user_id != current_user.id:

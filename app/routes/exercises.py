@@ -81,32 +81,38 @@ def add_exercise():
 @login_required
 def edit_exercise(id):
     """Редактирование упражнения (только автор или админ)"""
+    from app.models import MuscleGroup, MuscleSubgroup
+    
     exercise = Exercise.query.get_or_404(id)
     
-    # Проверка прав
     if not current_user.can_edit(exercise):
         flash('Вы можете редактировать только свои упражнения', 'danger')
         return redirect(url_for('exercises.list_exercises'))
     
     form = ExerciseForm(obj=exercise)
+    
+    # Загружаем подгруппы для текущей группы мышц
+    current_subgroups = []
+    if exercise.muscle_group_id:
+        current_subgroups = MuscleSubgroup.query.filter_by(muscle_group_id=exercise.muscle_group_id).all()
+    
     if form.validate_on_submit():
-        # Проверка на дубликат (исключая текущее упражнение)
         existing = Exercise.query.filter(Exercise.name == form.name.data, Exercise.id != id).first()
         if existing:
             flash('Упражнение с таким названием уже существует', 'danger')
-            return render_template('exercises/edit.html', form=form, exercise=exercise)
+            return render_template('exercises/edit.html', form=form, exercise=exercise, current_subgroups=current_subgroups)
         
         exercise.name = form.name.data
         exercise.exercise_type = form.exercise_type.data
-        exercise.muscle_group_id = form.muscle_group_id.data
-        exercise.muscle_subgroup_id = form.muscle_subgroup_id.data
+        exercise.muscle_group_id = form.muscle_group_id.data if form.muscle_group_id.data != 0 else None
+        exercise.muscle_subgroup_id = form.muscle_subgroup_id.data if form.muscle_subgroup_id.data != 0 else None
         exercise.description = form.description.data
         
         db.session.commit()
         flash('Упражнение обновлено', 'success')
         return redirect(url_for('exercises.list_exercises'))
     
-    return render_template('exercises/edit.html', form=form, exercise=exercise)
+    return render_template('exercises/edit.html', form=form, exercise=exercise, current_subgroups=current_subgroups)
 
 @bp.route('/get_subgroups')
 @login_required

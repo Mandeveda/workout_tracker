@@ -40,6 +40,8 @@ def create_program(template_id):
 @login_required
 def set_parameters():
     """Шаг 2: Заполнение параметров для каждого упражнения"""
+    from flask_wtf.csrf import CSRFProtect
+    
     if 'program_data' not in session:
         flash('Сначала выберите параметры программы', 'warning')
         return redirect(url_for('templates.list_templates'))
