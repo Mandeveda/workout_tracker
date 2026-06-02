@@ -49,7 +49,7 @@ def change_role(user_id):
     
     user = User.query.get_or_404(user_id)
     
-    # Нельзя менять роль супер-админа (если реализуете)
+    # Нельзя менять роль супер-админа
     if user.id == current_user.id:
         flash('Нельзя изменить свою собственную роль', 'warning')
         return redirect(url_for('admin.users'))

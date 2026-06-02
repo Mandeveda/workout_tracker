@@ -3,6 +3,8 @@ from flask_login import UserMixin
 from datetime import datetime
 from sqlalchemy.orm import relationship
 from math import log10
+from sqlalchemy.types import TypeDecorator, TEXT
+import json
 
 # Загрузка пользователя для Flask-Login
 @login_manager.user_loader
@@ -366,3 +368,16 @@ class WorkoutSchedule(db.Model):
     def __repr__(self):
         return f'<WorkoutSchedule {self.scheduled_date} - {self.template.name}>'
     
+class JSONEncodedDict(TypeDecorator):
+    """Кастомный тип для JSON полей в SQLite"""
+    impl = TEXT
+    
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            value = json.dumps(value)
+        return value
+    
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            value = json.loads(value)
+        return value

@@ -135,10 +135,14 @@ class ProfileForm(FlaskForm):
 class MeasurementForm(FlaskForm):
     """Форма для добавления нового измерения"""
     weight = FloatField('Вес (кг)', validators=[NumberRange(min=30, max=300)])
-    chest_circumference = FloatField('Грудь (см)', default=0)
-    waist_circumference = FloatField('Талия (см)', default=0)
-    hips_circumference = FloatField('Бёдра (см)', default=0)
-    biceps_circumference = FloatField('Бицепс (см)', default=0)
+    chest_circumference = FloatField('Грудь (см)', validators=[NumberRange(min=0, max=200)], default=0)
+    waist_circumference = FloatField('Талия (см)', validators=[NumberRange(min=0, max=200)], default=0)
+    hips_circumference = FloatField('Бёдра (см)', validators=[NumberRange(min=0, max=200)], default=0)
+    biceps_circumference = FloatField('Бицепс (см)', validators=[NumberRange(min=0, max=100)], default=0)
+    forearm_circumference = FloatField('Предплечье (см)', validators=[NumberRange(min=0, max=100)], default=0)
+    thigh_circumference = FloatField('Бедро (см)', validators=[NumberRange(min=0, max=150)], default=0)
+    calf_circumference = FloatField('Икра (см)', validators=[NumberRange(min=0, max=100)], default=0)
+    neck_circumference = FloatField('Шея (см)', validators=[NumberRange(min=0, max=100)], default=0)
     submit = SubmitField('Сохранить измерение')
 
 class ChangePasswordForm(FlaskForm):

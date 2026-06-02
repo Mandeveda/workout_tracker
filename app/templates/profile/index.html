@@ -162,8 +162,13 @@
                     <div class="mt-2 text-center">
                         <button class="btn btn-sm btn-outline-primary" onclick="updateChart('weight')">Вес</button>
                         <button class="btn btn-sm btn-outline-primary" onclick="updateChart('chest')">Грудь</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="updateChart('hips')">Бёдра</button>
                         <button class="btn btn-sm btn-outline-primary" onclick="updateChart('waist')">Талия</button>
                         <button class="btn btn-sm btn-outline-primary" onclick="updateChart('biceps')">Бицепс</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="updateChart('forearm')">Предплечье</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="updateChart('thigh')">Бедро</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="updateChart('calf')">Икра</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="updateChart('neck')">Шея</button>
                     </div>
                 </div>
             </div>
@@ -179,116 +184,216 @@
                 <h5 class="modal-title">📏 Новое измерение</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ url_for('profile.add_measurement') }}">
+            <form method="POST" action="{{ url_for('profile.add_measurement') }}" id="measurementForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Вес (кг)</label>
-                        <input type="number" step="0.1" name="weight" class="form-control" required>
+                        <label class="form-label">Вес (кг) *</label>
+                        <input type="number" step="0.1" name="weight" class="form-control" 
+                               value="{{ user.weight }}" required>
+                        <small class="text-muted">Обязательное поле</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Грудь (см)</label>
-                        <input type="number" step="0.1" name="chest_circumference" class="form-control">
+                        <input type="number" step="0.1" name="chest_circumference" class="form-control"
+                               value="{{ user.chest_circumference or '' }}">
+                        <small class="text-muted">Оставьте пустым, чтобы сохранить текущее значение</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Талия (см)</label>
-                        <input type="number" step="0.1" name="waist_circumference" class="form-control">
+                        <input type="number" step="0.1" name="waist_circumference" class="form-control"
+                               value="{{ user.waist_circumference or '' }}">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Бёдра (см)</label>
-                        <input type="number" step="0.1" name="hips_circumference" class="form-control">
+                        <input type="number" step="0.1" name="hips_circumference" class="form-control"
+                               value="{{ user.hips_circumference or '' }}">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Бицепс (см)</label>
-                        <input type="number" step="0.1" name="biceps_circumference" class="form-control">
+                        <input type="number" step="0.1" name="biceps_circumference" class="form-control"
+                               value="{{ user.biceps_circumference or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Предплечье (см)</label>
+                        <input type="number" step="0.1" name="forearm_circumference" class="form-control"
+                               value="{{ user.forearm_circumference or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Бедро (см)</label>
+                        <input type="number" step="0.1" name="thigh_circumference" class="form-control"
+                               value="{{ user.thigh_circumference or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Икра (см)</label>
+                        <input type="number" step="0.1" name="calf_circumference" class="form-control"
+                               value="{{ user.calf_circumference or '' }}">
+                    </div>                    
+                    <div class="mb-3">
+                        <label class="form-label">Шея (см)</label>
+                        <input type="number" step="0.1" name="neck_circumference" class="form-control"
+                               value="{{ user.neck_circumference or '' }}">
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <button type="submit" class="btn btn-primary">Сохранить измерение</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+<script>
+    // Добавляем подтверждение при отправке формы
+    document.getElementById('measurementForm')?.addEventListener('submit', function(e) {
+        const weightInput = this.querySelector('input[name="weight"]');
+        if (weightInput && !weightInput.value) {
+            e.preventDefault();
+            alert('Пожалуйста, укажите вес');
+            return false;
+        }
+        
+        // Показываем индикатор загрузки
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Сохранение...';
+        }
+    });
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
     let chart = null;
     let measurementsData = null;
     
-    fetch('/profile/measurements_data')
-        .then(response => response.json())
-        .then(data => {
-            measurementsData = data;
-            createChart(data, 'weight');
-        });
-    
-    function createChart(data, metric) {
-        const ctx = document.getElementById('progressChart').getContext('2d');
-        
-        let label, values, color, unit;
-        switch(metric) {
-            case 'weight':
-                label = 'Вес (кг)';
-                values = data.weights;
-                color = 'rgb(54, 162, 235)';
-                unit = 'кг';
-                break;
-            case 'chest':
-                label = 'Грудь (см)';
-                values = data.chest;
-                color = 'rgb(75, 192, 192)';
-                unit = 'см';
-                break;
-            case 'waist':
-                label = 'Талия (см)';
-                values = data.waist;
-                color = 'rgb(255, 99, 132)';
-                unit = 'см';
-                break;
-            case 'biceps':
-                label = 'Бицепс (см)';
-                values = data.biceps;
-                color = 'rgb(255, 159, 64)';
-                unit = 'см';
-                break;
-        }
-        
-        if (chart) chart.destroy();
-        
-        chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: data.dates,
-                datasets: [{
-                    label: label,
-                    data: values,
-                    borderColor: color,
-                    backgroundColor: color + '20',
-                    borderWidth: 2,
-                    pointRadius: 4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.dataset.label + ': ' + context.raw + ' ' + unit;
+    // Функция для загрузки данных
+    function loadMeasurementsData() {
+        fetch('/profile/measurements_data')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                measurementsData = data;
+                console.log('Загружено измерений:', data.dates.length);
+                console.log('Первая дата:', data.dates[0]);
+                console.log('Последняя дата:', data.dates[data.dates.length - 1]);
+                
+                if (data.dates.length === 0) {
+                    // Показываем сообщение, если нет данных
+                    const ctx = document.getElementById('progressChart').getContext('2d');
+                    if (chart) chart.destroy();
+                    
+                    // Создаем пустой график с сообщением
+                    chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: ['Нет данных'],
+                            datasets: [{
+                                label: 'Нет измерений',
+                                data: [0],
+                                borderColor: 'gray',
+                                backgroundColor: 'rgba(128, 128, 128, 0.1)'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function() {
+                                            return 'Добавьте первое измерение';
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }
+                    });
+                } else {
+                    createChart(data, 'weight');
                 }
-            }
-        });
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки данных:', error);
+            });
     }
     
+    function createChart(data, metric) {
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    
+    const configs = {
+        weight: { label: 'Вес (кг)', color: 'rgb(54, 162, 235)', unit: 'кг' },
+        chest: { label: 'Грудь (см)', color: 'rgb(75, 192, 192)', unit: 'см' },
+        waist: { label: 'Талия (см)', color: 'rgb(255, 99, 132)', unit: 'см' },
+        hips: { label: 'Бёдра (см)', color: 'rgb(255, 99, 132)', unit: 'см' },
+        biceps: { label: 'Бицепс (см)', color: 'rgb(255, 159, 64)', unit: 'см' },
+        forearm: { label: 'Предплечье (см)', color: 'rgb(255, 159, 64)', unit: 'см' },
+        thigh: { label: 'Бедро (см)', color: 'rgb(255, 159, 64)', unit: 'см' },
+        calf: { label: 'Икра (см)', color: 'rgb(255, 159, 64)', unit: 'см' },
+        neck: { label: 'Шея (см)', color: 'rgb(255, 159, 64)', unit: 'см' }
+    };
+    
+    const config = configs[metric];
+    const values = data[metric === 'weight' ? 'weights' : metric];
+    
+    if (chart) chart.destroy();
+    
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.dates,
+            datasets: [{
+                label: config.label,
+                data: values,
+                borderColor: config.color,
+                borderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: config.color,
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                fill: false,  // 👈 НЕТ ЗАЛИВКИ
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: (context) => `${context.dataset.label}: ${context.raw} ${config.unit}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    title: { display: true, text: config.unit }
+                },
+                x: {
+                    title: { display: true, text: 'Дата' }
+                }
+            }
+        }
+    });
+}
+    
     function updateChart(metric) {
-        if (measurementsData) {
+        if (measurementsData && measurementsData.dates.length > 0) {
             createChart(measurementsData, metric);
+        } else {
+            console.warn('Нет данных для обновления графика');
+            // Перезагружаем данные
+            loadMeasurementsData();
         }
     }
+    
+    // Инициализация при загрузке страницы
+    document.addEventListener('DOMContentLoaded', function() {
+        loadMeasurementsData();
+    });
 </script>
 {% endblock %}
