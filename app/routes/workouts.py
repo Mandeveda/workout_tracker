@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint
+from flask import render_template, redirect, url_for, flash, request, Blueprint, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime
 from app import db
@@ -12,6 +12,12 @@ bp = Blueprint('workouts', __name__, url_prefix='/workouts')
 def index():
     """Список тренировок на сегодня и предстоящие"""
     today = datetime.utcnow().date()
+    
+    # Активные (незавершённые) тренировки
+    active_sessions = WorkoutSession.query.filter_by(
+        user_id=current_user.id,
+        is_completed=False  # Добавим поле is_completed в модель
+    ).order_by(WorkoutSession.date.desc()).all()
     
     # Тренировки на сегодня
     today_workouts = WorkoutSchedule.query.filter_by(
@@ -29,10 +35,12 @@ def index():
     
     # История последних тренировок
     history = WorkoutSession.query.filter_by(
-        user_id=current_user.id
+        user_id=current_user.id,
+        is_completed=True
     ).order_by(WorkoutSession.date.desc()).limit(10).all()
     
     return render_template('workouts/index.html', 
+                         active_sessions=active_sessions,
                          today_workouts=today_workouts,
                          upcoming=upcoming,
                          history=history)
@@ -69,19 +77,24 @@ def start_workout(schedule_id=None):
         flash('Эта тренировка уже выполнена или пропущена', 'warning')
         return redirect(url_for('workouts.index'))
     
-    existing_session = WorkoutSession.query.filter_by(schedule_id=schedule.id).first()
+    # Проверяем, есть ли уже активная сессия для этого расписания
+    existing_session = WorkoutSession.query.filter_by(
+        schedule_id=schedule.id, 
+        is_completed=False
+    ).first()
     
     if existing_session:
         flash('Тренировка уже была начата. Продолжите выполнение.', 'info')
         return redirect(url_for('workouts.perform', session_id=existing_session.id))
     
-    # добавляем template_id из расписания
+    # Создаём новую сессию (незавершённую)
     session = WorkoutSession(
         user_id=current_user.id,
         schedule_id=schedule.id,
-        template_id=schedule.template_id,  # <-- ДОБАВИТЬ ЭТУ СТРОКУ
+        template_id=schedule.template_id,
         date=datetime.utcnow(),
-        status='completed'
+        status='in_progress',  # Новый статус
+        is_completed=False      # Новое поле
     )
     db.session.add(session)
     db.session.commit()
@@ -92,27 +105,39 @@ def start_workout(schedule_id=None):
 @bp.route('/perform/<int:session_id>', methods=['GET', 'POST'])
 @login_required
 def perform(session_id):
-    """Выполнение тренировки (ввод результатов)"""
-    from flask_wtf.csrf import CSRFProtect
+    """Выполнение тренировки (ввод результатов с возможностью редактирования)"""
     session = WorkoutSession.query.get_or_404(session_id)
     
     if session.user_id != current_user.id:
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('workouts.index'))
     
-    # Проверяем, что тренировка ещё не завершена (нет логов)
-    existing_logs = SetLog.query.filter_by(session_id=session.id).first()
-    if existing_logs:
-        flash('Эта тренировка уже была завершена', 'warning')
+    # Если тренировка завершена, перенаправляем на summary
+    if session.is_completed:
+        flash('Эта тренировка уже завершена', 'info')
         return redirect(url_for('workouts.summary', session_id=session.id))
     
     schedule = session.schedule
+    if not schedule:
+        flash('Ошибка: расписание не найдено', 'danger')
+        return redirect(url_for('workouts.index'))
+    
     planned_data = schedule.planned_data
     
     # Получаем упражнения из шаблона
-    template_exercises = TemplateExercise.query.filter_by(template_id=schedule.template.id).order_by(TemplateExercise.order).all()
+    template_exercises = TemplateExercise.query.filter_by(
+        template_id=schedule.template.id
+    ).order_by(TemplateExercise.order).all()
     
-    # Собираем информацию об упражнениях
+    # Получаем существующие логи для этой сессии
+    existing_logs = {log.id: log for log in SetLog.query.filter_by(session_id=session.id).all()}
+    
+    # Группируем логи по упражнениям и подходам для быстрого доступа
+    log_by_exercise_set = {}
+    for log in existing_logs.values():
+        log_by_exercise_set[(log.exercise_id, log.set_number)] = log
+    
+    # Собираем информацию об упражнениях с заполненными данными
     exercises_data = []
     for te in template_exercises:
         exercise_id = str(te.exercise_id)
@@ -122,6 +147,9 @@ def perform(session_id):
             exercise_plan = planned_data[exercise_id]
             
             if exercise_type == 'cardio':
+                # Проверяем, есть ли сохранённые данные для кардио
+                cardio_log = log_by_exercise_set.get((te.exercise_id, 1))
+                
                 exercises_data.append({
                     'template_exercise_id': te.id,
                     'exercise_id': te.exercise_id,
@@ -129,24 +157,37 @@ def perform(session_id):
                     'exercise_type': 'cardio',
                     'planned_duration': exercise_plan.get('duration', 30),
                     'planned_distance': exercise_plan.get('distance', 0),
-                    'planned_heart_rate': exercise_plan.get('target_heart_rate')
+                    'planned_heart_rate': exercise_plan.get('target_heart_rate'),
+                    'actual_duration': cardio_log.actual_reps if cardio_log and cardio_log.actual_reps else '',
+                    'actual_distance': cardio_log.actual_weight if cardio_log and cardio_log.actual_weight else '',
+                    'actual_heart_rate': None  # Можно добавить отдельное поле в SetLog
                 })
             else:
                 # strength или bodyweight
                 sets_data = []
                 if exercise_plan['input_type'] == 'fixed':
                     for i in range(1, exercise_plan['sets'] + 1):
+                        # Проверяем, есть ли сохранённые данные для этого подхода
+                        saved_log = log_by_exercise_set.get((te.exercise_id, i))
+                        
                         sets_data.append({
                             'set_number': i,
                             'planned_reps': exercise_plan['reps'],
-                            'planned_weight': exercise_plan.get('weight', 0)
+                            'planned_weight': exercise_plan.get('weight', 0),
+                            'actual_reps': saved_log.actual_reps if saved_log and saved_log.actual_reps else '',
+                            'actual_weight': saved_log.actual_weight if saved_log and saved_log.actual_weight else ''
                         })
                 else:
                     for set_info in exercise_plan['sets']:
+                        set_num = set_info['set_number']
+                        saved_log = log_by_exercise_set.get((te.exercise_id, set_num))
+                        
                         sets_data.append({
-                            'set_number': set_info['set_number'],
+                            'set_number': set_num,
                             'planned_reps': set_info['reps'],
-                            'planned_weight': set_info.get('weight', 0)
+                            'planned_weight': set_info.get('weight', 0),
+                            'actual_reps': saved_log.actual_reps if saved_log and saved_log.actual_reps else '',
+                            'actual_weight': saved_log.actual_weight if saved_log and saved_log.actual_weight else ''
                         })
                 
                 exercises_data.append({
@@ -158,26 +199,42 @@ def perform(session_id):
                 })
     
     if request.method == 'POST':
-        # Сохраняем результаты
+        # Обработка сохранения (обычная отправка формы для завершения)
+        # Сохраняем результаты (обновляем существующие или создаём новые)
         for exercise in exercises_data:
             if exercise['exercise_type'] == 'cardio':
-                # Сохраняем кардио данные как один "сет"
                 actual_duration = request.form.get(f'actual_duration_{exercise["exercise_id"]}', type=int)
                 actual_distance = request.form.get(f'actual_distance_{exercise["exercise_id"]}', type=float)
-                actual_heart_rate = request.form.get(f'actual_heart_rate_{exercise["exercise_id"]}', type=int)
                 
-                # Для кардио создаём один лог подхода
-                set_log = SetLog(
+                # Ищем существующий лог
+                existing_log = SetLog.query.filter_by(
                     session_id=session.id,
                     exercise_id=exercise['exercise_id'],
-                    set_number=1,
-                    planned_reps=1,  # Условно
-                    planned_weight=exercise.get('planned_duration', 0),  # Храним длительность
-                    actual_reps=actual_duration,
-                    actual_weight=actual_distance
-                )
-                set_log.calculate_completion()
-                db.session.add(set_log)
+                    set_number=1
+                ).first()
+                
+                if actual_duration or actual_distance:
+                    if existing_log:
+                        # Обновляем существующий
+                        existing_log.actual_reps = actual_duration
+                        existing_log.actual_weight = actual_distance
+                        existing_log.calculate_completion(
+                            current_user.weight if exercise['exercise_type'] == 'bodyweight' else None
+                        )
+                    else:
+                        # Создаём новый
+                        set_log = SetLog(
+                            session_id=session.id,
+                            exercise_id=exercise['exercise_id'],
+                            template_exercise_id=exercise['template_exercise_id'],
+                            set_number=1,
+                            planned_reps=exercise.get('planned_duration', 0),
+                            planned_weight=exercise.get('planned_distance', 0),
+                            actual_reps=actual_duration,
+                            actual_weight=actual_distance
+                        )
+                        set_log.calculate_completion()
+                        db.session.add(set_log)
                 
             else:
                 # Силовые и bodyweight
@@ -187,33 +244,246 @@ def perform(session_id):
                     actual_weight = request.form.get(f'weight_{exercise["exercise_id"]}_{set_number}', type=float)
                     
                     if actual_reps is not None:
-                        set_log = SetLog(
+                        # Ищем существующий лог
+                        existing_log = SetLog.query.filter_by(
                             session_id=session.id,
                             exercise_id=exercise['exercise_id'],
-                            set_number=set_number,
-                            planned_reps=set_info['planned_reps'],
-                            planned_weight=set_info.get('planned_weight', 0),
-                            actual_reps=actual_reps,
-                            actual_weight=actual_weight if actual_weight else 0
-                        )
-                        if exercise['exercise_type'] == 'bodyweight':
-                            set_log.calculate_completion(current_user.weight)
+                            set_number=set_number
+                        ).first()
+                        
+                        if existing_log:
+                            # Обновляем существующий
+                            existing_log.actual_reps = actual_reps
+                            existing_log.actual_weight = actual_weight if actual_weight else 0
+                            if exercise['exercise_type'] == 'bodyweight':
+                                existing_log.calculate_completion(current_user.weight)
+                            else:
+                                existing_log.calculate_completion()
                         else:
-                            set_log.calculate_completion()
-                        db.session.add(set_log)
-
+                            # Создаём новый
+                            set_log = SetLog(
+                                session_id=session.id,
+                                exercise_id=exercise['exercise_id'],
+                                template_exercise_id=exercise['template_exercise_id'],
+                                set_number=set_number,
+                                planned_reps=set_info['planned_reps'],
+                                planned_weight=set_info.get('planned_weight', 0),
+                                actual_reps=actual_reps,
+                                actual_weight=actual_weight if actual_weight else 0
+                            )
+                            if exercise['exercise_type'] == 'bodyweight':
+                                set_log.calculate_completion(current_user.weight)
+                            else:
+                                set_log.calculate_completion()
+                            db.session.add(set_log)
         
         db.session.commit()
         
         # Обновляем процент выполнения тренировки
         update_session_completion(session.id)
         
-        flash('Тренировка успешно сохранена!', 'success')
-        return redirect(url_for('workouts.summary', session_id=session.id))
+        # Проверяем, нажата ли кнопка завершения
+        if request.form.get('complete'):
+            session.is_completed = True
+            session.status = 'completed'
+            db.session.commit()
+            
+            # Обновляем статус расписания
+            if session.schedule:
+                session.schedule.status = 'completed'
+                db.session.commit()
+            
+            flash('Тренировка успешно завершена!', 'success')
+            return redirect(url_for('workouts.summary', session_id=session.id))
+        else:
+            flash('Прогресс сохранён!', 'success')
+            # Остаёмся на той же странице для продолжения редактирования
+            return redirect(url_for('workouts.perform', session_id=session.id))
     
     return render_template('workouts/perform.html', 
                          session=session,
                          exercises_data=exercises_data)
+
+@bp.route('/save_progress/<int:session_id>', methods=['POST'])
+@login_required
+def save_progress(session_id):
+    """Сохранение текущего прогресса тренировки (AJAX)"""
+    session = WorkoutSession.query.get_or_404(session_id)
+    
+    if session.user_id != current_user.id:
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    if session.is_completed:
+        return jsonify({'success': False, 'error': 'Training already completed'}), 400
+    
+    schedule = session.schedule
+    if not schedule:
+        return jsonify({'success': False, 'error': 'Schedule not found'}), 400
+    
+    planned_data = schedule.planned_data
+    
+    template_exercises = TemplateExercise.query.filter_by(
+        template_id=schedule.template.id
+    ).order_by(TemplateExercise.order).all()
+    
+    completions = {}
+    
+    for te in template_exercises:
+        exercise_id = str(te.exercise_id)
+        exercise_type = te.exercise.exercise_type
+        
+        if exercise_id in planned_data:
+            exercise_plan = planned_data[exercise_id]
+            
+            if exercise_type == 'cardio':
+                actual_duration = request.form.get(f'actual_duration_{te.exercise_id}', type=int)
+                actual_distance = request.form.get(f'actual_distance_{te.exercise_id}', type=float)
+                
+                existing_log = SetLog.query.filter_by(
+                    session_id=session.id,
+                    exercise_id=te.exercise_id,
+                    set_number=1
+                ).first()
+                
+                if actual_duration is not None:
+                    if existing_log:
+                        existing_log.actual_reps = actual_duration
+                        existing_log.actual_weight = actual_distance if actual_distance else 0
+                        existing_log.calculate_completion()
+                    else:
+                        set_log = SetLog(
+                            session_id=session.id,
+                            exercise_id=te.exercise_id,
+                            template_exercise_id=te.id,
+                            set_number=1,
+                            planned_reps=exercise_plan.get('duration', 30),
+                            planned_weight=exercise_plan.get('distance', 0),
+                            actual_reps=actual_duration,
+                            actual_weight=actual_distance if actual_distance else 0
+                        )
+                        set_log.calculate_completion()
+                        db.session.add(set_log)
+                    
+                    completions[f'{te.exercise_id}_1'] = existing_log.completion_percent if existing_log else set_log.completion_percent
+                    
+            else:
+                # Strength или bodyweight
+                if exercise_plan['input_type'] == 'fixed':
+                    for i in range(1, exercise_plan['sets'] + 1):
+                        actual_reps = request.form.get(f'reps_{te.exercise_id}_{i}', type=int)
+                        actual_weight = request.form.get(f'weight_{te.exercise_id}_{i}', type=float)
+                        
+                        if actual_reps is not None:
+                            existing_log = SetLog.query.filter_by(
+                                session_id=session.id,
+                                exercise_id=te.exercise_id,
+                                set_number=i
+                            ).first()
+                            
+                            if existing_log:
+                                existing_log.actual_reps = actual_reps
+                                existing_log.actual_weight = actual_weight if actual_weight else 0
+                                if exercise_type == 'bodyweight':
+                                    existing_log.calculate_completion(current_user.weight)
+                                else:
+                                    existing_log.calculate_completion()
+                                completions[f'{te.exercise_id}_{i}'] = existing_log.completion_percent
+                            else:
+                                set_log = SetLog(
+                                    session_id=session.id,
+                                    exercise_id=te.exercise_id,
+                                    template_exercise_id=te.id,
+                                    set_number=i,
+                                    planned_reps=exercise_plan['reps'],
+                                    planned_weight=exercise_plan.get('weight', 0),
+                                    actual_reps=actual_reps,
+                                    actual_weight=actual_weight if actual_weight else 0
+                                )
+                                if exercise_type == 'bodyweight':
+                                    set_log.calculate_completion(current_user.weight)
+                                else:
+                                    set_log.calculate_completion()
+                                db.session.add(set_log)
+                                completions[f'{te.exercise_id}_{i}'] = set_log.completion_percent
+                else:
+                    # Progressive
+                    for set_info in exercise_plan['sets']:
+                        set_num = set_info['set_number']
+                        actual_reps = request.form.get(f'reps_{te.exercise_id}_{set_num}', type=int)
+                        actual_weight = request.form.get(f'weight_{te.exercise_id}_{set_num}', type=float)
+                        
+                        if actual_reps is not None:
+                            existing_log = SetLog.query.filter_by(
+                                session_id=session.id,
+                                exercise_id=te.exercise_id,
+                                set_number=set_num
+                            ).first()
+                            
+                            if existing_log:
+                                existing_log.actual_reps = actual_reps
+                                existing_log.actual_weight = actual_weight if actual_weight else 0
+                                if exercise_type == 'bodyweight':
+                                    existing_log.calculate_completion(current_user.weight)
+                                else:
+                                    existing_log.calculate_completion()
+                                completions[f'{te.exercise_id}_{set_num}'] = existing_log.completion_percent
+                            else:
+                                set_log = SetLog(
+                                    session_id=session.id,
+                                    exercise_id=te.exercise_id,
+                                    template_exercise_id=te.id,
+                                    set_number=set_num,
+                                    planned_reps=set_info['reps'],
+                                    planned_weight=set_info.get('weight', 0),
+                                    actual_reps=actual_reps,
+                                    actual_weight=actual_weight if actual_weight else 0
+                                )
+                                if exercise_type == 'bodyweight':
+                                    set_log.calculate_completion(current_user.weight)
+                                else:
+                                    set_log.calculate_completion()
+                                db.session.add(set_log)
+                                completions[f'{te.exercise_id}_{set_num}'] = set_log.completion_percent
+    
+    db.session.commit()
+    
+    # Обновляем общий процент выполнения
+    update_session_completion(session.id)
+    
+    return jsonify({'success': True, 'completions': completions})
+
+@bp.route('/complete/<int:session_id>', methods=['POST'])
+@login_required
+def complete_workout(session_id):
+    """Завершение тренировки"""
+    from flask_wtf.csrf import generate_csrf
+    
+    session = WorkoutSession.query.get_or_404(session_id)
+    
+    if session.user_id != current_user.id:
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    if session.status == 'completed':
+        return jsonify({'success': False, 'error': 'Training already completed'}), 400
+    
+    try:
+        session.status = 'completed'
+        session.is_completed = True  # если используете это поле
+        db.session.commit()
+        
+        # Обновляем статус расписания
+        if session.schedule:
+            session.schedule.status = 'completed'
+            db.session.commit()
+        
+        # Обновляем общий процент выполнения
+        update_session_completion(session.id)
+        
+        return jsonify({'success': True, 'redirect': url_for('workouts.summary', session_id=session.id)})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 def update_session_completion(session_id):
     """Обновляет общий процент выполнения тренировки"""
@@ -224,13 +494,9 @@ def update_session_completion(session_id):
         total_tonnage = sum((log.actual_reps or 0) * (log.actual_weight or 0) for log in set_logs)
         
         session = WorkoutSession.query.get(session_id)
-        session.completion_percent = round(total_percent, 1)
-        session.total_tonnage = total_tonnage
-        db.session.commit()
-        
-        # Обновляем статус расписания
-        if session.schedule:
-            session.schedule.status = 'completed'
+        if session:
+            session.completion_percent = round(total_percent, 1)
+            session.total_tonnage = total_tonnage
             db.session.commit()
 
 @bp.route('/summary/<int:session_id>')
@@ -251,7 +517,7 @@ def summary(session_id):
         if log.exercise_id not in exercises_summary:
             exercises_summary[log.exercise_id] = {
                 'name': log.exercise.name,
-                'exercise_type': log.exercise.exercise_type,  # <-- ДОБАВИТЬ ТИП
+                'exercise_type': log.exercise.exercise_type,
                 'sets': [],
                 'total_completion': 0
             }
@@ -359,105 +625,3 @@ def free_workout():
     exercises = Exercise.query.order_by(Exercise.name).all()
     return render_template('workouts/free_workout.html', exercises=exercises)
 
-@bp.route('/save_progress/<int:session_id>', methods=['POST'])
-@login_required
-def save_progress(session_id):
-    """Сохранение текущего прогресса тренировки (без завершения)"""
-    from flask import jsonify
-    from flask_wtf.csrf import CSRFProtect
-
-    session = WorkoutSession.query.get_or_404(session_id)
-    
-    if session.user_id != current_user.id:
-        return jsonify({'success': False, 'error': 'Access denied'}), 403
-    
-    # Удаляем старые логи для этой сессии (если есть)
-    SetLog.query.filter_by(session_id=session.id).delete()
-    
-    schedule = session.schedule
-    planned_data = schedule.planned_data
-    
-    template_exercises = TemplateExercise.query.filter_by(template_id=schedule.template.id).order_by(TemplateExercise.order).all()
-    
-    completions = {}
-    
-    for te in template_exercises:
-        exercise_id = str(te.exercise_id)
-        exercise_type = te.exercise.exercise_type
-        
-        if exercise_id in planned_data:
-            exercise_plan = planned_data[exercise_id]
-            
-            if exercise_type == 'cardio':
-                actual_duration = request.form.get(f'actual_duration_{te.exercise_id}', type=int)
-                actual_distance = request.form.get(f'actual_distance_{te.exercise_id}', type=float)
-                
-                if actual_duration:
-                    set_log = SetLog(
-                        session_id=session.id,
-                        exercise_id=te.exercise_id,
-                        set_number=1,
-                        planned_reps=exercise_plan.get('duration', 30),
-                        planned_weight=exercise_plan.get('distance', 0),
-                        actual_reps=actual_duration,
-                        actual_weight=actual_distance
-                    )
-                    set_log.calculate_completion()
-                    db.session.add(set_log)
-                    completions[f'{te.exercise_id}_1'] = set_log.completion_percent
-                    
-            else:
-                # Strength или bodyweight
-                if exercise_plan['input_type'] == 'fixed':
-                    for i in range(1, exercise_plan['sets'] + 1):
-                        actual_reps = request.form.get(f'reps_{te.exercise_id}_{i}', type=int)
-                        actual_weight = request.form.get(f'weight_{te.exercise_id}_{i}', type=float)
-                        
-                        if actual_reps:
-                            set_log = SetLog(
-                                session_id=session.id,
-                                exercise_id=te.exercise_id,
-                                set_number=i,
-                                planned_reps=exercise_plan['reps'],
-                                planned_weight=exercise_plan.get('weight', 0),
-                                actual_reps=actual_reps,
-                                actual_weight=actual_weight if actual_weight else 0
-                            )
-                            if exercise_type == 'bodyweight':
-                                set_log.calculate_completion(current_user.weight)
-                            else:
-                                set_log.calculate_completion()
-                            
-                            db.session.add(set_log)
-                            completions[f'{te.exercise_id}_{i}'] = set_log.completion_percent
-                else:
-                    # Progressive
-                    for set_info in exercise_plan['sets']:
-                        set_num = set_info['set_number']
-                        actual_reps = request.form.get(f'reps_{te.exercise_id}_{set_num}', type=int)
-                        actual_weight = request.form.get(f'weight_{te.exercise_id}_{set_num}', type=float)
-                        
-                        if actual_reps:
-                            set_log = SetLog(
-                                session_id=session.id,
-                                exercise_id=te.exercise_id,
-                                set_number=set_num,
-                                planned_reps=set_info['reps'],
-                                planned_weight=set_info.get('weight', 0),
-                                actual_reps=actual_reps,
-                                actual_weight=actual_weight if actual_weight else 0
-                            )
-                            if exercise_type == 'bodyweight':
-                                set_log.calculate_completion(current_user.weight)
-                            else:
-                                set_log.calculate_completion()
-                            
-                            db.session.add(set_log)
-                            completions[f'{te.exercise_id}_{set_num}'] = set_log.completion_percent
-    
-    db.session.commit()
-    
-    # Обновляем общий процент выполнения
-    update_session_completion(session.id)
-    
-    return jsonify({'success': True, 'completions': completions})

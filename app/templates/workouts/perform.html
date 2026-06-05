@@ -4,6 +4,13 @@
 <div class="container mt-4">
     <h2 class="mb-4">Тренировка: {{ session.schedule.template.name }}</h2>
     <p class="text-muted">{{ session.date.strftime('%d.%m.%Y %H:%M') }}</p>
+    <p class="text-info">Статус: 
+        {% if session.is_completed %}
+            <span class="badge bg-success">Завершена</span>
+        {% else %}
+            <span class="badge bg-warning">В процессе</span>
+        {% endif %}
+    </p>
     
     <!-- Индикатор сохранения -->
     <div id="saveIndicator" class="alert alert-success" style="display: none;">
@@ -11,7 +18,6 @@
     </div>
     
     <form method="POST" id="workoutForm">
-        {{ form.hidden_tag() if form else '' }}
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         {% for exercise in exercises_data %}
             <div class="card mb-4">
@@ -49,14 +55,18 @@
                                                         <div class="col-md-5">
                                                             <input type="number" step="0.5" 
                                                                    name="weight_{{ exercise.exercise_id }}_{{ set_info.set_number }}"
-                                                                   class="form-control" placeholder="Вес"
+                                                                   class="form-control" 
+                                                                   placeholder="Вес"
+                                                                   value="{{ set_info.actual_weight if set_info.actual_weight else '' }}"
                                                                    data-exercise="{{ exercise.exercise_id }}"
                                                                    data-set="{{ set_info.set_number }}">
                                                         </div>
                                                         <div class="col-md-5">
                                                             <input type="number" 
                                                                    name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"
-                                                                   class="form-control" placeholder="Повторы"
+                                                                   class="form-control" 
+                                                                   placeholder="Повторы"
+                                                                   value="{{ set_info.actual_reps if set_info.actual_reps else '' }}"
                                                                    data-exercise="{{ exercise.exercise_id }}"
                                                                    data-set="{{ set_info.set_number }}">
                                                         </div>
@@ -64,10 +74,12 @@
                                                             <span class="badge bg-secondary" id="check_{{ exercise.exercise_id }}_{{ set_info.set_number }}">⏳</span>
                                                         </div>
                                                     {% else %}
-                                                        <div class="col-md-5">
+                                                        <div class="col-md-8">
                                                             <input type="number" 
                                                                    name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"
-                                                                   class="form-control" placeholder="Повторы"
+                                                                   class="form-control" 
+                                                                   placeholder="Повторы"
+                                                                   value="{{ set_info.actual_reps if set_info.actual_reps else '' }}"
                                                                    data-exercise="{{ exercise.exercise_id }}"
                                                                    data-set="{{ set_info.set_number }}">
                                                         </div>
@@ -77,7 +89,19 @@
                                                     {% endif %}
                                                 </div>
                                             </td>
-                                            <td class="text-center" id="completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}">—</td>
+                                            <td class="text-center" id="completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}">
+                                                {% if set_info.actual_reps %}
+                                                    {% if exercise.exercise_type == 'strength' and set_info.actual_weight %}
+                                                        {{ ((set_info.actual_reps * set_info.actual_weight) / (set_info.planned_reps * set_info.planned_weight) * 100)|round(1) if set_info.planned_weight > 0 else 0 }}%
+                                                    {% elif exercise.exercise_type == 'bodyweight' %}
+                                                        {{ ((set_info.actual_reps / set_info.planned_reps) * 100)|round(1) if set_info.planned_reps > 0 else 0 }}%
+                                                    {% else %}
+                                                        —
+                                                    {% endif %}
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
@@ -89,15 +113,18 @@
                         <div class="row">
                             <div class="col-md-4">
                                 <label class="form-label">Фактическая длительность (мин)</label>
-                                <input type="number" name="actual_duration_{{ exercise.exercise_id }}" class="form-control" value="{{ exercise.planned_duration }}">
+                                <input type="number" name="actual_duration_{{ exercise.exercise_id }}" 
+                                       class="form-control" value="{{ exercise.actual_duration }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Фактическая дистанция (км)</label>
-                                <input type="number" step="0.1" name="actual_distance_{{ exercise.exercise_id }}" class="form-control" value="{{ exercise.planned_distance }}">
+                                <input type="number" step="0.1" name="actual_distance_{{ exercise.exercise_id }}" 
+                                       class="form-control" value="{{ exercise.actual_distance }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Средний пульс</label>
-                                <input type="number" name="actual_heart_rate_{{ exercise.exercise_id }}" class="form-control" placeholder="120">
+                                <input type="number" name="actual_heart_rate_{{ exercise.exercise_id }}" 
+                                       class="form-control" placeholder="120" value="{{ exercise.actual_heart_rate }}">
                             </div>
                         </div>
                     {% endif %}
@@ -109,7 +136,7 @@
             <button type="button" id="saveProgressBtn" class="btn btn-warning btn-lg me-3">
                 💾 Сохранить прогресс
             </button>
-            <button type="button" id="completeWorkoutBtn" class="btn btn-success btn-lg" disabled>
+            <button type="button" id="completeWorkoutBtn" class="btn btn-success btn-lg" {% if not session.is_completed %}disabled{% endif %}>
                 🏁 Завершить тренировку
             </button>
             <a href="{{ url_for('workouts.index') }}" class="btn btn-secondary btn-lg ms-3">Отмена</a>
@@ -118,24 +145,21 @@
 </div>
 
 <script>
-    // Хранилище сохранённых данных
-    let savedData = {};
     let hasUnsavedChanges = false;
+    let autoSaveTimer = null;
     
     // Функция расчёта процента выполнения
     function calculateCompletion(weightInput, repsInput, plannedWeight, plannedReps, completionSpan, exerciseType) {
         const weight = weightInput ? parseFloat(weightInput.value) : null;
         const reps = parseInt(repsInput.value);
         
-        if (!isNaN(reps) && reps > 0) {
+        if (!isNaN(reps) && reps > 0 && plannedReps > 0) {
             let percent = 0;
-            if (exerciseType === 'strength' && weightInput && !isNaN(weight) && weight > 0) {
+            if (exerciseType === 'strength' && weightInput && !isNaN(weight) && weight > 0 && plannedWeight > 0) {
                 // Силовые с весом
                 const plannedVolume = plannedReps * plannedWeight;
                 const actualVolume = reps * weight;
-                if (plannedVolume > 0) {
-                    percent = Math.min(100, (actualVolume / plannedVolume) * 100);
-                }
+                percent = Math.min(100, (actualVolume / plannedVolume) * 100);
             } else if (exerciseType === 'bodyweight') {
                 // Собственный вес — считаем только по повторениям
                 percent = Math.min(100, (reps / plannedReps) * 100);
@@ -155,9 +179,25 @@
                 completionSpan.style.color = 'red';
             }
             return percent;
+        } else if (reps === 0 || (reps !== null && plannedReps > 0)) {
+            completionSpan.textContent = '0%';
+            completionSpan.style.color = 'red';
+            return 0;
         } else {
             completionSpan.textContent = '—';
-            return 0;
+            return null;
+        }
+    }
+    
+    // Функция автосохранения
+    function autoSave() {
+        if (autoSaveTimer) {
+            clearTimeout(autoSaveTimer);
+        }
+        if (hasUnsavedChanges) {
+            autoSaveTimer = setTimeout(() => {
+                saveProgress();
+            }, 3000); // Автосохранение через 3 секунды после последнего изменения
         }
     }
     
@@ -165,6 +205,7 @@
     function saveProgress() {
         const formData = new FormData(document.getElementById('workoutForm'));
         formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+        
         fetch('/workouts/save_progress/{{ session.id }}', {
             method: 'POST',
             body: formData
@@ -184,14 +225,24 @@
                     const [exerciseId, setNum] = key.split('_');
                     const checkSpan = document.getElementById(`check_${exerciseId}_${setNum}`);
                     if (checkSpan) {
-                        checkSpan.textContent = percent >= 100 ? '✓' : '📝';
-                        checkSpan.className = percent >= 100 ? 'badge bg-success' : 'badge bg-warning';
+                        if (percent >= 100) {
+                            checkSpan.textContent = '✓';
+                            checkSpan.className = 'badge bg-success';
+                        } else if (percent > 0) {
+                            checkSpan.textContent = '📝';
+                            checkSpan.className = 'badge bg-warning';
+                        } else {
+                            checkSpan.textContent = '⚠️';
+                            checkSpan.className = 'badge bg-danger';
+                        }
                     }
                 }
                 
                 hasUnsavedChanges = false;
                 document.getElementById('completeWorkoutBtn').disabled = false;
-                flashMessage('Прогресс сохранён!', 'success');
+            } else {
+                console.error('Save error:', data.error);
+                flashMessage('Ошибка сохранения: ' + (data.error || 'Неизвестная ошибка'), 'danger');
             }
         })
         .catch(error => {
@@ -202,12 +253,49 @@
     
     // Функция завершения тренировки
     function completeWorkout() {
-        if (confirm('Завершить тренировку? Сохранённые результаты будут окончательно записаны.')) {
-            // Сначала сохраняем прогресс, потом отправляем форму
-            saveProgress();
-            setTimeout(() => {
-                document.getElementById('workoutForm').submit();
-            }, 500);
+        if (confirm('Завершить тренировку? После завершения редактирование будет недоступно.')) {
+            // Получаем CSRF токен
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+            
+            // Сначала сохраняем прогресс через обычную форму
+            const formData = new FormData(document.getElementById('workoutForm'));
+            
+            fetch(`/workouts/save_progress/{{ session.id }}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // После успешного сохранения, завершаем тренировку
+                    return fetch(`/workouts/complete/{{ session.id }}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({})
+                    });
+                } else {
+                    throw new Error('Ошибка сохранения прогресса');
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Перенаправляем на страницу с результатами
+                    window.location.href = `/workouts/summary/{{ session.id }}`;
+                } else {
+                    flashMessage('Ошибка завершения тренировки: ' + (data.error || 'Неизвестная ошибка'), 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                flashMessage('Ошибка завершения тренировки. Попробуйте еще раз.', 'danger');
+            });
         }
     }
     
@@ -220,7 +308,8 @@
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
-        document.querySelector('.container.mt-4').insertBefore(alertDiv, document.querySelector('.container.mt-4').firstChild);
+        const container = document.querySelector('.container.mt-4');
+        container.insertBefore(alertDiv, container.firstChild);
         
         setTimeout(() => alertDiv.remove(), 3000);
     }
@@ -235,13 +324,32 @@
                         const weightInput = document.querySelector('input[name="weight_{{ exercise.exercise_id }}_{{ set_info.set_number }}"]');
                         const repsInput = document.querySelector('input[name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"]');
                         const completionSpan = document.getElementById('completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}');
+                        const checkSpan = document.getElementById('check_{{ exercise.exercise_id }}_{{ set_info.set_number }}');
                         const plannedWeight = {{ set_info.planned_weight }};
                         const plannedReps = {{ set_info.planned_reps }};
                         
                         function update() {
-                            calculateCompletion(weightInput, repsInput, plannedWeight, plannedReps, completionSpan, 'strength');
+                            const percent = calculateCompletion(weightInput, repsInput, plannedWeight, plannedReps, completionSpan, 'strength');
                             hasUnsavedChanges = true;
                             document.getElementById('completeWorkoutBtn').disabled = true;
+                            autoSave();
+                            
+                            // Обновляем индикатор сохранения
+                            if (percent !== null) {
+                                if (percent >= 100) {
+                                    checkSpan.textContent = '✓';
+                                    checkSpan.className = 'badge bg-success';
+                                } else if (percent > 0) {
+                                    checkSpan.textContent = '📝';
+                                    checkSpan.className = 'badge bg-warning';
+                                } else {
+                                    checkSpan.textContent = '⚠️';
+                                    checkSpan.className = 'badge bg-danger';
+                                }
+                            } else {
+                                checkSpan.textContent = '⏳';
+                                checkSpan.className = 'badge bg-secondary';
+                            }
                         }
                         
                         if (weightInput) weightInput.addEventListener('input', update);
@@ -255,12 +363,31 @@
                     (function() {
                         const repsInput = document.querySelector('input[name="reps_{{ exercise.exercise_id }}_{{ set_info.set_number }}"]');
                         const completionSpan = document.getElementById('completion_{{ exercise.exercise_id }}_{{ set_info.set_number }}');
+                        const checkSpan = document.getElementById('check_{{ exercise.exercise_id }}_{{ set_info.set_number }}');
                         const plannedReps = {{ set_info.planned_reps }};
                         
                         function update() {
-                            calculateCompletion(null, repsInput, 0, plannedReps, completionSpan, 'bodyweight');
+                            const percent = calculateCompletion(null, repsInput, 0, plannedReps, completionSpan, 'bodyweight');
                             hasUnsavedChanges = true;
                             document.getElementById('completeWorkoutBtn').disabled = true;
+                            autoSave();
+                            
+                            // Обновляем индикатор сохранения
+                            if (percent !== null) {
+                                if (percent >= 100) {
+                                    checkSpan.textContent = '✓';
+                                    checkSpan.className = 'badge bg-success';
+                                } else if (percent > 0) {
+                                    checkSpan.textContent = '📝';
+                                    checkSpan.className = 'badge bg-warning';
+                                } else {
+                                    checkSpan.textContent = '⚠️';
+                                    checkSpan.className = 'badge bg-danger';
+                                }
+                            } else {
+                                checkSpan.textContent = '⏳';
+                                checkSpan.className = 'badge bg-secondary';
+                            }
                         }
                         
                         if (repsInput) repsInput.addEventListener('input', update);
@@ -274,5 +401,15 @@
     // Обработчики кнопок
     document.getElementById('saveProgressBtn').addEventListener('click', saveProgress);
     document.getElementById('completeWorkoutBtn').addEventListener('click', completeWorkout);
+    
+    // Автосохранение при уходе со страницы
+    window.addEventListener('beforeunload', function(e) {
+        if (hasUnsavedChanges) {
+            saveProgress();
+            e.preventDefault();
+            e.returnValue = 'У вас есть несохранённые изменения. Они будут сохранены автоматически.';
+            return 'У вас есть несохранённые изменения. Они будут сохранены автоматически.';
+        }
+    });
 </script>
 {% endblock %}

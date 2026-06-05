@@ -251,6 +251,7 @@ class WorkoutSession(db.Model):
     # Общая оценка выполнения
     completion_percent = db.Column(db.Float, default=0.0)
     total_tonnage = db.Column(db.Float, default=0.0)  # общий тоннаж тренировки
+    is_completed = db.Column(db.Boolean, default=False)
     
     # Связи
     user = relationship('User', back_populates='workout_sessions')
