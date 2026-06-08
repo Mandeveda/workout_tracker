@@ -574,54 +574,186 @@ def free_workout():
     """Свободная тренировка (без шаблона, ручной ввод упражнений)"""
     
     if request.method == 'POST':
-        # Создаём сессию без расписания
-        session = WorkoutSession(
-            user_id=current_user.id,
-            schedule_id=None,
-            template_id=None,
-            date=datetime.utcnow(),
-            status='completed'
-        )
-        db.session.add(session)
-        db.session.commit()
+        # Проверяем, была ли нажата кнопка завершения
+        is_completed = request.form.get('complete') == '1'
         
-        # Сохраняем упражнения из формы
+        # Получаем ID сессии из скрытого поля формы
+        session_id = request.form.get('session_id')
+        
+        # Проверяем, есть ли уже активная сессия
+        if session_id and session_id.isdigit():
+            workout_session = WorkoutSession.query.get(int(session_id))
+            if workout_session and workout_session.user_id == current_user.id and not workout_session.is_completed:
+                pass
+            else:
+                workout_session = None
+        else:
+            workout_session = None
+        
+        # Если нет активной сессии, создаём новую
+        if not workout_session:
+            workout_session = WorkoutSession(
+                user_id=current_user.id,
+                schedule_id=None,
+                template_id=None,
+                date=datetime.utcnow(),
+                status='in_progress',
+                is_completed=False
+            )
+            db.session.add(workout_session)
+            db.session.commit()
+        
+        # Если тренировка уже завершена, не даём её изменять
+        if workout_session.is_completed:
+            flash('Эта тренировка уже завершена', 'warning')
+            return redirect(url_for('workouts.summary', session_id=workout_session.id))
+        
+        # Получаем данные из формы
         exercise_ids = request.form.getlist('exercise_id')
-        reps_list = request.form.getlist('reps')
-        weights_list = request.form.getlist('weight')
+        log_ids = request.form.getlist('log_id')  # ID существующих логов
         set_numbers = request.form.getlist('set_number')
+        weights = request.form.getlist('weight')
+        reps_list = request.form.getlist('reps')
+        progressive_data_list = request.form.getlist('progressive_data')
+        input_types = request.form.getlist('input_type')
+
+        # Собираем ID логов, которые нужно сохранить
+        kept_log_ids = []
         
+        # Обрабатываем каждое упражнение
+        saved_count = 0
         for i in range(len(exercise_ids)):
-            if exercise_ids[i] and reps_list[i] and weights_list[i]:
-                exercise_id = int(exercise_ids[i])
-                reps = int(reps_list[i])
-                weight = float(weights_list[i])
-                set_number = int(set_numbers[i]) if i < len(set_numbers) and set_numbers[i] else 1
+            if not exercise_ids[i] or exercise_ids[i] == 'None':
+                continue
                 
-                set_log = SetLog(
-                    session_id=session.id,
-                    exercise_id=exercise['exercise_id'],
-                    set_number=set_number,
-                    planned_reps=set_info['planned_reps'],
-                    planned_weight=set_info.get('planned_weight', 0),
-                    actual_reps=actual_reps,
-                    actual_weight=actual_weight if actual_weight else 0
-                )
-                if exercise['exercise_type'] == 'bodyweight':
-                    set_log.calculate_completion(current_user.weight)
+            exercise_id = int(exercise_ids[i])
+            exercise_obj = Exercise.query.get(exercise_id)
+            
+            if not exercise_obj:
+                continue
+            
+            input_type = input_types[i] if i < len(input_types) else 'fixed'
+    
+            if input_type == 'progressive':
+                # Обработка progressive режима
+                if i < len(progressive_data_list) and progressive_data_list[i]:
+                    try:
+                        progressive_sets = json.loads(progressive_data_list[i])
+                        for set_info in progressive_sets:
+                            # Создаём лог для каждого подхода
+                            set_log = SetLog(
+                                session_id=workout_session.id,
+                                exercise_id=exercise_id,
+                                set_number=set_info.get('set_number', 1),
+                                planned_reps=set_info.get('reps', 0),
+                                planned_weight=set_info.get('weight', 0),
+                                actual_reps=set_info.get('reps', 0),
+                                actual_weight=set_info.get('weight', 0)
+                            )
+                            
+                            if exercise_obj.exercise_type == 'bodyweight':
+                                set_log.calculate_completion(current_user.weight)
+                            else:
+                                set_log.calculate_completion()
+                            
+                            db.session.add(set_log)
+                            db.session.flush()  # Чтобы получить ID
+                            kept_log_ids.append(set_log.id)  # ВАЖНО: добавляем ID в список
+                            saved_count += 1
+                    except json.JSONDecodeError:
+                        flash(f'Ошибка в данных упражнения {exercise_obj.name}', 'danger')
+                        continue
+            else:    
+                weight = float(weights[i]) if i < len(weights) and weights[i] and weights[i] != 'None' else 0
+                reps = int(reps_list[i]) if i < len(reps_list) and reps_list[i] and reps_list[i] != 'None' else 0
+                
+                if reps == 0:
+                    continue  # Пропускаем упражнения без повторений
+                    
+                set_number = int(set_numbers[i]) if i < len(set_numbers) and set_numbers[i] and set_numbers[i] != 'None' else 1
+                
+                log_id = log_ids[i] if i < len(log_ids) and log_ids[i] and log_ids[i].isdigit() else None
+                
+                if log_id:
+                    # Обновляем существующий лог
+                    existing_log = SetLog.query.get(int(log_id))
+                    if existing_log and existing_log.session_id == workout_session.id:
+                        existing_log.set_number = set_number
+                        existing_log.planned_reps = reps
+                        existing_log.planned_weight = weight
+                        existing_log.actual_reps = reps
+                        existing_log.actual_weight = weight
+                        
+                        if exercise_obj.exercise_type == 'bodyweight':
+                            existing_log.calculate_completion(current_user.weight)
+                        else:
+                            existing_log.calculate_completion()
+                        
+                        kept_log_ids.append(int(log_id))
+                        saved_count += 1
                 else:
-                    set_log.calculate_completion()
-                db.session.add(set_log)
+                    # Создаём новый лог
+                    set_log = SetLog(
+                        session_id=workout_session.id,
+                        exercise_id=exercise_id,
+                        set_number=set_number,
+                        planned_reps=reps,
+                        planned_weight=weight,
+                        actual_reps=reps,
+                        actual_weight=weight
+                    )
+                    
+                    if exercise_obj.exercise_type == 'bodyweight':
+                        set_log.calculate_completion(current_user.weight)
+                    else:
+                        set_log.calculate_completion()
+                    
+                    db.session.add(set_log)
+                    db.session.flush()  # Чтобы получить ID
+                    kept_log_ids.append(set_log.id)
+                    saved_count += 1
+        
+        # Удаляем логи, которые не были сохранены (удалённые упражнения)
+        all_session_logs = SetLog.query.filter_by(session_id=workout_session.id).all()
+        for log in all_session_logs:
+            if log.id not in kept_log_ids:
+                db.session.delete(log)
         
         db.session.commit()
         
         # Обновляем проценты и тоннаж
-        update_session_completion(session.id)
+        if saved_count > 0:
+            update_session_completion(workout_session.id)
         
-        flash('Свободная тренировка сохранена!', 'success')
-        return redirect(url_for('workouts.summary', session_id=session.id))
+        if is_completed:
+            workout_session.is_completed = True
+            workout_session.status = 'completed'
+            db.session.commit()
+            flash('Свободная тренировка завершена и сохранена!', 'success')
+            return redirect(url_for('workouts.summary', session_id=workout_session.id))
+        else:
+            flash(f'Прогресс сохранён! ({saved_count} упражнений)', 'success')
+            return redirect(url_for('workouts.free_workout', session_id=workout_session.id))
     
     # GET запрос — показываем форму
+    session_id = request.args.get('session_id')
+    saved_logs = []
+    workout_session = None
+    
+    if session_id and session_id.isdigit():
+        try:
+            workout_session = WorkoutSession.query.get(int(session_id))
+            if workout_session and workout_session.user_id == current_user.id and not workout_session.is_completed:
+                saved_logs = SetLog.query.filter_by(session_id=workout_session.id).order_by(SetLog.id).all()
+            else:
+                session_id = None
+        except (ValueError, TypeError):
+            session_id = None
+    
     exercises = Exercise.query.order_by(Exercise.name).all()
-    return render_template('workouts/free_workout.html', exercises=exercises)
-
+    
+    # ВАЖНО: возвращаем шаблон для GET запроса
+    return render_template('workouts/free_workout.html', 
+                         exercises=exercises, 
+                         saved_logs=saved_logs,
+                         session_id=session_id)

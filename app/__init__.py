@@ -14,9 +14,8 @@ login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Пожалуйста, войдите для доступа к этой странице.'
 
-csrf = CSRFProtect()
-
 limiter = Limiter(key_func=get_remote_address)
+csrf = CSRFProtect()  # Создаем экземпляр здесь
 
 def create_app(config_class=Config):
     if config_class is None:
@@ -36,6 +35,7 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     login_manager.init_app(app)
     
+    # Инициализация CSRF - ВАЖНО: используем init_app, а не создаем новый экземпляр
     csrf.init_app(app)
     
     # Инициализация limiter
@@ -53,6 +53,13 @@ def create_app(config_class=Config):
     app.register_blueprint(analytics.bp)
     app.register_blueprint(admin.bp)
     app.register_blueprint(profile.bp)
+    
+    # Контекстный процессор для CSRF токена (ВАЖНО!)
+    @app.context_processor
+    def inject_csrf_token():
+        """Добавляет CSRF токен в шаблоны"""
+        from flask_wtf.csrf import generate_csrf
+        return dict(csrf_token=generate_csrf)
     
     # Контекстный процессор для current_user
     @app.context_processor

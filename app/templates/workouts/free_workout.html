@@ -2,91 +2,312 @@
 {% block title %}Свободная тренировка{% endblock %}
 {% block content %}
 <div class="container mt-4">
-    <h2 class="mb-4">➕ Свободная тренировка</h2>
-    <p class="text-muted">Добавьте упражнения, которые выполнили сегодня. Вес и повторения — по желанию.</p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>➕ Свободная тренировка</h2>
+    </div>
+    <p class="text-muted">Добавьте упражнения, которые выполнили сегодня. Можно указать вес и повторения.</p>
     
     <form method="POST" id="workoutForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="session_id" id="sessionIdField" value="{{ session_id if session_id else '' }}">
+        
         <div id="exercisesContainer">
-            <div class="card mb-3 exercise-card">
-                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
-                    <strong>Упражнение 1</strong>
-                    <button type="button" class="btn btn-sm btn-danger remove-exercise">✖ Удалить</button>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-5 mb-2">
-                            <label class="form-label">Упражнение</label>
-                            <select name="exercise_id" class="form-select exercise-select" required>
-                                <option value="">-- Выберите упражнение --</option>
-                                {% for exercise in exercises %}
-                                    <option value="{{ exercise.id }}">{{ exercise.name }}</option>
-                                {% endfor %}
+            {% if saved_logs %}
+                {% for log in saved_logs %}
+                <div class="card mb-3 exercise-card" data-log-id="{{ log.id }}">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                        <strong>{{ log.exercise.name }}</strong>
+                        <div>
+                            <span class="badge bg-info me-2">{{ log.exercise.exercise_type }}</span>
+                            <button type="button" class="btn btn-sm btn-danger remove-exercise">✖ Удалить</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" name="exercise_id" value="{{ log.exercise_id }}">
+                        <input type="hidden" name="log_id" value="{{ log.id }}">
+                        <input type="hidden" name="input_type" class="input-type-hidden" value="fixed">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Тип нагрузки</label>
+                            <select class="form-select input-type-select" data-log-id="{{ log.id }}">
+                                <option value="fixed">Одинаково во всех подходах</option>
+                                <option value="progressive" {% if log.set_number > 1 %}selected{% endif %}>Индивидуально для каждого подхода</option>
                             </select>
                         </div>
-                        <div class="col-md-2 mb-2">
-                            <label class="form-label">Подход</label>
-                            <input type="number" name="set_number" class="form-control" value="1" min="1">
+                        
+                        <!-- FIXED режим -->
+                        <div id="fixed_mode_{{ log.id }}" class="fixed-mode" 
+                             {% if log.set_number > 1 %}style="display: none;"{% endif %}>
+                            <div class="row">
+                                <div class="col-md-3 mb-2">
+                                    <label class="form-label">Подход</label>
+                                    <input type="number" name="set_number" class="form-control set-number-fixed" value="1" min="1">
+                                </div>
+                                {% if log.exercise.exercise_type != 'bodyweight' %}
+                                <div class="col-md-4 mb-2">
+                                    <label class="form-label">Вес (кг)</label>
+                                    <input type="number" step="0.5" name="weight" class="form-control weight-fixed" value="{{ log.actual_weight }}" placeholder="50">
+                                </div>
+                                {% else %}
+                                <input type="hidden" name="weight" value="0">
+                                {% endif %}
+                                <div class="col-md-{% if log.exercise.exercise_type != 'bodyweight' %}4{% else %}8{% endif %} mb-2">
+                                    <label class="form-label">Повторения</label>
+                                    <input type="number" name="reps" class="form-control reps-fixed" value="{{ log.actual_reps }}" placeholder="10" required>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-2 mb-2">
-                            <label class="form-label">Вес (кг)</label>
-                            <input type="number" step="0.5" name="weight" class="form-control" placeholder="50" required>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <label class="form-label">Повторения</label>
-                            <input type="number" name="reps" class="form-control" placeholder="10" required>
+                        
+                        <!-- PROGRESSIVE режим -->
+                        <div id="progressive_mode_{{ log.id }}" class="progressive-mode" 
+                             {% if log.set_number <= 1 %}style="display: none;"{% endif %}>
+                            <input type="hidden" name="progressive_data" id="progressive_data_{{ log.id }}" value="">
+                            
+                            <div class="alert alert-info mb-3">
+                                <strong>Индивидуальные подходы</strong> — добавьте необходимое количество подходов
+                            </div>
+                            
+                            <div class="row mb-3">
+                                {% if log.exercise.exercise_type != 'bodyweight' %}
+                                <div class="col-md-5">
+                                    <label class="form-label">Вес (кг)</label>
+                                    <input type="number" step="0.5" class="form-control progressive-weight" 
+                                           data-log-id="{{ log.id }}" placeholder="50">
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label">Повторения</label>
+                                    <input type="number" class="form-control progressive-reps" 
+                                           data-log-id="{{ log.id }}" placeholder="10">
+                                </div>
+                                {% else %}
+                                <div class="col-md-10">
+                                    <label class="form-label">Повторения</label>
+                                    <input type="number" class="form-control progressive-reps" 
+                                           data-log-id="{{ log.id }}" placeholder="10">
+                                </div>
+                                {% endif %}
+                                <div class="col-md-2">
+                                    <label class="form-label">&nbsp;</label>
+                                    <button type="button" class="btn btn-success form-control add-set-btn" 
+                                            data-log-id="{{ log.id }}">+ Добавить</button>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <label class="form-label fw-bold">Добавленные подходы:</label>
+                                <div id="sets_list_{{ log.id }}" class="list-group">
+                                    <!-- Здесь будут подходы для progressive режима -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+                {% endfor %}
+            {% endif %}
         </div>
         
         <div class="mb-3">
             <button type="button" id="addExerciseBtn" class="btn btn-outline-primary">+ Добавить упражнение</button>
         </div>
-        
-        <div class="text-center">
-            <button type="submit" class="btn btn-success btn-lg">Сохранить тренировку</button>
-            <a href="{{ url_for('workouts.index') }}" class="btn btn-secondary btn-lg">Отмена</a>
-        </div>
     </form>
+
+    <div>
+        <button type="button" id="saveProgressBtn" class="btn btn-success">💾 Сохранить прогресс</button>
+        <button type="button" id="completeWorkoutBtn" class="btn btn-primary">✅ Завершить тренировку</button>
+    </div>
+    
 </div>
 
 <script>
-    let exerciseCount = 1;
+    // Хранилище progressive данных для каждого лога
+    let progressiveData = {};
     
-    document.getElementById('addExerciseBtn').addEventListener('click', function() {
-        exerciseCount++;
+    // Текущий session_id
+    const currentSessionId = "{{ session_id if session_id else '' }}";
+    
+    // Функция переключения режимов
+    function toggleMode(logId) {
+        const select = document.querySelector(`.input-type-select[data-log-id="${logId}"]`);
+        const fixedDiv = document.getElementById(`fixed_mode_${logId}`);
+        const progressiveDiv = document.getElementById(`progressive_mode_${logId}`);
+        const hiddenInput = document.querySelector(`.input-type-hidden[data-log-id="${logId}"]`) || document.querySelector(`#fixed_mode_${logId} .input-type-hidden, #progressive_mode_${logId} .input-type-hidden`);
         
+        if (!select || !fixedDiv || !progressiveDiv) return;
+        
+        if (select.value === 'fixed') {
+            fixedDiv.style.display = 'block';
+            progressiveDiv.style.display = 'none';
+            if (hiddenInput) hiddenInput.value = 'fixed';
+        } else {
+            fixedDiv.style.display = 'none';
+            progressiveDiv.style.display = 'block';
+            if (hiddenInput) hiddenInput.value = 'progressive';
+            renderSetsList(logId);
+        }
+    }
+    
+    // Функция добавления подхода
+    function addSet(logId, hasWeight) {
+        const weightInput = document.querySelector(`.progressive-weight[data-log-id="${logId}"]`);
+        const repsInput = document.querySelector(`.progressive-reps[data-log-id="${logId}"]`);
+        
+        const weight = hasWeight ? (parseFloat(weightInput?.value) || 0) : 0;
+        const reps = parseInt(repsInput?.value) || 0;
+        
+        if (reps <= 0) {
+            showNotification('Пожалуйста, укажите количество повторений', 'warning');
+            return;
+        }
+        
+        if (hasWeight && weight <= 0) {
+            showNotification('Пожалуйста, укажите вес', 'warning');
+            return;
+        }
+        
+        if (!progressiveData[logId]) {
+            progressiveData[logId] = [];
+        }
+        
+        progressiveData[logId].push({
+            set_number: progressiveData[logId].length + 1,
+            weight: weight,
+            reps: reps
+        });
+        
+        if (weightInput) weightInput.value = '';
+        if (repsInput) repsInput.value = '';
+        
+        renderSetsList(logId);
+    }
+    
+    // Функция удаления подхода
+    function removeSet(logId, index) {
+        progressiveData[logId].splice(index, 1);
+        progressiveData[logId].forEach((set, idx) => {
+            set.set_number = idx + 1;
+        });
+        renderSetsList(logId);
+    }
+    
+    // Отображение списка подходов
+    function renderSetsList(logId) {
+        const container = document.getElementById(`sets_list_${logId}`);
+        if (!container) return;
+        
+        const card = document.querySelector(`.exercise-card[data-log-id="${logId}"]`);
+        const exerciseTypeBadge = card?.querySelector('.badge.bg-info');
+        const exerciseType = exerciseTypeBadge?.textContent.trim() || 'strength';
+        const hasWeight = exerciseType !== 'bodyweight';
+        
+        const sets = progressiveData[logId] || [];
+        
+        if (sets.length === 0) {
+            container.innerHTML = '<div class="list-group-item text-muted">Нет добавленных подходов. Добавьте первый подход.</div>';
+            return;
+        }
+        
+        container.innerHTML = '';
+        sets.forEach((set, index) => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item d-flex justify-content-between align-items-center';
+            item.innerHTML = `
+                <span><strong>Подход ${set.set_number}</strong> — 
+                ${hasWeight ? set.weight + ' кг × ' : ''}${set.reps} повторений</span>
+                <button type="button" class="btn btn-sm btn-danger" onclick="removeSet('${logId}', ${index})">Удалить</button>
+            `;
+            container.appendChild(item);
+        });
+    }
+    
+    // Добавление нового упражнения
+    function addNewExercise() {
         const container = document.getElementById('exercisesContainer');
+        const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
         const newCard = document.createElement('div');
         newCard.className = 'card mb-3 exercise-card';
+        newCard.setAttribute('data-temp-id', tempId);
         newCard.innerHTML = `
             <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
-                <strong>Упражнение ${exerciseCount}</strong>
-                <button type="button" class="btn btn-sm btn-danger remove-exercise">✖ Удалить</button>
+                <strong>Новое упражнение</strong>
+                <div>
+                    <span class="badge bg-warning me-2">новое</span>
+                    <button type="button" class="btn btn-sm btn-danger remove-exercise">✖ Удалить</button>
+                </div>
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-5 mb-2">
-                        <label class="form-label">Упражнение</label>
-                        <select name="exercise_id" class="form-select exercise-select" required>
-                            <option value="">-- Выберите упражнение --</option>
-                            {% for exercise in exercises %}
-                                <option value="{{ exercise.id }}">{{ exercise.name }}</option>
-                            {% endfor %}
-                        </select>
+                <div class="mb-3">
+                    <label class="form-label">Упражнение</label>
+                    <select class="form-select exercise-select" name="exercise_id" required>
+                        <option value="">-- Выберите упражнение --</option>
+                        {% for exercise in exercises %}
+                            <option value="{{ exercise.id }}" data-exercise-type="{{ exercise.exercise_type }}">
+                                {{ exercise.name }} ({{ exercise.exercise_type }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <input type="hidden" name="log_id" value="">
+                <input type="hidden" name="input_type" class="input-type-hidden" value="fixed">
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Тип нагрузки</label>
+                    <select class="form-select input-type-select" data-temp-id="${tempId}">
+                        <option value="fixed">Одинаково во всех подходах</option>
+                        <option value="progressive">Индивидуально для каждого подхода</option>
+                    </select>
+                </div>
+                
+                <!-- FIXED режим -->
+                <div id="fixed_mode_${tempId}" class="fixed-mode">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label">Подход</label>
+                            <input type="number" name="set_number" class="form-control set-number-fixed" value="1" min="1">
+                        </div>
+                        <div class="col-md-4 mb-2 weight-field">
+                            <label class="form-label">Вес (кг)</label>
+                            <input type="number" step="0.5" name="weight" class="form-control weight-fixed" placeholder="50">
+                        </div>
+                        <div class="col-md-5 mb-2">
+                            <label class="form-label">Повторения</label>
+                            <input type="number" name="reps" class="form-control reps-fixed" placeholder="10" required>
+                        </div>
                     </div>
-                    <div class="col-md-2 mb-2">
-                        <label class="form-label">Подход</label>
-                        <input type="number" name="set_number" class="form-control" value="1" min="1">
+                </div>
+                
+                <!-- PROGRESSIVE режим -->
+                <div id="progressive_mode_${tempId}" class="progressive-mode" style="display: none;">
+                    <input type="hidden" name="progressive_data" id="progressive_data_${tempId}" value="">
+                    
+                    <div class="alert alert-info mb-3">
+                        <strong>Индивидуальные подходы</strong> — добавьте необходимое количество подходов
                     </div>
-                    <div class="col-md-2 mb-2">
-                        <label class="form-label">Вес (кг)</label>
-                        <input type="number" step="0.5" name="weight" class="form-control" placeholder="50" required>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-5 weight-field">
+                            <label class="form-label">Вес (кг)</label>
+                            <input type="number" step="0.5" class="form-control progressive-weight" 
+                                   data-temp-id="${tempId}" placeholder="50">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">Повторения</label>
+                            <input type="number" class="form-control progressive-reps" 
+                                   data-temp-id="${tempId}" placeholder="10">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="button" class="btn btn-success form-control add-set-btn" 
+                                    data-temp-id="${tempId}">+ Добавить</button>
+                        </div>
                     </div>
-                    <div class="col-md-3 mb-2">
-                        <label class="form-label">Повторения</label>
-                        <input type="number" name="reps" class="form-control" placeholder="10" required>
+                    
+                    <div class="mt-3">
+                        <label class="form-label fw-bold">Добавленные подходы:</label>
+                        <div id="sets_list_${tempId}" class="list-group">
+                            <div class="list-group-item text-muted">Нет добавленных подходов</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -94,26 +315,387 @@
         
         container.appendChild(newCard);
         
-        // Добавляем обработчик удаления для новой карточки
+        // Инициализируем progressiveData для нового упражнения
+        progressiveData[tempId] = [];
+        
+        // Обработчик выбора упражнения
+        const select = newCard.querySelector('.exercise-select');
+        select.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const exerciseType = selectedOption.getAttribute('data-exercise-type');
+            const exerciseName = selectedOption.text.split('(')[0].trim();
+            
+            // Обновляем заголовок
+            newCard.querySelector('.card-header strong').textContent = exerciseName;
+            
+            // Убираем badge "новое" после выбора упражнения
+            const badge = newCard.querySelector('.badge.bg-warning');
+            if (badge) badge.remove();
+            
+            // Показываем/скрываем поле веса
+            const weightFields = newCard.querySelectorAll('.weight-field');
+            if (exerciseType === 'bodyweight') {
+                weightFields.forEach(field => field.style.display = 'none');
+                const weightInputs = newCard.querySelectorAll('input[name="weight"]');
+                weightInputs.forEach(input => input.value = '0');
+            } else {
+                weightFields.forEach(field => field.style.display = 'block');
+            }
+        });
+        
+        // Обработчик переключения типа нагрузки
+        const typeSelect = newCard.querySelector('.input-type-select');
+        typeSelect.addEventListener('change', function() {
+            const fixedDiv = document.getElementById(`fixed_mode_${tempId}`);
+            const progressiveDiv = document.getElementById(`progressive_mode_${tempId}`);
+            
+            if (typeSelect.value === 'fixed') {
+                fixedDiv.style.display = 'block';
+                progressiveDiv.style.display = 'none';
+            } else {
+                fixedDiv.style.display = 'none';
+                progressiveDiv.style.display = 'block';
+                renderSetsList(tempId);
+            }
+        });
+        
+        // Обработчик добавления подхода
+        const addBtn = newCard.querySelector('.add-set-btn');
+        addBtn.addEventListener('click', () => {
+            const select = newCard.querySelector('.exercise-select');
+            const selectedOption = select.options[select.selectedIndex];
+            const exerciseType = selectedOption?.getAttribute('data-exercise-type') || 'strength';
+            const hasWeight = exerciseType !== 'bodyweight';
+            
+            const weightInput = newCard.querySelector('.progressive-weight');
+            const repsInput = newCard.querySelector('.progressive-reps');
+            
+            const weight = hasWeight ? (parseFloat(weightInput?.value) || 0) : 0;
+            const reps = parseInt(repsInput?.value) || 0;
+            
+            if (reps <= 0) {
+                showNotification('Пожалуйста, укажите количество повторений', 'warning');
+                return;
+            }
+            
+            if (hasWeight && weight <= 0) {
+                showNotification('Пожалуйста, укажите вес', 'warning');
+                return;
+            }
+            
+            progressiveData[tempId].push({
+                set_number: progressiveData[tempId].length + 1,
+                weight: weight,
+                reps: reps
+            });
+            
+            if (weightInput) weightInput.value = '';
+            if (repsInput) repsInput.value = '';
+            
+            renderSetsList(tempId);
+        });
+        
+        // Обработчик удаления упражнения
         newCard.querySelector('.remove-exercise').addEventListener('click', function() {
             newCard.remove();
-            // Перенумеровываем заголовки
-            document.querySelectorAll('.exercise-card').forEach((card, idx) => {
-                card.querySelector('.card-header strong').textContent = `Упражнение ${idx + 1}`;
-            });
+            delete progressiveData[tempId];
         });
-    });
+    }
     
-    // Добавляем обработчики удаления для существующих карточек
-    document.querySelectorAll('.remove-exercise').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const card = this.closest('.exercise-card');
-            card.remove();
-            // Перенумеровываем заголовки
-            document.querySelectorAll('.exercise-card').forEach((card, idx) => {
-                card.querySelector('.card-header strong').textContent = `Упражнение ${idx + 1}`;
-            });
+    // Функция для рендеринга списков progressive для временных ID
+    function renderSetsList(tempId) {
+        const container = document.getElementById(`sets_list_${tempId}`);
+        if (!container) return;
+        
+        const card = document.querySelector(`.exercise-card[data-temp-id="${tempId}"]`);
+        const exerciseSelect = card?.querySelector('.exercise-select');
+        const selectedOption = exerciseSelect?.options[exerciseSelect.selectedIndex];
+        const exerciseType = selectedOption?.getAttribute('data-exercise-type') || 'strength';
+        const hasWeight = exerciseType !== 'bodyweight';
+        
+        const sets = progressiveData[tempId] || [];
+        
+        if (sets.length === 0) {
+            container.innerHTML = '<div class="list-group-item text-muted">Нет добавленных подходов. Добавьте первый подход.</div>';
+            return;
+        }
+        
+        container.innerHTML = '';
+        sets.forEach((set, index) => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item d-flex justify-content-between align-items-center';
+            item.innerHTML = `
+                <span><strong>Подход ${set.set_number}</strong> — 
+                ${hasWeight ? set.weight + ' кг × ' : ''}${set.reps} повторений</span>
+                <button type="button" class="btn btn-sm btn-danger" onclick="removeSet('${tempId}', ${index})">Удалить</button>
+            `;
+            container.appendChild(item);
         });
+    }
+    
+    // Подготовка данных перед отправкой
+    function prepareFormData(isComplete = false) {
+        const formData = new FormData();
+        
+        // Добавляем CSRF токен
+        const csrfToken = document.querySelector('input[name="csrf_token"]');
+        if (csrfToken) formData.append('csrf_token', csrfToken.value);
+        
+        // Добавляем session_id
+        const sessionIdField = document.getElementById('sessionIdField');
+        if (sessionIdField && sessionIdField.value) formData.append('session_id', sessionIdField.value);
+        
+        if (isComplete) formData.append('complete', '1');
+        
+        // Обрабатываем существующие логи (с data-log-id)
+        document.querySelectorAll('.exercise-card[data-log-id]').forEach(card => {
+            const logId = card.getAttribute('data-log-id');
+            const exerciseId = card.querySelector('input[name="exercise_id"]').value;
+            const typeSelect = card.querySelector('.input-type-select');
+            const inputType = typeSelect ? typeSelect.value : 'fixed';
+            
+            formData.append('exercise_id', exerciseId);
+            formData.append('log_id', logId);
+            formData.append('input_type', inputType);
+            
+            if (inputType === 'fixed') {
+                const setNumber = card.querySelector('.set-number-fixed')?.value || '1';
+                const weight = card.querySelector('.weight-fixed')?.value || '0';
+                const reps = card.querySelector('.reps-fixed')?.value || '0';
+                
+                formData.append('set_number', setNumber);
+                formData.append('weight', weight);
+                formData.append('reps', reps);
+                formData.append('progressive_data', '');
+            } else {
+                const progressiveDataValue = progressiveData[logId] || [];
+                formData.append('progressive_data', JSON.stringify(progressiveDataValue));
+                formData.append('set_number', '1');
+                formData.append('weight', '0');
+                formData.append('reps', '0');
+            }
+        });
+        
+        // Обрабатываем новые упражнения (с data-temp-id)
+        document.querySelectorAll('.exercise-card[data-temp-id]').forEach(card => {
+            const exerciseSelect = card.querySelector('.exercise-select');
+            const exerciseId = exerciseSelect?.value;
+            
+            if (!exerciseId) return;
+            
+            const typeSelect = card.querySelector('.input-type-select');
+            const inputType = typeSelect ? typeSelect.value : 'fixed';
+            
+            formData.append('exercise_id', exerciseId);
+            formData.append('log_id', '');
+            formData.append('input_type', inputType);
+            
+            if (inputType === 'fixed') {
+                const setNumber = card.querySelector('.set-number-fixed')?.value || '1';
+                const weight = card.querySelector('.weight-fixed')?.value || '0';
+                const reps = card.querySelector('.reps-fixed')?.value || '0';
+                
+                formData.append('set_number', setNumber);
+                formData.append('weight', weight);
+                formData.append('reps', reps);
+                formData.append('progressive_data', '');
+            } else {
+                const tempId = card.getAttribute('data-temp-id');
+                const progressiveDataValue = progressiveData[tempId] || [];
+                formData.append('progressive_data', JSON.stringify(progressiveDataValue));
+                formData.append('set_number', '1');
+                formData.append('weight', '0');
+                formData.append('reps', '0');
+            }
+        });
+        
+        return formData;
+    }
+    
+    // Сохранение прогресса
+    async function saveProgress() {
+        const formData = prepareFormData(false);
+        const url = '/workouts/free_workout';
+        
+        const saveBtn = document.getElementById('saveProgressBtn');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Сохранение...';
+        saveBtn.disabled = true;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.redirected) {
+                window.location.href = response.url;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('Ошибка сохранения', 'danger');
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        }
+    }
+    
+    // Завершение тренировки
+    async function completeWorkout() {
+        if (!confirm('Вы уверены, что хотите завершить тренировку?')) {
+            return;
+        }
+        
+        const formData = prepareFormData(true);
+        const url = '/workouts/free_workout';
+        
+        const completeBtn = document.getElementById('completeWorkoutBtn');
+        const originalText = completeBtn.innerHTML;
+        completeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Завершение...';
+        completeBtn.disabled = true;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.redirected) {
+                window.location.href = response.url;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('Ошибка завершения тренировки', 'danger');
+            completeBtn.innerHTML = originalText;
+            completeBtn.disabled = false;
+        }
+    }
+    
+    // Показ уведомления
+    function showNotification(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+        alertDiv.style.zIndex = '9999';
+        alertDiv.style.minWidth = '300px';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 3000);
+    }
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', function() {
+        // Устанавливаем session_id в скрытое поле
+        const sessionIdField = document.getElementById('sessionIdField');
+        if (sessionIdField && currentSessionId) {
+            sessionIdField.value = currentSessionId;
+        }
+        
+        // Инициализация существующих логов
+        document.querySelectorAll('.exercise-card[data-log-id]').forEach(card => {
+            const logId = card.getAttribute('data-log-id');
+            
+            // Инициализируем progressiveData для существующих логов
+            const progressiveDiv = card.querySelector('.progressive-mode');
+            if (progressiveDiv && progressiveDiv.style.display !== 'none') {
+                const sets = [];
+                const setItems = progressiveDiv.querySelectorAll('.list-group-item');
+                setItems.forEach((item, idx) => {
+                    const text = item.querySelector('span')?.textContent || '';
+                    const match = text.match(/(\d+(?:\.\d+)?)\s*кг\s*×\s*(\d+)/);
+                    if (match) {
+                        sets.push({
+                            set_number: idx + 1,
+                            weight: parseFloat(match[1]),
+                            reps: parseInt(match[2])
+                        });
+                    } else {
+                        const repsMatch = text.match(/(\d+)\s*повторений/);
+                        if (repsMatch) {
+                            sets.push({
+                                set_number: idx + 1,
+                                weight: 0,
+                                reps: parseInt(repsMatch[1])
+                            });
+                        }
+                    }
+                });
+                if (sets.length > 0) {
+                    progressiveData[logId] = sets;
+                }
+            }
+            
+            // Добавляем обработчики для селекторов типа нагрузки
+            const typeSelect = card.querySelector('.input-type-select');
+            if (typeSelect) {
+                typeSelect.setAttribute('data-log-id', logId);
+                typeSelect.addEventListener('change', () => toggleMode(logId));
+                toggleMode(logId);
+            }
+            
+            // Добавляем обработчики для кнопок добавления подходов
+            const addBtn = card.querySelector('.add-set-btn');
+            if (addBtn) {
+                addBtn.setAttribute('data-log-id', logId);
+                addBtn.addEventListener('click', () => {
+                    const exerciseTypeBadge = card.querySelector('.badge.bg-info');
+                    const exerciseType = exerciseTypeBadge?.textContent.trim() || 'strength';
+                    const hasWeight = exerciseType !== 'bodyweight';
+                    addSet(logId, hasWeight);
+                });
+            }
+            
+            // Обработчик удаления
+            const removeBtn = card.querySelector('.remove-exercise');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    card.remove();
+                    delete progressiveData[logId];
+                });
+            }
+        });
+        
+        document.getElementById('addExerciseBtn').addEventListener('click', addNewExercise);
+        document.getElementById('saveProgressBtn').addEventListener('click', saveProgress);
+        document.getElementById('completeWorkoutBtn').addEventListener('click', completeWorkout);
     });
 </script>
+
+<style>
+    .exercise-card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
+    
+    .fixed-mode, .progressive-mode {
+        margin-top: 15px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+    
+    .list-group-item {
+        margin-bottom: 5px;
+    }
+    
+    .position-fixed {
+        position: fixed !important;
+    }
+    
+    .top-0 {
+        top: 0 !important;
+    }
+    
+    .end-0 {
+        right: 0 !important;
+    }
+    
+    .spinner-border {
+        vertical-align: middle;
+    }
+</style>
 {% endblock %}
