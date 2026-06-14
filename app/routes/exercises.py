@@ -69,6 +69,12 @@ def add_exercise():
             created_by_id=current_user.id
         )
         
+        exercise.media_type = form.media_type.data
+        if form.media_type.data in ['image', 'gif']:
+            exercise.media_url = form.media_url.data
+        elif form.media_type.data == 'youtube':
+            exercise.youtube_id = form.youtube_id.data
+
         db.session.add(exercise)
         db.session.commit()
         
@@ -107,7 +113,13 @@ def edit_exercise(id):
         exercise.muscle_group_id = form.muscle_group_id.data if form.muscle_group_id.data != 0 else None
         exercise.muscle_subgroup_id = form.muscle_subgroup_id.data if form.muscle_subgroup_id.data != 0 else None
         exercise.description = form.description.data
-        
+
+        exercise.media_type = form.media_type.data
+        if form.media_type.data in ['image', 'gif']:
+            exercise.media_url = form.media_url.data
+        elif form.media_type.data == 'youtube':
+            exercise.youtube_id = form.youtube_id.data
+
         db.session.commit()
         flash('Упражнение обновлено', 'success')
         return redirect(url_for('exercises.list_exercises'))

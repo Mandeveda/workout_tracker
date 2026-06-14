@@ -34,27 +34,52 @@
 
 <!-- Список упражнений -->
 <div id="exercisesList">
-    <div class="row">
+    <!-- Вместо <div class="row"> -->
+    <div class="row row-cols-1 row-cols-md-2 g-4">
         {% for exercise in exercises %}
-            <div class="col-md-6 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <h5 class="card-title">{{ exercise.name }}</h5>
-                            <span class="badge bg-secondary">{{ exercise.exercise_type }}</span>
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h5 class="card-title mb-0">{{ exercise.name }}</h5>
+                            <span class="badge bg-secondary flex-shrink-0 ms-2">{{ exercise.exercise_type }}</span>
                         </div>
+                        
                         {% if exercise.muscle_group %}
-                            <p class="card-text">
+                            <p class="card-text mt-2">
                                 <small class="text-muted">
                                     {{ exercise.muscle_group.display_name }}
                                     {% if exercise.muscle_subgroup %} → {{ exercise.muscle_subgroup.display_name }}{% endif %}
                                 </small>
                             </p>
-                        {% endif %}                        
-                        {% if exercise.description %}
-                            <p class="card-text">{{ exercise.description[:100] }}{% if exercise.description|length > 100 %}...{% endif %}</p>
                         {% endif %}
-                        <div class="mt-2">                            
+                        
+                        <!-- Медиа контент с фиксированной высотой -->
+                        {% if exercise.media_type != 'none' %}
+                            <div class="exercise-media mt-2 mb-2">
+                                {% if exercise.media_type == 'image' or exercise.media_type == 'gif' %}
+                                <div class="text-center bg-light rounded p-1 mb-2" style="max-height: 180px; overflow: hidden;">
+                                    <img src="{{ exercise.media_url }}" alt="{{ exercise.name }}" 
+                                        class="img-fluid rounded" 
+                                        style="max-height: 150px; width: auto; object-fit: contain;">
+                                </div>
+                                {% elif exercise.media_type == 'youtube' and exercise.youtube_id %}
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/{{ exercise.youtube_id }}" 
+                                                title="{{ exercise.name }}" 
+                                                frameborder="0" 
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                                allowfullscreen></iframe>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        
+                        {% if exercise.description %}
+                            <p class="card-text mt-2 flex-grow-1">{{ exercise.description[:100] }}{% if exercise.description|length > 100 %}...{% endif %}</p>
+                        {% endif %}
+                        
+                        <div class="mt-auto pt-2">
                             {% if current_user.role.name in ['expert', 'admin'] and (exercise.created_by_id == current_user.id or current_user.role.name == 'admin') %}
                                 <a href="{{ url_for('exercises.edit_exercise', id=exercise.id) }}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
                                 <a href="{{ url_for('exercises.del_exercise', exercise_id=exercise.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Удалить упражнение?')">Удалить</a>

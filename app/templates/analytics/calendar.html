@@ -20,16 +20,16 @@
             <span class="badge p-2" style="background-color: #ebedf0;">😴 Нет</span>
         </div>
         <div class="d-inline-block me-4">
-            <span class="badge p-2" style="background-color: #c6e48b;">📊 Лёгкая (1-500 кг)</span>
+            <span class="badge p-2" style="background-color: #c6e48b;">📊 Лёгкая (1-5000 кг)</span>
         </div>
         <div class="d-inline-block me-4">
-            <span class="badge p-2" style="background-color: #7bc96f;">💪 Средняя (500-1000 кг)</span>
+            <span class="badge p-2" style="background-color: #7bc96f;">💪 Средняя (5000-8000 кг)</span>
         </div>
         <div class="d-inline-block me-4">
-            <span class="badge p-2" style="background-color: #239a3b;">🔥 Интенсивная (1000-2000 кг)</span>
+            <span class="badge p-2" style="background-color: #239a3b;">🔥 Интенсивная (8000-12000 кг)</span>
         </div>
         <div class="d-inline-block">
-            <span class="badge p-2" style="background-color: #196127;">🏆 Максимум (2000+ кг)</span>
+            <span class="badge p-2" style="background-color: #196127;">🏆 Максимум (12000+ кг)</span>
         </div>
     </div>
     
@@ -102,9 +102,9 @@
                     
                     let colorClass = 'level-0';
                     if (tonnage === 0) colorClass = 'level-0';
-                    else if (tonnage < 500) colorClass = 'level-1';
-                    else if (tonnage < 1000) colorClass = 'level-2';
-                    else if (tonnage < 2000) colorClass = 'level-3';
+                    else if (tonnage < 5000) colorClass = 'level-1';
+                    else if (tonnage < 8000) colorClass = 'level-2';
+                    else if (tonnage < 12000) colorClass = 'level-3';
                     else colorClass = 'level-4';
                     
                     html += `

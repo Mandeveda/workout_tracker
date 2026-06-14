@@ -39,6 +39,16 @@ class ExerciseForm(FlaskForm):
     muscle_subgroup_id = SelectField('Уточнение', coerce=int, choices=[])
     
     description = TextAreaField('Описание техники выполнения')
+
+    media_type = SelectField('Тип медиа', choices=[
+        ('none', 'Без изображения/видео'),
+        ('image', 'Изображение (JPG, PNG)'),
+        ('gif', 'GIF-анимация'),
+        ('youtube', 'YouTube видео')
+    ], default='none')
+    media_url = StringField('Ссылка на изображение/GIF', validators=[Length(max=500)])
+    youtube_id = StringField('ID YouTube видео', validators=[Length(max=20)])
+    
     submit = SubmitField('Создать упражнение')
     
     def __init__(self, *args, **kwargs):

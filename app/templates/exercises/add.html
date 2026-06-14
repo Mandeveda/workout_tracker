@@ -49,7 +49,22 @@
                             <div class="text-danger">{{ error }}</div>
                         {% endfor %}
                     </div>
-                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">📷 Медиа</label>
+                        {{ form.media_type(class="form-select", id="media_type") }}
+                    </div>
+
+                    <div id="media_url_block" class="mb-3" style="display: none;">
+                        {{ form.media_url.label(class="form-label") }}
+                        {{ form.media_url(class="form-control", placeholder="https://example.com/image.jpg") }}
+                        <div class="form-text">Прямая ссылка на изображение или GIF</div>
+                    </div>
+
+                    <div id="youtube_id_block" class="mb-3" style="display: none;">
+                        {{ form.youtube_id.label(class="form-label") }}
+                        {{ form.youtube_id(class="form-control", placeholder="dQw4w9WgXcQ") }}
+                        <div class="form-text">ID видео из URL YouTube: https://youtu.be/XXXXXX или https://www.youtube.com/watch?v=XXXXXX</div>
+                    </div>
                     {{ form.submit(class="btn btn-primary") }}
                     <a href="{{ url_for('exercises.list_exercises') }}" class="btn btn-secondary">Отмена</a>
                 </form>
@@ -94,5 +109,23 @@
     
     document.getElementById('exercise_type').addEventListener('change', toggleMuscleFields);
     toggleMuscleFields();
+
+    function toggleMediaFields() {
+        const mediaType = document.getElementById('media_type').value;
+        const urlBlock = document.getElementById('media_url_block');
+        const youtubeBlock = document.getElementById('youtube_id_block');
+        
+        urlBlock.style.display = 'none';
+        youtubeBlock.style.display = 'none';
+        
+        if (mediaType === 'image' || mediaType === 'gif') {
+            urlBlock.style.display = 'block';
+        } else if (mediaType === 'youtube') {
+            youtubeBlock.style.display = 'block';
+        }
+    }
+    
+    document.getElementById('media_type').addEventListener('change', toggleMediaFields);
+    toggleMediaFields();
 </script>
 {% endblock %}

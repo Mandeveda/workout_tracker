@@ -173,6 +173,11 @@ class Exercise(db.Model):
     muscle_group_id = db.Column(db.Integer, db.ForeignKey('muscle_groups.id'), nullable=True)
     muscle_subgroup_id = db.Column(db.Integer, db.ForeignKey('muscle_subgroups.id'), nullable=True)
     
+    media_type = db.Column(db.String(10), default='none')  # 'image', 'gif', 'video', 'youtube', 'none'
+    media_url = db.Column(db.String(500), nullable=True)   # URL изображения, гифки или видео
+    youtube_id = db.Column(db.String(20), nullable=True)   # ID видео с YouTube (например, dQw4w9WgXcQ)
+    thumbnail_url = db.Column(db.String(500), nullable=True) # миниатюра для видео
+    
     # Кто добавил упражнение
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
