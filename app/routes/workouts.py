@@ -757,3 +757,32 @@ def free_workout():
                          exercises=exercises, 
                          saved_logs=saved_logs,
                          session_id=session_id)
+
+@bp.route('/delete_schedule/<int:schedule_id>')
+@login_required
+def delete_schedule(schedule_id):
+    """Удаление запланированной программы (только если нет выполненных тренировок)"""
+    schedule = WorkoutSchedule.query.get_or_404(schedule_id)
+    
+    # Проверка прав
+    if schedule.user_id != current_user.id:
+        flash('Доступ запрещён', 'danger')
+        return redirect(url_for('workouts.index'))
+    
+    # Сохраняем имя шаблона ДО удаления
+    template_name = schedule.template.name if schedule.template else "Программа"
+    
+    # Проверка: есть ли завершённые тренировки по этому расписанию
+    if schedule.session and schedule.session.is_completed:
+        flash(f'Нельзя удалить программу "{template_name}", по которой уже есть выполненные тренировки', 'danger')
+        return redirect(url_for('workouts.index'))
+    
+    # Если тренировка была начата, но не завершена, удаляем и сессию
+    if schedule.session and not schedule.session.is_completed:
+        db.session.delete(schedule.session)
+    
+    db.session.delete(schedule)
+    db.session.commit()
+    
+    flash(f'Программа "{template_name}" удалена из расписания', 'success')
+    return redirect(url_for('workouts.index'))

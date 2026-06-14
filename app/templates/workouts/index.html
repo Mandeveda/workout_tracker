@@ -21,6 +21,7 @@
                             <a href="{{ url_for('workouts.start_workout', schedule_id=workout.id) }}" class="btn btn-primary">▶ Начать</a>
                             <a href="{{ url_for('workouts.postpone_workout', schedule_id=workout.id) }}" class="btn btn-secondary">⏩ Перенести</a>
                             <a href="{{ url_for('workouts.skip_workout', schedule_id=workout.id) }}" class="btn btn-danger">✖ Пропустить</a>
+                            <a href="{{ url_for('workouts.delete_schedule', schedule_id=workout.id) }}" class="btn btn-danger btn-sm" onclick="return confirm('Удалить программу «{{ workout.template.name }}»? Все невыполненные тренировки будут удалены.')">🗑️ Удалить</a>
                         </div>
                     </div>
                 {% endfor %}
@@ -70,6 +71,7 @@
                         </div>
                         <div>
                             <a href="{{ url_for('workouts.start_workout', schedule_id=workout.id) }}" class="btn btn-sm btn-primary">Начать</a>
+                            <a href="{{ url_for('workouts.delete_schedule', schedule_id=workout.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Удалить программу?')">🗑️ Удалить</a>
                         </div>
                     </div>
                 {% endfor %}
