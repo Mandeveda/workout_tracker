@@ -199,6 +199,7 @@ class WorkoutTemplate(db.Model):
     name = db.Column(db.String(100), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True) 
     
     # Для привязки к дате/дню недели
     scheduled_date = db.Column(db.Date, nullable=True)  # если привязано к конкретной дате

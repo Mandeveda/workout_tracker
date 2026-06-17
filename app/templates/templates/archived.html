@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Архив шаблонов{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>📦 Архив шаблонов</h2>
+    <a href="{{ url_for('templates.list_templates') }}" class="btn btn-outline-secondary">← Активные шаблоны</a>
+</div>
+
+{% if templates %}
+    <div class="row">
+        {% for template in templates %}
+            <div class="col-md-4 mb-3">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">{{ template.name }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            <small class="text-muted">
+                                Упражнений: {{ template.template_exercises|length }}
+                            </small>
+                        </p>
+                        <a href="{{ url_for('templates.restore_template', template_id=template.id) }}" 
+                           class="btn btn-sm btn-success"
+                           onclick="return confirm('Восстановить шаблон «{{ template.name }}»?')">↩️ Восстановить</a>
+                        <a href="{{ url_for('templates.delete_template', template_id=template.id) }}" 
+                           class="btn btn-sm btn-danger"
+                           onclick="return confirm('Удалить шаблон «{{ template.name }}» навсегда?')">🗑️ Удалить навсегда</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info">В архиве нет шаблонов</div>
+{% endif %}
+{% endblock %}

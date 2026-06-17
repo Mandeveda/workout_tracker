@@ -15,7 +15,10 @@ def list_templates():
         templates = WorkoutTemplate.query.order_by(WorkoutTemplate.created_at.desc()).all()
     else:
         # Обычный пользователь видит только свои
-        templates = WorkoutTemplate.query.filter_by(user_id=current_user.id).order_by(WorkoutTemplate.created_at.desc()).all()
+        templates = WorkoutTemplate.query.filter_by(
+            user_id=current_user.id, 
+            is_active=True
+        ).order_by(WorkoutTemplate.created_at.desc()).all()
     
     return render_template('templates/list.html', templates=templates)
 
@@ -202,3 +205,57 @@ def delete_template(template_id):
     flash(f'Шаблон "{template_name}" успешно удалён!', 'success')
     
     return redirect(url_for('templates.list_templates'))
+
+@bp.route('/archive/<int:template_id>')
+@login_required
+def archive_template(template_id):
+    """Архивация шаблона (делаем неактивным)"""
+    template = WorkoutTemplate.query.get_or_404(template_id)
+    
+    if not current_user.can_edit(template):
+        flash('Доступ запрещён', 'danger')
+        return redirect(url_for('templates.list_templates'))
+    
+    # Проверка: есть ли активные расписания с этим шаблоном
+    active_schedules = WorkoutSchedule.query.filter_by(
+        template_id=template.id,
+        status='planned'
+    ).count()
+    
+    if active_schedules > 0:
+        flash(f'Нельзя архивировать шаблон "{template.name}", так как есть {active_schedules} активных тренировок по нему', 'danger')
+        return redirect(url_for('templates.list_templates'))
+    
+    template.is_active = False
+    db.session.commit()
+    flash(f'Шаблон "{template.name}" архивирован (скрыт из списка активных)', 'success')
+    return redirect(url_for('templates.list_templates'))
+
+@bp.route('/restore/<int:template_id>')
+@login_required
+def restore_template(template_id):
+    """Восстановление шаблона из архива"""
+    template = WorkoutTemplate.query.get_or_404(template_id)
+    
+    if not current_user.can_edit(template):
+        flash('Доступ запрещён', 'danger')
+        return redirect(url_for('templates.list_templates'))
+    
+    template.is_active = True
+    db.session.commit()
+    flash(f'Шаблон "{template.name}" восстановлен', 'success')
+    return redirect(url_for('templates.list_templates'))
+
+@bp.route('/archived')
+@login_required
+def archived_templates():
+    """Список архивированных (неактивных) шаблонов"""
+    if current_user.role.name == 'admin':
+        templates = WorkoutTemplate.query.filter_by(is_active=False).order_by(WorkoutTemplate.created_at.desc()).all()
+    else:
+        templates = WorkoutTemplate.query.filter_by(
+            user_id=current_user.id, 
+            is_active=False
+        ).order_by(WorkoutTemplate.created_at.desc()).all()
+    
+    return render_template('templates/archived.html', templates=templates)
