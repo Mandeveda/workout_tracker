@@ -1,8 +1,8 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint, session
+from flask import render_template, redirect, url_for, flash, request, Blueprint, session as flask_session
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 from app import db
-from app.models import WorkoutTemplate, WorkoutSchedule, TemplateExercise
+from app.models import WorkoutTemplate, WorkoutSchedule, TemplateExercise, WorkoutSession, SetLog, Exercise
 from app.forms import ProgramGenerationForm, ExerciseParametersForm
 import json
 
@@ -23,7 +23,7 @@ def create_program(template_id):
     
     if form.validate_on_submit():
         # Сохраняем данные в сессию для следующего шага
-        session['program_data'] = {
+        flask_session['program_data'] = {
             'template_id': form.template_id.data,
             'days': [
                 day for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
@@ -40,13 +40,11 @@ def create_program(template_id):
 @login_required
 def set_parameters():
     """Шаг 2: Заполнение параметров для каждого упражнения"""
-    from flask_wtf.csrf import CSRFProtect
-    
-    if 'program_data' not in session:
+    if 'program_data' not in flask_session:
         flash('Сначала выберите параметры программы', 'warning')
         return redirect(url_for('templates.list_templates'))
     
-    program_data = session['program_data']
+    program_data = flask_session['program_data']
     template = WorkoutTemplate.query.get_or_404(program_data['template_id'])
     
     # Получаем упражнения из шаблона
@@ -54,10 +52,18 @@ def set_parameters():
     
     # Создаём форму для каждого упражнения
     forms = {}
+    last_data = {}  # Храним последние данные по каждому упражнению
+    
     for te in template_exercises:
         forms[te.id] = ExerciseParametersForm(prefix=f'ex_{te.id}')
+        
+        # Получаем последние данные по этому упражнению
+        last = get_last_workout_data(current_user.id, te.exercise_id)
+        if last:
+            last_data[te.id] = last
     
     if request.method == 'POST':
+        # ... существующий код обработки POST (без изменений) ...
         all_valid = True
         parameters = {}
         
@@ -65,7 +71,6 @@ def set_parameters():
             exercise_type = te.exercise.exercise_type
             
             if exercise_type == 'cardio':
-                # Обработка кардио параметров
                 duration = request.form.get(f'duration_{te.id}', type=int)
                 distance = request.form.get(f'distance_{te.id}', type=float)
                 heart_rate = request.form.get(f'heart_rate_{te.id}', type=int)
@@ -85,7 +90,6 @@ def set_parameters():
                 }
                 
             elif exercise_type == 'bodyweight':
-                # Обработка упражнений с собственным весом (без веса)
                 input_type = request.form.get(f'ex_{te.id}-input_type')
                 
                 if input_type == 'fixed':
@@ -96,12 +100,11 @@ def set_parameters():
                         'input_type': 'fixed',
                         'sets': sets,
                         'reps': reps,
-                        'weight': 0,  # Нет веса
+                        'weight': 0,
                         'exercise_name': te.exercise.name,
                         'exercise_type': 'bodyweight'
                     }
                 else:
-                    # Progressive для bodyweight
                     progressive_data_json = request.form.get(f'progressive_data_{te.id}')
                     if progressive_data_json:
                         try:
@@ -111,7 +114,6 @@ def set_parameters():
                                 all_valid = False
                                 continue
                             
-                            # Убираем вес из данных (только повторения)
                             for set_info in progressive_sets:
                                 set_info['weight'] = 0
                             
@@ -130,7 +132,7 @@ def set_parameters():
                         all_valid = False
                         continue
                         
-            else:  # strength (силовые с весом)
+            else:  # strength
                 input_type = request.form.get(f'ex_{te.id}-input_type')
                 
                 if input_type == 'fixed':
@@ -147,7 +149,6 @@ def set_parameters():
                         'exercise_type': 'strength'
                     }
                 else:
-                    # Progressive для strength
                     progressive_data_json = request.form.get(f'progressive_data_{te.id}')
                     if progressive_data_json:
                         try:
@@ -184,7 +185,6 @@ def set_parameters():
             
             selected_weekdays = [days_map[day] for day in program_data['days']]
             
-            # Генерируем все даты в диапазоне
             current_date = start_date
             schedules_created = 0
             
@@ -203,10 +203,58 @@ def set_parameters():
             
             db.session.commit()
             
-            # Очищаем сессию
-            session.pop('program_data', None)
+            flask_session.pop('program_data', None)
             
             flash(f'Программа успешно создана! Сгенерировано {schedules_created} тренировок.', 'success')
             return redirect(url_for('main.dashboard'))
     
-    return render_template('program/set_parameters.html', template=template, template_exercises=template_exercises, forms=forms)
+    return render_template('program/set_parameters.html', 
+                         template=template, 
+                         template_exercises=template_exercises, 
+                         forms=forms,
+                         last_data=last_data)
+
+def get_last_workout_data(user_id, exercise_id):
+    """
+    Возвращает последние фактические данные по упражнению для пользователя.
+    Возвращает словарь с ключами: weight, reps, sets (если есть)
+    """
+    # Ищем последний выполненный подход по этому упражнению
+    last_log = SetLog.query.join(WorkoutSession).filter(
+        WorkoutSession.user_id == user_id,
+        SetLog.exercise_id == exercise_id,
+        SetLog.actual_weight.isnot(None),
+        SetLog.actual_reps.isnot(None)
+    ).order_by(WorkoutSession.date.desc(), SetLog.set_number.desc()).first()
+    
+    if last_log:
+        return {
+            'weight': last_log.actual_weight,
+            'reps': last_log.actual_reps,
+            'date': last_log.session.date
+        }
+    
+    # Если нет данных — ищем плановые данные из последней программы
+    last_schedule = WorkoutSchedule.query.filter(
+        WorkoutSchedule.user_id == user_id,
+        WorkoutSchedule.planned_data.isnot(None)
+    ).order_by(WorkoutSchedule.scheduled_date.desc()).first()
+    
+    if last_schedule and last_schedule.planned_data:
+        planned = last_schedule.planned_data.get(str(exercise_id))
+        if planned:
+            if planned.get('input_type') == 'fixed':
+                return {
+                    'weight': planned.get('weight', 0),
+                    'reps': planned.get('reps', 0),
+                    'date': last_schedule.scheduled_date
+                }
+            elif planned.get('input_type') == 'progressive' and planned.get('sets'):
+                last_set = planned['sets'][-1]
+                return {
+                    'weight': last_set.get('weight', 0),
+                    'reps': last_set.get('reps', 0),
+                    'date': last_schedule.scheduled_date
+                }
+    
+    return None

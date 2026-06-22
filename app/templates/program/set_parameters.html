@@ -5,6 +5,14 @@
     <h2>Настройка программы: {{ template.name }}</h2>
     <p class="text-muted">Заполните параметры для каждого упражнения</p>
     
+    {% if last_data %}
+        <div class="alert alert-info mb-4">
+            <strong>💡 Автозаполнение:</strong> 
+            В поля подставлены ваши последние фактические результаты по упражнениям. 
+            Вы можете скорректировать их перед созданием программы.
+        </div>
+    {% endif %}
+    
     <form method="POST" id="mainForm">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         
@@ -29,26 +37,79 @@
                         <div class="row">
                             <div class="col-md-4">
                                 <label class="form-label">Количество подходов</label>
-                                <input type="number" name="ex_{{ te.id }}-sets" class="form-control" value="{{ form.sets.data or 3 }}" min="1" max="20">
+                                <input type="number" name="ex_{{ te.id }}-sets" 
+                                    class="form-control" 
+                                    value="{{ form.sets.data or 3 }}" 
+                                    min="1" max="20">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Повторений в подходе</label>
-                                <input type="number" name="ex_{{ te.id }}-reps" class="form-control" value="{{ form.reps.data or 10 }}" min="1" max="100">
+                                <input type="number" name="ex_{{ te.id }}-reps" 
+                                    class="form-control" 
+                                    value="{{ last_data[te.id].reps if last_data.get(te.id) else form.reps.data or 10 }}" 
+                                    min="1" max="100">
                             </div>
                             {% if te.exercise.exercise_type == 'strength' %}
                             <div class="col-md-4">
                                 <label class="form-label">Вес (кг)</label>
-                                <input type="number" step="0.5" name="ex_{{ te.id }}-weight" class="form-control" value="{{ form.weight.data or 0 }}">
+                                <input type="number" step="0.5" name="ex_{{ te.id }}-weight" 
+                                    class="form-control" 
+                                    value="{{ last_data[te.id].weight if last_data.get(te.id) else form.weight.data or 0 }}">
+                            </div>
+                            {% elif te.exercise.exercise_type == 'bodyweight' %}
+                            <div class="col-md-4">
+                                <label class="form-label text-muted">Вес (не используется)</label>
+                                <input type="hidden" name="ex_{{ te.id }}-weight" value="0">
                             </div>
                             {% endif %}
                         </div>
+                        {% if last_data.get(te.id) %}
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    ⏳ Последний результат: 
+                                    {{ last_data[te.id].weight }} кг × {{ last_data[te.id].reps }} 
+                                    ({{ last_data[te.id].date.strftime('%d.%m.%Y') }})
+                                </small>
+                            </div>
+                        {% endif %}
                     </div>
                     
                     <!-- PROGRESSIVE режим -->
                     <div id="progressive_mode_{{ te.id }}" class="progressive-mode" style="display: none;">
                         <div class="alert alert-info mb-3">
                             <strong>Индивидуальные подходы</strong> — добавьте необходимое количество подходов
+                            {% if last_data.get(te.id) %}
+                                <br>
+                                <span class="text-muted">
+                                    ⏳ Последний результат: 
+                                    {{ last_data[te.id].weight }} кг × {{ last_data[te.id].reps }} 
+                                    ({{ last_data[te.id].date.strftime('%d.%m.%Y') }})
+                                </span>
+                            {% endif %}
                         </div>
+                        
+                        <!-- Если есть последние данные, автоматически добавляем подход -->
+                        {% if last_data.get(te.id) %}
+                            <script>
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    const exerciseId = {{ te.id }};
+                                    const weight = {{ last_data[te.id].weight }};
+                                    const reps = {{ last_data[te.id].reps }};
+                                    
+                                    setTimeout(function() {
+                                        const weightInput = document.querySelector(`.progressive-weight[data-exercise-id="${exerciseId}"]`);
+                                        const repsInput = document.querySelector(`.progressive-reps[data-exercise-id="${exerciseId}"]`);
+                                        const addBtn = document.querySelector(`.add-set-btn[data-exercise-id="${exerciseId}"]`);
+                                        
+                                        if (weightInput && repsInput && addBtn) {
+                                            weightInput.value = weight;
+                                            repsInput.value = reps;
+                                            addBtn.click();
+                                        }
+                                    }, 300);
+                                });
+                            </script>
+                        {% endif %}
                         
                         <div class="row mb-3">
                             <div class="col-md-5">
