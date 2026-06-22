@@ -89,7 +89,7 @@ def login():
             regenerate_session()
             
             # Выполняем вход
-            login_user(user, remember=False)  # remember=True если нужно "запомнить меня"
+            login_user(user, remember=True)  # remember=True если нужно "запомнить меня"
             
             # Сохраняем дополнительную информацию в сессии
             session['user_id'] = user.id
