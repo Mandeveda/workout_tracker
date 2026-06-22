@@ -1,8 +1,8 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint
+from flask import render_template, redirect, url_for, flash, request, Blueprint, jsonify
 from flask_login import login_required, current_user
 from app import db
-from app.models import WorkoutTemplate, TemplateExercise, WorkoutSchedule
-from app.forms import WorkoutTemplateForm, TemplateExerciseForm
+from app.models import WorkoutTemplate, TemplateExercise, WorkoutSchedule, Exercise
+from app.forms import WorkoutTemplateForm, TemplateExerciseForm, AddExerciseForm
 
 bp = Blueprint('templates', __name__, url_prefix='/templates')
 
@@ -65,35 +65,94 @@ def edit_template(template_id):
 @bp.route('/add_exercise/<int:template_id>', methods=['GET', 'POST'])
 @login_required
 def add_exercise(template_id):
-    """Добавление упражнения в шаблон"""
+    """Добавление упражнений в шаблон с фильтрацией (групповое)"""
+    from app.models import MuscleGroup, MuscleSubgroup
+    from sqlalchemy import func
+    
     template = WorkoutTemplate.query.get_or_404(template_id)
+    
     if not current_user.can_edit(template):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
     
-    form = TemplateExerciseForm()
+    form = AddExerciseForm()
+    
+    # Получаем параметры фильтрации из GET-запроса
+    search = request.args.get('search', '')
+    exercise_type = request.args.get('type', '')
+    muscle_group_id = request.args.get('muscle_group', 0, type=int)
+    subgroup_id = request.args.get('subgroup', 0, type=int)
+    
+    # Строим запрос с фильтрами
+    query = Exercise.query
+    
+    if search:
+        query = query.filter(Exercise.name.ilike(f'%{search}%'))
+    if exercise_type:
+        query = query.filter(Exercise.exercise_type == exercise_type)
+    if muscle_group_id:
+        query = query.filter(Exercise.muscle_group_id == muscle_group_id)
+    if subgroup_id:
+        query = query.filter(Exercise.muscle_subgroup_id == subgroup_id)
+    
+    # Получаем список упражнений
+    exercises = query.order_by(Exercise.name).all()
+    
+    # Для AJAX-запросов возвращаем JSON
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify([{'id': e.id, 'name': e.name} for e in exercises])
+    
+    # Обновляем choices для формы
+    exercise_choices = [(e.id, e.name) for e in exercises]
+    form.exercise_ids.choices = exercise_choices
+    
     if form.validate_on_submit():
-        # Проверка на дубликат
-        existing = TemplateExercise.query.filter_by(
-            template_id=template.id,
-            exercise_id=form.exercise_id.data
-        ).first()
+        selected_ids = form.exercise_ids.data
         
-        if existing:
-            flash('Это упражнение уже есть в шаблоне', 'danger')
+        if not selected_ids:
+            flash('Выберите хотя бы одно упражнение', 'warning')
         else:
-            template_exercise = TemplateExercise(
-                template_id=template.id,
-                exercise_id=form.exercise_id.data,
-                order=form.order.data
-            )
-            db.session.add(template_exercise)
+            # Получаем максимальный order
+            max_order = db.session.query(func.max(TemplateExercise.order)).filter_by(template_id=template.id).scalar()
+            if max_order is None:
+                max_order = -1
+            
+            added_count = 0
+            skipped_count = 0
+            
+            for exercise_id in selected_ids:
+                # Проверка на дубликат
+                existing = TemplateExercise.query.filter_by(
+                    template_id=template.id,
+                    exercise_id=exercise_id
+                ).first()
+                
+                if existing:
+                    skipped_count += 1
+                    continue
+                
+                max_order += 1
+                template_exercise = TemplateExercise(
+                    template_id=template.id,
+                    exercise_id=exercise_id,
+                    order=max_order
+                )
+                db.session.add(template_exercise)
+                added_count += 1
+            
             db.session.commit()
-            flash('Упражнение добавлено', 'success')
+            
+            if added_count > 0:
+                flash(f'Добавлено {added_count} упражнений', 'success')
+            if skipped_count > 0:
+                flash(f'{skipped_count} упражнений уже были в шаблоне', 'warning')
         
         return redirect(url_for('templates.edit_template', template_id=template.id))
     
-    return render_template('templates/add_exercise.html', form=form, template=template)
+    return render_template('templates/add_exercise.html', 
+                         form=form, 
+                         template=template,
+                         exercises=exercises)
 
 @bp.route('/delete_exercise/<int:template_id>/<int:exercise_id>')
 @login_required

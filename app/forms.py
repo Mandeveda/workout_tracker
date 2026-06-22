@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from flask_login import current_user
-from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, IntegerField, FloatField, BooleanField, DateField
-from wtforms.validators import DataRequired, Length, EqualTo, ValidationError, NumberRange
+from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, IntegerField, FloatField, BooleanField, DateField, SelectMultipleField
+from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, NumberRange, Optional
 from app.models import User
 
 class RegistrationForm(FlaskForm):
@@ -70,10 +70,25 @@ class TemplateExerciseForm(FlaskForm):
     order = IntegerField('Порядок выполнения', default=0)
     submit = SubmitField('Добавить упражнение')
     
+    # 👇 НОВЫЕ ПОЛЯ ДЛЯ ФИЛЬТРОВ
+    filter_type = SelectField('Тип упражнения', choices=[
+        ('', 'Все типы'),
+        ('strength', 'Силовые'),
+        ('bodyweight', 'Собственный вес'),
+        ('cardio', 'Кардио')
+    ], default='')
+    
+    filter_muscle_group = SelectField('Группа мышц', coerce=int, choices=[], default=0)
+    filter_subgroup = SelectField('Подгруппа', coerce=int, choices=[], default=0)
+    
     def __init__(self, *args, **kwargs):
         super(TemplateExerciseForm, self).__init__(*args, **kwargs)
-        from app.models import Exercise
-        self.exercise_id.choices = [(e.id, e.name) for e in Exercise.query.order_by('name').all()]
+        from app.models import MuscleGroup, MuscleSubgroup
+        # Загружаем группы мышц
+        groups = MuscleGroup.query.order_by('display_name').all()
+        self.filter_muscle_group.choices = [(0, 'Все группы')] + [(g.id, g.display_name) for g in groups]
+        # Подгруппы будут загружаться через AJAX
+        self.filter_subgroup.choices = [(0, 'Все подгруппы')]
 
 class ExerciseParametersForm(FlaskForm):
     """Форма для параметров одного упражнения (динамическая)"""
@@ -166,3 +181,30 @@ class ChangePasswordForm(FlaskForm):
         EqualTo('new_password', message='Пароли должны совпадать')
     ])
     submit = SubmitField('Сменить пароль')
+
+class AddExerciseForm(FlaskForm):
+    """Форма для добавления упражнений в шаблон с фильтрацией"""
+    # Фильтры
+    filter_search = StringField('Поиск по названию')
+    filter_type = SelectField('Тип', choices=[
+        ('', 'Все типы'),
+        ('strength', 'Силовые'),
+        ('bodyweight', 'Собственный вес'),
+        ('cardio', 'Кардио')
+    ], default='')
+    filter_muscle_group = SelectField('Группа мышц', coerce=int, choices=[], default=0)
+    filter_subgroup = SelectField('Подгруппа', coerce=int, choices=[], default=0)
+    
+    # Поле для выбора упражнений (будет заполняться динамически)
+    exercise_ids = SelectMultipleField('Упражнения', coerce=int, validators=[DataRequired()])
+    
+    submit = SubmitField('Добавить выбранные упражнения')
+    select_all = SubmitField('Выбрать все')
+    clear_all = SubmitField('Очистить все')
+    
+    def __init__(self, *args, **kwargs):
+        super(AddExerciseForm, self).__init__(*args, **kwargs)
+        from app.models import MuscleGroup
+        groups = MuscleGroup.query.order_by('display_name').all()
+        self.filter_muscle_group.choices = [(0, 'Все группы')] + [(g.id, g.display_name) for g in groups]
+        self.filter_subgroup.choices = [(0, 'Все подгруппы')]

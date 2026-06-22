@@ -31,34 +31,16 @@
         </div>
     </div>
 
-    <!-- ФОРМА 2: Добавление упражнения -->
+    <!-- ФОРМА 2: Добавление упражнения (обновлено) -->
     <div class="card mb-4">
         <div class="card-header">
             <h3>Добавить упражнение</h3>
         </div>
         <div class="card-body">
-            <form method="POST" action="{{ url_for('templates.add_exercise', template_id=template.id) }}">
-                {{ form.hidden_tag() }}
-                
-                <div class="mb-3">
-                    {{ form.exercise_id.label(class="form-label") }}
-                    {{ form.exercise_id(class="form-select") }}
-                    {% for error in form.exercise_id.errors %}
-                        <div class="text-danger">{{ error }}</div>
-                    {% endfor %}
-                </div>
-                
-                <div class="mb-3">
-                    {{ form.order.label(class="form-label") }}
-                    {{ form.order(class="form-control") }}
-                    <div class="form-text">Порядок выполнения упражнений (0, 1, 2...)</div>
-                    {% for error in form.order.errors %}
-                        <div class="text-danger">{{ error }}</div>
-                    {% endfor %}
-                </div>
-                
-                <button type="submit" class="btn btn-success">Добавить упражнение</button>
-            </form>
+            <p class="text-muted">Перейдите на страницу выбора упражнения с фильтрацией по группам мышц.</p>
+            <a href="{{ url_for('templates.add_exercise', template_id=template.id) }}" class="btn btn-success">
+                ➕ Перейти к выбору упражнения
+            </a>
         </div>
     </div>
 
@@ -70,11 +52,16 @@
         <div class="card-body">
             {% if template_exercises %}
                 <div class="list-group">
-                    {% for template_exercise in template_exercises %}
+                    {% for template_exercise in template_exercises|sort(attribute='order') %}
                         <div class="list-group-item">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <h5 class="mb-1">{{ template_exercise.exercise.name }}</h5>
+                                    <h5 class="mb-1">
+                                        {{ loop.index }}. {{ template_exercise.exercise.name }}
+                                        {% if template_exercise.order != loop.index - 1 %}
+                                            <small class="text-warning">(order: {{ template_exercise.order }})</small>
+                                        {% endif %}
+                                    </h5>
                                     <small class="text-muted">
                                         Тип: {{ template_exercise.exercise.exercise_type }} |
                                         Порядок: {{ template_exercise.order }}
@@ -94,16 +81,17 @@
                 </div>
             {% else %}
                 <div class="alert alert-info">
-                    В шаблоне пока нет упражнений. Добавьте упражнения через форму выше.
+                    В шаблоне пока нет упражнений.
                 </div>
             {% endif %}
         </div>
     </div>
+    
     <div class="mt-3 d-flex justify-content-between">
         <a href="{{ url_for('templates.list_templates') }}" class="btn btn-secondary">Вернуться к списку шаблонов</a>
         <a href="{{ url_for('templates.delete_template', template_id=template.id) }}" 
-        class="btn btn-danger" 
-        onclick="return confirm('Вы уверены? Шаблон будет удалён без возможности восстановления.')">
+           class="btn btn-danger" 
+           onclick="return confirm('Вы уверены? Шаблон будет удалён без возможности восстановления.')">
             Удалить шаблон
         </a>
     </div>

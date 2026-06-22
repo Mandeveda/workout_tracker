@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Добавить упражнения в шаблон{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Добавление упражнений в шаблон: {{ template.name }}</h2>
+    <p class="text-muted">Выберите упражнения для добавления. Они будут добавлены в конец списка.</p>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">🔍 Фильтры</h5>
+        </div>
+        <div class="card-body">
+            <form id="filterForm" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Поиск по названию</label>
+                    <input type="text" id="filterSearch" class="form-control" placeholder="Введите название...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Тип упражнения</label>
+                    <select id="filterType" class="form-select">
+                        <option value="">Все типы</option>
+                        <option value="strength">Силовые</option>
+                        <option value="bodyweight">Собственный вес</option>
+                        <option value="cardio">Кардио</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Группа мышц</label>
+                    <select id="filterMuscleGroup" class="form-select">
+                        <option value="0">Все группы</option>
+                        {% for group in form.filter_muscle_group.choices[1:] %}
+                            <option value="{{ group[0] }}">{{ group[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Подгруппа мышц</label>
+                    <select id="filterSubgroup" class="form-select">
+                        <option value="0">Все подгруппы</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <form method="POST" id="addExerciseForm">
+        {{ form.hidden_tag() }}
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Доступные упражнения</h5>
+                    <div>
+                        <button type="button" id="selectAllBtn" class="btn btn-sm btn-outline-primary">Выбрать все</button>
+                        <button type="button" id="clearAllBtn" class="btn btn-sm btn-outline-secondary">Очистить все</button>
+                    </div>
+                </div>
+                
+                <div class="mb-3" style="max-height: 400px; overflow-y: auto;">
+                    <div class="list-group">
+                        {% for exercise in exercises %}
+                            <label class="list-group-item list-group-item-action d-flex align-items-center">
+                                <input type="checkbox" name="exercise_ids" value="{{ exercise.id }}" class="form-check-input me-2 exercise-checkbox">
+                                <div>
+                                    <strong>{{ exercise.name }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        {{ exercise.exercise_type }}
+                                        {% if exercise.muscle_group %}
+                                            | {{ exercise.muscle_group.display_name }}
+                                            {% if exercise.muscle_subgroup %}
+                                                → {{ exercise.muscle_subgroup.display_name }}
+                                            {% endif %}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <span class="badge bg-secondary ms-auto">
+                                    {% if exercise in template.template_exercises|map(attribute='exercise') %}
+                                        уже добавлено
+                                    {% endif %}
+                                </span>
+                            </label>
+                        {% else %}
+                            <div class="alert alert-info">Нет упражнений по выбранным фильтрам</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-success">
+                        ➕ Добавить выбранные упражнения
+                    </button>
+                    <a href="{{ url_for('templates.edit_template', template_id=template.id) }}" class="btn btn-secondary">Отмена</a>
+                </div>
+            </div>
+        </div>
+    </form>
+    
+    <div class="mt-3">
+        <h5>Уже добавлены в шаблон ({{ template.template_exercises|length }}):</h5>
+        <ul class="list-group">
+            {% for te in template.template_exercises|sort(attribute='order') %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ te.order }}. {{ te.exercise.name }}
+                    <span class="badge bg-secondary">{{ te.exercise.exercise_type }}</span>
+                </li>
+            {% else %}
+                <li class="list-group-item text-muted">Нет добавленных упражнений</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<script>
+    // Загрузка подгрупп при выборе группы мышц
+    document.getElementById('filterMuscleGroup').addEventListener('change', function() {
+        const groupId = this.value;
+        const subgroupSelect = document.getElementById('filterSubgroup');
+        
+        if (groupId && groupId != '0') {
+            fetch('/exercises/get_subgroups?muscle_group_id=' + groupId)
+                .then(response => response.json())
+                .then(data => {
+                    subgroupSelect.innerHTML = '<option value="0">Все подгруппы</option>';
+                    data.forEach(function(subgroup) {
+                        const option = document.createElement('option');
+                        option.value = subgroup.id;
+                        option.textContent = subgroup.display_name;
+                        subgroupSelect.appendChild(option);
+                    });
+                });
+        } else {
+            subgroupSelect.innerHTML = '<option value="0">Все подгруппы</option>';
+        }
+    });
+    
+    // Выбор всех упражнений
+    document.getElementById('selectAllBtn').addEventListener('click', function() {
+        document.querySelectorAll('.exercise-checkbox').forEach(cb => cb.checked = true);
+    });
+    
+    // Очистка всех выборов
+    document.getElementById('clearAllBtn').addEventListener('click', function() {
+        document.querySelectorAll('.exercise-checkbox').forEach(cb => cb.checked = false);
+    });
+    
+    // Фильтрация упражнений
+    function filterExercises() {
+        const search = document.getElementById('filterSearch').value;
+        const type = document.getElementById('filterType').value;
+        const muscleGroup = document.getElementById('filterMuscleGroup').value;
+        const subgroup = document.getElementById('filterSubgroup').value;
+        
+        let url = '/templates/add_exercise/{{ template.id }}?';
+        if (search) url += 'search=' + encodeURIComponent(search) + '&';
+        if (type) url += 'type=' + encodeURIComponent(type) + '&';
+        if (muscleGroup && muscleGroup != '0') url += 'muscle_group=' + encodeURIComponent(muscleGroup) + '&';
+        if (subgroup && subgroup != '0') url += 'subgroup=' + encodeURIComponent(subgroup) + '&';
+        
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Обновляем список упражнений
+            const listGroup = document.querySelector('.list-group');
+            listGroup.innerHTML = '';
+            if (data.length === 0) {
+                listGroup.innerHTML = '<div class="alert alert-info">Нет упражнений по выбранным фильтрам</div>';
+                return;
+            }
+            data.forEach(function(exercise) {
+                const label = document.createElement('label');
+                label.className = 'list-group-item list-group-item-action d-flex align-items-center';
+                label.innerHTML = `
+                    <input type="checkbox" name="exercise_ids" value="${exercise.id}" class="form-check-input me-2 exercise-checkbox">
+                    <div>
+                        <strong>${escapeHtml(exercise.name)}</strong>
+                        <br>
+                        <small class="text-muted">${escapeHtml(exercise.exercise_type)}</small>
+                    </div>
+                `;
+                listGroup.appendChild(label);
+            });
+            
+            // Обновляем обработчики "Выбрать все" и "Очистить все"
+            document.getElementById('selectAllBtn').onclick = function() {
+                document.querySelectorAll('.exercise-checkbox').forEach(cb => cb.checked = true);
+            };
+            document.getElementById('clearAllBtn').onclick = function() {
+                document.querySelectorAll('.exercise-checkbox').forEach(cb => cb.checked = false);
+            };
+        })
+        .catch(error => console.error('Ошибка загрузки упражнений:', error));
+    }
+    
+    // Экранирование HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Автоматическая фильтрация при изменении любого фильтра
+    document.querySelectorAll('#filterSearch, #filterType, #filterMuscleGroup, #filterSubgroup').forEach(el => {
+        el.addEventListener('input', filterExercises);
+        el.addEventListener('change', filterExercises);
+    });
+</script>
+{% endblock %}
