@@ -1,12 +1,13 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint, session
+from flask import render_template, redirect, url_for, flash, request, Blueprint, session, current_app
 from flask_login import login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
-from datetime import datetime
+from datetime import datetime, timedelta
+from flask_mail import Message
 import secrets
-from app import db, limiter
-from app.models import User, Role
-from app.forms import RegistrationForm, LoginForm
+from app import db, limiter, mail
+from app.models import User, Role, PasswordResetToken
+from app.forms import RegistrationForm, LoginForm, ForgotPasswordForm, ResetPasswordForm
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -132,43 +133,150 @@ def logout():
     flash(f'Вы вышли из системы, {username}. До новых встреч!', 'info')
     return redirect(url_for('main.index'))
 
-# Дополнительный маршрут для смены пароля (опционально)
-@bp.route('/change-password', methods=['GET', 'POST'])
-@login_required
-def change_password():
-    from app.forms import ChangePasswordForm
+def generate_reset_token(user_id):
+    """Генерация токена для сброса пароля"""
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=24)
     
-    form = ChangePasswordForm()
-    if form.validate_on_submit():
-        # Проверяем старый пароль
-        if check_password_hash(current_user.password_hash, form.old_password.data):
-            # Устанавливаем новый пароль
-            current_user.password_hash = generate_password_hash(form.new_password.data)
-            db.session.commit()
-            flash('Пароль успешно изменён!', 'success')
-            return redirect(url_for('main.dashboard'))
-        else:
-            flash('Неверный текущий пароль', 'danger')
+    reset_token = PasswordResetToken(
+        user_id=user_id,
+        token=token,
+        expires_at=expires_at
+    )
+    db.session.add(reset_token)
+    db.session.commit()
     
-    return render_template('change_password.html', form=form)
+    return token
 
-# Дополнительный маршрут для восстановления пароля (опционально)
-@bp.route('/forgot-password', methods=['GET', 'POST'])
-@limiter.limit("3 per hour")
+def send_reset_email(user, token):
+    """Отправка письма со ссылкой для сброса пароля"""
+    from flask import current_app
+    
+    sender = current_app.config.get('MAIL_DEFAULT_SENDER') or current_app.config.get('MAIL_USERNAME')
+    
+    if not sender:
+        raise ValueError("MAIL_DEFAULT_SENDER не настроен в конфигурации")
+    
+    reset_url = url_for('auth.reset_password', token=token, _external=True)
+    
+    html = f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background-color: #007bff; color: white; padding: 20px; text-align: center; }}
+            .content {{ padding: 20px; background-color: #f8f9fa; }}
+            .button {{ display: inline-block; background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; }}
+            .footer {{ margin-top: 20px; font-size: 12px; color: #666; text-align: center; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>🔐 Workout Tracker</h2>
+            </div>
+            <div class="content">
+                <h3>Здравствуйте, {user.username}!</h3>
+                <p>Вы запросили сброс пароля. Нажмите на кнопку ниже, чтобы установить новый пароль:</p>
+                <p style="text-align: center; margin: 30px 0;">
+                    <a href="{reset_url}" class="button">Сбросить пароль</a>
+                </p>
+                <p>Ссылка действительна в течение 24 часов.</p>
+                <p>Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.</p>
+                <hr>
+                <p style="font-size: 14px; color: #666;">
+                    Или скопируйте ссылку в браузер:<br>
+                    <code style="word-break: break-all;">{reset_url}</code>
+                </p>
+            </div>
+            <div class="footer">
+                <p>© 2026 Workout Tracker. Все права защищены.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    
+    msg = Message(
+        subject='Сброс пароля — Workout Tracker',
+        sender=sender,
+        recipients=[user.email],
+        html=html
+    )
+    
+    mail.send(msg)
+
+@bp.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
+    """Страница запроса сброса пароля"""
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
     
-    form = ForgotPasswordForm() if 'ForgotPasswordForm' in dir() else None
+    form = ForgotPasswordForm()
     
-    if form and form.validate_on_submit():
+    if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
+        
         if user:
-            # Здесь добавить логику отправки email для сброса пароля
-            flash('Инструкции по восстановлению пароля отправлены на ваш email.', 'info')
+            # Удаляем старые неиспользованные токены
+            old_tokens = PasswordResetToken.query.filter_by(user_id=user.id, used=False).all()
+            for token in old_tokens:
+                if token.is_expired():
+                    db.session.delete(token)
+            db.session.commit()
+            
+            # Создаём новый токен
+            token = generate_reset_token(user.id)
+            
+            # Отправляем письмо
+            #try:
+            #    send_reset_email(user, token)
+            #    flash('Письмо со ссылкой для сброса пароля отправлено на ваш email', 'success')
+            #except Exception as e:
+            #    # В продакшене нужно логировать ошибку
+            #    flash('Ошибка при отправке письма. Попробуйте позже.', 'danger')
+            #    return render_template('auth/forgot_password.html', form=form)
+            try:
+                send_reset_email(user, token)
+                flash('Письмо со ссылкой для сброса пароля отправлено на ваш email', 'success')
+            except Exception as e:
+                # Детальное логирование ошибки
+                print(f"❌ Ошибка отправки письма: {e}")
+                flash(f'Ошибка при отправке письма: {str(e)}', 'danger')
+                return render_template('auth/forgot_password.html', form=form)            
         else:
-            # Не показываем, существует ли email в системе
-            flash('Если аккаунт с таким email существует, инструкции будут отправлены.', 'info')
+            flash('Пользователь с таким email не найден', 'warning')
+        
         return redirect(url_for('auth.login'))
     
-    return render_template('forgot_password.html', form=form)
+    return render_template('auth/forgot_password.html', form=form)
+
+@bp.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Страница установки нового пароля по токену"""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    
+    reset_token = PasswordResetToken.query.filter_by(token=token, used=False).first()
+    
+    if not reset_token or reset_token.is_expired():
+        flash('Ссылка для сброса пароля недействительна или истекла', 'danger')
+        return redirect(url_for('auth.forgot_password'))
+    
+    form = ResetPasswordForm()
+    
+    if form.validate_on_submit():
+        user = User.query.get(reset_token.user_id)
+        user.password_hash = generate_password_hash(form.password.data)
+        
+        # Помечаем токен как использованный
+        reset_token.used = True
+        db.session.commit()
+        
+        flash('Пароль успешно изменён! Теперь вы можете войти с новым паролем.', 'success')
+        return redirect(url_for('auth.login'))
+    
+    return render_template('auth/reset_password.html', form=form, token=token)

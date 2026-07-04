@@ -208,3 +208,12 @@ class AddExerciseForm(FlaskForm):
         groups = MuscleGroup.query.order_by('display_name').all()
         self.filter_muscle_group.choices = [(0, 'Все группы')] + [(g.id, g.display_name) for g in groups]
         self.filter_subgroup.choices = [(0, 'Все подгруппы')]
+
+class ForgotPasswordForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    submit = SubmitField('Отправить ссылку')
+
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField('Новый пароль', validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Подтвердите пароль', validators=[DataRequired(), EqualTo('password')])
+    submit = SubmitField('Сменить пароль')

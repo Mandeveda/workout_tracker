@@ -6,6 +6,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from config import get_config, Config
 from flask_wtf.csrf import CSRFProtect
+from flask_mail import Mail
 import os
 
 db = SQLAlchemy()
@@ -16,6 +17,8 @@ login_manager.login_message = 'Пожалуйста, войдите для до�
 
 limiter = Limiter(key_func=get_remote_address)
 csrf = CSRFProtect()  # Создаем экземпляр здесь
+
+mail = Mail()
 
 def create_app(config_class=Config):
     if config_class is None:
@@ -34,6 +37,7 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
+    mail.init_app(app)
     
     # Инициализация CSRF - ВАЖНО: используем init_app, а не создаем новый экземпляр
     csrf.init_app(app)

@@ -388,3 +388,26 @@ class JSONEncodedDict(TypeDecorator):
         if value is not None:
             value = json.loads(value)
         return value
+    
+class PasswordResetToken(db.Model):
+    __tablename__ = 'password_reset_tokens'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    token = db.Column(db.String(100), unique=True, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    used = db.Column(db.Boolean, default=False)
+    
+    user = relationship('User', backref='reset_tokens')
+    
+    def __repr__(self):
+        return f'<PasswordResetToken user={self.user_id} expires={self.expires_at}>'
+    
+    def is_expired(self):
+        """Проверка, истёк ли токен"""
+        return datetime.utcnow() > self.expires_at
+    
+    def is_valid(self):
+        """Проверка, действителен ли токен"""
+        return not self.used and not self.is_expired()

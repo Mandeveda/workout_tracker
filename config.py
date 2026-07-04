@@ -62,6 +62,19 @@ class Config:
         'socket_timeout': 30,
     } if REDIS_URL else {}
     
+    # ===== НАСТРОЙКИ EMAIL =====
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.yandex.ru')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 465))
+    MAIL_USE_SSL = os.environ.get('MAIL_USE_SSL', 'True') == 'True'
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'False') == 'True'
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', MAIL_USERNAME)
+
+    # Принудительно устанавливаем, если не задан
+    if not MAIL_DEFAULT_SENDER and MAIL_USERNAME:
+        MAIL_DEFAULT_SENDER = MAIL_USERNAME
+    
     # ===== ДОПОЛНИТЕЛЬНЫЕ НАСТРОЙКИ БЕЗОПАСНОСТИ =====
     REFERRER_POLICY = 'strict-origin-when-cross-origin'
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB
