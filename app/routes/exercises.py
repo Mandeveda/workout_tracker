@@ -1,8 +1,7 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint
+from flask import render_template, redirect, url_for, flash, request, Blueprint, jsonify
 from flask_login import login_required, current_user
-from flask import jsonify  # добавьте в импорт
 from app import db
-from app.models import Exercise, TemplateExercise
+from app.models import Exercise, TemplateExercise, MuscleGroup, MuscleSubgroup, SetLog, WorkoutSession
 from app.forms import ExerciseForm
 
 bp = Blueprint('exercises', __name__, url_prefix='/exercises')
@@ -192,3 +191,38 @@ def filter_exercises():
         })
     
     return jsonify(exercises_data)
+
+@bp.route('/get_exercise_data/<int:exercise_id>')
+@login_required
+def get_exercise_data(exercise_id):
+    """Возвращает данные упражнения для всплывающей подсказки (JSON)"""
+    exercise = Exercise.query.get_or_404(exercise_id)
+    
+    # Получаем последние результаты пользователя по этому упражнению
+    last_log = SetLog.query.join(WorkoutSession).filter(
+        WorkoutSession.user_id == current_user.id,
+        SetLog.exercise_id == exercise_id,
+        SetLog.actual_reps.isnot(None)
+    ).order_by(WorkoutSession.date.desc()).first()
+    
+    last_result = None
+    if last_log:
+        last_result = {
+            'date': last_log.session.date.strftime('%d.%m.%Y'),
+            'reps': last_log.actual_reps,
+            'weight': last_log.actual_weight
+        }
+    
+    return jsonify({
+        'id': exercise.id,
+        'name': exercise.name,
+        'exercise_type': exercise.exercise_type,
+        'description': exercise.description or 'Описание отсутствует',
+        'media_type': exercise.media_type or 'none',
+        'media_url': exercise.media_url,
+        'youtube_id': exercise.youtube_id,
+        'thumbnail_url': exercise.thumbnail_url,
+        'muscle_group': exercise.muscle_group.display_name if exercise.muscle_group else None,
+        'muscle_subgroup': exercise.muscle_subgroup.display_name if exercise.muscle_subgroup else None,
+        'last_result': last_result
+    })

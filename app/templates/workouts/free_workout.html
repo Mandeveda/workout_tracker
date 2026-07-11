@@ -22,10 +22,16 @@
                     {% set exercise = logs[0].exercise %}
                     <div class="card mb-4 exercise-card" data-exercise-id="{{ exercise_id }}">
                         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                            <h4 class="mb-0">{{ exercise.name }}</h4>
+                            <h4 class="mb-0">
+                                {{ exercise.name }}
+                                <span class="exercise-name-link" data-exercise-id="{{ exercise.id }}" 
+                                      title="Нажмите для просмотра техники" style="cursor: pointer; margin-left: 5px; color: #e6eaec;">
+                                    &#9432;
+                                </span>
+                            </h4>
                             <div>
                                 <span class="badge bg-light text-dark me-2">{{ exercise.exercise_type }}</span>
-                                <button type="button" class="btn btn-sm btn-danger remove-exercise">✖ Удалить упражнение</button>
+                                <button type="button" class="btn btn-sm btn-danger remove-exercise">Удалить упражнение</button>
                             </div>
                         </div>
                         <div class="card-body">
@@ -84,7 +90,7 @@
                                                 <td class="text-center">
                                                     <button type="button" class="btn btn-sm btn-danger remove-set-btn" 
                                                             data-exercise-id="{{ exercise_id }}" data-set-number="{{ log.set_number }}">
-                                                        ✖
+                                                        Удалить
                                                     </button>
                                                 </td>
                                             </tr>
@@ -120,8 +126,182 @@
     </form>
 </div>
 
+<!-- Модальное окно для техники упражнения -->
+<div class="modal fade" id="exerciseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="exerciseModalTitle">Техника выполнения</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="exerciseModalContent">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .exercise-name-link {
+        cursor: pointer;
+        color: #e6eaec;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .exercise-name-link:hover {
+        color: #a6aaaf;
+        text-decoration: none;
+    }
+    .modal-media-container {
+        max-height: 400px;
+        overflow: hidden;
+        text-align: center;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 10px;
+    }
+    .modal-media-container img {
+        max-height: 350px;
+        max-width: 100%;
+        object-fit: contain;
+    }
+    .modal-media-container iframe {
+        width: 100%;
+        height: 350px;
+        border: none;
+    }
+    .exercise-details {
+        margin-top: 15px;
+    }
+    .exercise-details .badge {
+        font-size: 0.9rem;
+        padding: 5px 10px;
+    }
+    .last-result {
+        background-color: #e8f4fd;
+        border-radius: 8px;
+        padding: 10px 15px;
+        margin-top: 10px;
+    }
+    .exercise-card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .set-row input {
+        min-width: 60px;
+    }
+</style>
+
 <script>
-    // Добавление нового упражнения
+    // ============================================================
+    // ФУНКЦИИ ДЛЯ МОДАЛЬНОГО ОКНА (подсказка техники)
+    // ============================================================
+    
+    function loadExerciseData(exerciseId) {
+        const container = document.getElementById('exerciseModalContent');
+        container.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+            </div>
+        `;
+        
+        fetch(`/exercises/get_exercise_data/${exerciseId}`)
+            .then(response => response.json())
+            .then(data => {
+                renderExerciseData(data);
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки данных:', error);
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        Ошибка загрузки данных упражнения
+                    </div>
+                `;
+            });
+    }
+
+    function renderExerciseData(data) {
+        const container = document.getElementById('exerciseModalContent');
+        document.getElementById('exerciseModalTitle').textContent = data.name;
+        
+        let mediaHtml = '';
+        if (data.media_type === 'image' || data.media_type === 'gif') {
+            mediaHtml = `
+                <div class="modal-media-container">
+                    <img src="${data.media_url}" alt="${data.name}" class="img-fluid">
+                </div>
+            `;
+        } else if (data.media_type === 'youtube' && data.youtube_id) {
+            mediaHtml = `
+                <div class="modal-media-container">
+                    <iframe src="https://www.youtube.com/embed/${data.youtube_id}" 
+                            title="${data.name}" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen></iframe>
+                </div>
+            `;
+        }
+        
+        let lastResultHtml = '';
+        if (data.last_result) {
+            lastResultHtml = `
+                <div class="last-result">
+                    <strong>Последний результат:</strong>
+                    ${data.last_result.date}
+                    — ${data.last_result.weight ? data.last_result.weight + ' кг × ' : ''}${data.last_result.reps} повторений
+                </div>
+            `;
+        }
+        
+        container.innerHTML = `
+            ${mediaHtml}
+            <div class="exercise-details">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Тип:</strong> 
+                            <span class="badge bg-secondary">${data.exercise_type}</span>
+                        </p>
+                        ${data.muscle_group ? `<p><strong>Группа мышц:</strong> ${data.muscle_group}</p>` : ''}
+                        ${data.muscle_subgroup ? `<p><strong>Подгруппа:</strong> ${data.muscle_subgroup}</p>` : ''}
+                    </div>
+                    <div class="col-md-6">
+                        ${lastResultHtml}
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <strong>Описание техники:</strong>
+                    <p class="text-muted">${data.description || 'Описание отсутствует'}</p>
+                </div>
+            </div>
+        `;
+    }
+
+    // Обработчик клика на иконку информации
+    function handleInfoClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const exerciseId = this.getAttribute('data-exercise-id');
+        if (exerciseId && exerciseId !== '') {
+            loadExerciseData(exerciseId);
+            const modal = new bootstrap.Modal(document.getElementById('exerciseModal'));
+            modal.show();
+        }
+    }
+
+    // ============================================================
+    // ДОБАВЛЕНИЕ НОВОГО УПРАЖНЕНИЯ
+    // ============================================================
+    
     function addNewExercise() {
         const container = document.getElementById('exercisesContainer');
         const tempId = 'new_' + Date.now();
@@ -131,7 +311,13 @@
         card.setAttribute('data-new', 'true');
         card.innerHTML = `
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">Новое упражнение</h4>
+                <h4 class="mb-0">
+                    Новое упражнение
+                    <span class="exercise-name-link" data-exercise-id="" 
+                          title="Нажмите для просмотра техники" style="cursor: pointer; margin-left: 5px; color: #e6eaec; display: none;">
+                        &#9432;
+                    </span>
+                </h4>
                 <div>
                     <button type="button" class="btn btn-sm btn-danger remove-exercise">✖ Удалить упражнение</button>
                 </div>
@@ -212,7 +398,22 @@
             const exerciseName = selectedOption.text.split('(')[0].trim();
             const exerciseId = selectedOption.value;
             
-            card.querySelector('.card-header h4').textContent = exerciseName;
+            // Обновляем заголовок с иконкой
+            const headerTitle = card.querySelector('.card-header h4');
+            headerTitle.innerHTML = `
+                ${exerciseName}
+                <span class="exercise-name-link" data-exercise-id="${exerciseId}" 
+                      title="Нажмите для просмотра техники" style="cursor: pointer; margin-left: 5px; color: #e6eaec;">
+                    &#9432;
+                </span>
+            `;
+            
+            // Добавляем обработчик на новую иконку
+            const newInfoLink = headerTitle.querySelector('.exercise-name-link');
+            if (newInfoLink) {
+                newInfoLink.removeEventListener('click', handleInfoClick);
+                newInfoLink.addEventListener('click', handleInfoClick);
+            }
             
             exerciseIdInputs.forEach(input => input.value = exerciseId);
             
@@ -286,13 +487,33 @@
         });
     }
     
-    // Инициализация
+    // ============================================================
+    // ИНИЦИАЛИЗАЦИЯ
+    // ============================================================
+
     document.addEventListener('DOMContentLoaded', function() {
+        // Кнопка добавления упражнения
         document.getElementById('addExerciseBtn').addEventListener('click', addNewExercise);
         
+        // === ФУНКЦИЯ ДЛЯ ИНИЦИАЛИЗАЦИИ ВСЕХ ИКОНОК ===
+        function initAllInfoLinks() {
+            document.querySelectorAll('.exercise-name-link').forEach(link => {
+                const exerciseId = link.getAttribute('data-exercise-id');
+                if (exerciseId && exerciseId !== '') {
+                    link.removeEventListener('click', handleInfoClick);
+                    link.addEventListener('click', handleInfoClick);
+                }
+            });
+        }
+        
+        // Инициализируем все иконки при загрузке
+        initAllInfoLinks();
+        
+        // Обработчики для существующих карточек (после сохранения)
         document.querySelectorAll('.exercise-card:not([data-new])').forEach(card => {
             const exerciseId = card.getAttribute('data-exercise-id');
             
+            // Обработчик добавления подхода
             card.querySelector('.add-set-btn').addEventListener('click', function() {
                 const tbody = document.getElementById(`sets_body_${exerciseId}`);
                 const setCount = tbody.querySelectorAll('.set-row').length;
@@ -347,16 +568,12 @@
                 card.remove();
             });
         });
+        
+        // === ОБНОВЛЯЕМ ОБРАБОТЧИКИ ПОСЛЕ СОХРАНЕНИЯ (если форма отправляется через AJAX) ===
+        // Если сохранение происходит через обычную отправку формы (перезагрузка страницы),
+        // то этот блок не нужен, так как страница перезагрузится и DOMContentLoaded сработает снова.
+        // Но если сохранение через AJAX, добавьте:
+        // document.addEventListener('workoutSaved', initAllInfoLinks);
     });
 </script>
-
-<style>
-    .exercise-card {
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .set-row input {
-        min-width: 60px;
-    }
-</style>
 {% endblock %}
