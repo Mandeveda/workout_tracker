@@ -62,3 +62,7 @@ def dashboard():
         best_tonnage=round(best_tonnage, 1),
         pr_count=pr_count
     )
+
+@bp.route('/offline')
+def offline():
+    return render_template('offline.html')
