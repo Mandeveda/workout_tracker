@@ -2,7 +2,7 @@ from flask import render_template, redirect, url_for, flash, request, Blueprint,
 from flask_login import login_required, current_user
 from flask_wtf.csrf import generate_csrf
 from datetime import datetime
-from app import db
+from app import db, limiter
 from app.models import WorkoutSchedule, WorkoutSession, SetLog, Exercise, TemplateExercise
 import json
 import logging
@@ -311,6 +311,7 @@ def perform(session_id):
                          exercises_data=exercises_data)
 
 @bp.route('/save_progress/<int:session_id>', methods=['POST'])
+@limiter.exempt  # AJAX-автосохранение не должно упираться в общий лимит
 @login_required
 def save_progress(session_id):
     """Сохранение текущего прогресса тренировки (AJAX)"""
@@ -459,6 +460,7 @@ def save_progress(session_id):
     return jsonify({'success': True, 'completions': completions})
 
 @bp.route('/complete/<int:session_id>', methods=['POST'])
+@limiter.exempt  # AJAX-автосохранение не должно упираться в общий лимит
 @login_required
 def complete_workout(session_id):
     """Завершение тренировки"""

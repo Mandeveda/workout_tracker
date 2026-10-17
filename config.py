@@ -9,6 +9,14 @@ BASE_DIR = Path(__file__).resolve().parent
 # Загружаем .env из корня
 load_dotenv(BASE_DIR / '.env')
 
+
+def env_bool(name, default):
+    """Читает булеву переменную окружения ('True'/'False', '1'/'0', 'yes'/'no')"""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ('true', '1', 'yes', 'on')
+
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY')
     if not SECRET_KEY:
@@ -31,7 +39,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # ===== НАСТРОЙКИ БЕЗОПАСНОСТИ СЕССИИ =====
-    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', True)
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_NAME = 'workout_session'
@@ -107,7 +115,7 @@ class Config:
 # Настройки для разных окружений
 class DevelopmentConfig(Config):
     DEBUG = True
-    SESSION_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', False)
     ENVIRONMENT = 'development'
 
 class ProductionConfig(Config):
@@ -115,7 +123,6 @@ class ProductionConfig(Config):
     ENVIRONMENT = 'production'
     
     # Более строгие настройки для продакшена
-    SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_SAMESITE = 'Strict'
 
 # Выбор конфигурации на основе переменной окружения
