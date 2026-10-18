@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
+Non-commercial hobby project for athletes (only voluntary donations are planned): avoid sales/SaaS wording in UI copy ("бесплатно", "премиум", pricing).
+
 Workout Tracker — a server-rendered Flask 3 app (Jinja2 + Bootstrap 5 and Chart.js from jsDelivr CDN) for planning and logging strength/cardio workouts. UI text, flash messages, comments and commit messages are in Russian. Deployed to shared hosting via Phusion Passenger (tracker-workout.ru).
 
 ## Fix plan
@@ -68,7 +70,7 @@ CSRFProtect is global. `base.html` exposes the token in `<meta name="csrf-token"
 
 ### Theme and layout
 
-Bootstrap 5.3 (CDN) recoloured via its `--bs-*` variables in `static/styles.css`; all colours are tokens (`--bg`, `--surface`, `--gold`, …) defined for `:root[data-bs-theme="dark"]` (default) and `[data-bs-theme="light"]`. The theme attribute is set by an inline script in `base.html` `<head>` from `localStorage['tw-theme']` and toggled by `.js-theme-toggle` (utils.js). Fonts: Montserrat (headings, buttons) + Open Sans (body) from Google Fonts — allowed in the production CSP in `config.py`. Use tokens, never literal colours. Layout: sidebar (desktop) / mobile bar + offcanvas + bottom tabbar, in `base.html`. Partials: `_macros.html` (`post_button`), `_icons.html` (SVG sprite, `<use href="#i-name">`), `_flashes.html`. Jinja filters (`app/__init__.py`): `num` (thousands separator, `|num(1)` for decimals) and `plural` (`n|plural('упражнение', 'упражнения', 'упражнений')`). Shared page blocks in styles.css: `.page-head`, `.hero`, `.stats-strip`, `.panel`, `.history-list`, `.pill`; workout screen: `.session-*`, `.ex`, `.sets`, `.set-row`, `.rest-bar`. Legacy coloured `card-header bg-*` classes are neutralised in CSS until each page is redesigned (PLAN.md 6.4). Approved mockup: https://claude.ai/artifact/E74eUQcBUutNVaqtdybAj2
+Bootstrap 5.3 (CDN) recoloured via its `--bs-*` variables in `static/styles.css`; all colours are tokens (`--bg`, `--surface`, `--gold`, …) defined for `:root[data-bs-theme="dark"]` (default) and `[data-bs-theme="light"]`. The theme attribute is set by an inline script in `base.html` `<head>` from `localStorage['tw-theme']` and toggled by `.js-theme-toggle` (utils.js). Fonts: Montserrat (headings, buttons) + Open Sans (body) from Google Fonts — allowed in the production CSP in `config.py`. Use tokens, never literal colours. Layout: sidebar (desktop) / mobile bar + offcanvas + bottom tabbar, in `base.html`. Partials: `_macros.html` (`post_button`, `form_field`), `_icons.html` (SVG sprite, `<use href="#i-name">`), `_flashes.html`. Jinja filters (`app/__init__.py`): `num` (thousands separator, `|num(1)` for decimals) and `plural` (`n|plural('упражнение', 'упражнения', 'упражнений')`). Shared page blocks in styles.css: `.page-head`, `.hero`, `.stats-strip`, `.panel`, `.history-list`, `.pill`; workout screen: `.session-*`, `.ex`, `.sets`, `.set-row`, `.rest-bar`. Legacy coloured `card-header bg-*` classes are neutralised in CSS until each page is redesigned (PLAN.md 6.4). Approved mockup: https://claude.ai/artifact/E74eUQcBUutNVaqtdybAj2
 
 ### PWA
 

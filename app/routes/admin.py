@@ -52,7 +52,7 @@ def change_role(user_id):
     # Нельзя менять роль супер-админа
     if user.id == current_user.id:
         flash('Нельзя изменить свою собственную роль', 'warning')
-        return redirect(url_for('admin.users'))
+        return redirect(url_for('admin.users', search=request.args.get('search', '')))
     
     role_id = request.form.get('role_id', type=int)
     role = Role.query.get(role_id)
@@ -63,7 +63,6 @@ def change_role(user_id):
         flash(f'Роль пользователя "{user.username}" изменена на "{role.name}"', 'success')
     else:
         flash('Неверная роль', 'danger')
-    search = request.args.get('search', '')
     return redirect(url_for('admin.users', search=request.args.get('search', '')))
 
 @bp.route('/user/<int:user_id>/reset_password', methods=['POST'])
@@ -78,7 +77,7 @@ def reset_password(user_id):
     
     if user.is_blocked:
         flash(f'Пользователь "{user.username}" заблокирован. Сначала разблокируйте.', 'danger')
-        return redirect(url_for('admin.users'))
+        return redirect(url_for('admin.users', search=request.args.get('search', '')))
     
     # Генерируем временный пароль
     import secrets
@@ -108,7 +107,7 @@ def block_user(user_id):
     # Нельзя заблокировать себя
     if user.id == current_user.id:
         flash('Нельзя заблокировать самого себя', 'warning')
-        return redirect(url_for('admin.users'))
+        return redirect(url_for('admin.users', search=request.args.get('search', '')))
     
     # Меняем статус (нужно добавить поле is_blocked в модель User)
     user.is_blocked = not user.is_blocked
@@ -132,7 +131,7 @@ def delete_user(user_id):
     # Нельзя удалить себя
     if user.id == current_user.id:
         flash('Нельзя удалить самого себя', 'warning')
-        return redirect(url_for('admin.users'))
+        return redirect(url_for('admin.users', search=request.args.get('search', '')))
     
     # Проверяем, есть ли у пользователя данные
     template_count = len(user.workout_templates)
@@ -140,7 +139,7 @@ def delete_user(user_id):
     
     if template_count > 0 or session_count > 0:
         flash(f'Пользователь "{user.username}" имеет {template_count} шаблонов и {session_count} тренировок. Сначала удалите их.', 'danger')
-        return redirect(url_for('admin.users'))
+        return redirect(url_for('admin.users', search=request.args.get('search', '')))
     
     username = user.username
     db.session.delete(user)

@@ -1170,6 +1170,7 @@ fieldset legend.form-label { font-size: .9rem; }
 }
 .landing-copy h1 { font-size: clamp(30px, 4.6vw, 48px); line-height: 1.12; margin: 12px 0 18px; }
 .landing-lead { font-size: 17px; color: var(--muted); max-width: 34em; margin-bottom: 28px; }
+.landing-note { margin: 20px 0 0; font-size: 13px; color: var(--muted); max-width: 34em; }
 .landing-demo { position: relative; }
 .landing-demo .ex { box-shadow: var(--shadow); }
 .landing-demo .cell-in { display: inline-grid; place-items: center; }
@@ -1189,4 +1190,20 @@ fieldset legend.form-label { font-size: .9rem; }
   .landing-hero { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 8px; }
   .landing-hero::before { display: none; }
   .landing-features { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+}
+
+/* ---------- администрирование ---------- */
+.filters-search { grid-template-columns: 1fr auto auto; align-items: center; }
+.user-row .avatar { flex: none; }
+.user-row.is-blocked { border-style: dashed; }
+.user-row.is-blocked .row-title { color: var(--muted); }
+.user-row .pill { font-size: 11px; padding: 2px 8px; vertical-align: 1px; }
+.role-form { flex: none; }
+.role-form .form-select { min-width: 150px; }
+@media (max-width: 575.98px) {
+  .user-row { flex-wrap: wrap; }
+  .user-row .row-main { flex-basis: calc(100% - 100px); }
+  .role-form { order: 3; flex: 1; margin-left: 46px; }
+  .role-form .form-select { width: 100%; min-width: 0; }
+  .filters-search { grid-template-columns: 1fr auto; }
 }
