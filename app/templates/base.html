@@ -63,8 +63,10 @@
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#121110">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Workout">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="/static/icons/launchericon-192x192.png">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 </head>
 <body class="{{ 'app-auth' if current_user.is_authenticated else 'app-guest' }}">
@@ -82,6 +84,7 @@
                     <span class="avatar">{{ current_user.username[:1]|upper }}</span>
                     <span class="user-name">{{ current_user.username }}</span>
                 </div>
+                <button type="button" class="btn btn-primary w-100" data-install hidden><svg class="icon"><use href="#i-download"/></svg>Установить приложение</button>
                 {{ theme_toggle(with_label=True) }}
                 {{ post_button(url_for('auth.logout'), 'Выйти', 'btn btn-link side-logout') }}
             </div>
@@ -109,7 +112,8 @@
             </div>
             <div class="offcanvas-body">
                 {{ main_nav() }}
-                {{ post_button(url_for('auth.logout'), 'Выйти', 'btn btn-outline-danger w-100 mt-4') }}
+                <button type="button" class="btn btn-primary w-100 mt-4" data-install hidden><svg class="icon"><use href="#i-download"/></svg>Установить приложение</button>
+                {{ post_button(url_for('auth.logout'), 'Выйти', 'btn btn-outline-danger w-100 mt-3') }}
             </div>
         </div>
 
@@ -149,9 +153,11 @@
     </main>
     {% endif %}
 
+    {% include "_install_ios.html" %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
     <script>
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
@@ -165,11 +171,6 @@
                 }
                 return originalFetch(url, options);
             };
-        }
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/sw.js').catch(() => {});
-            });
         }
     </script>
 </body>

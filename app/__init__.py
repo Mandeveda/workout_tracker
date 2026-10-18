@@ -89,6 +89,21 @@ def create_app(config_class=None):
     from app.textutil import plural
     app.add_template_filter(plural, 'plural')   # {{ n|plural('упражнение', 'упражнения', 'упражнений') }}
     
+    # Версия у ссылок на статику (?v=время изменения файла): после обновления файла
+    # браузер и service worker сразу берут новую версию, а не старую из кэша
+    static_versions = {}
+
+    @app.url_defaults
+    def static_file_version(endpoint, values):
+        if endpoint == 'static' and 'filename' in values:
+            filename = values['filename']
+            if filename not in static_versions:
+                try:
+                    static_versions[filename] = int(os.path.getmtime(os.path.join(app.static_folder, filename)))
+                except OSError:
+                    static_versions[filename] = 0
+            values.setdefault('v', static_versions[filename])
+    
     # Обработчик ошибки превышения лимита
     @app.errorhandler(429)
     def ratelimit_handler(e):

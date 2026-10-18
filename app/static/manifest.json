@@ -1,60 +1,38 @@
 {
-  "name": "Workout Tracker",
+  "id": "/",
+  "name": "Tracker Workout",
   "short_name": "Workout",
-  "description": "Трекер тренировок с планами, аналитикой и прогрессом",
-  "start_url": "/",
+  "description": "Тренировки по плану, отметка подходов одним касанием, прогресс и рекорды",
+  "lang": "ru",
+  "dir": "ltr",
+  "start_url": "/dashboard?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0d6efd",
-  "orientation": "portrait-primary",
+  "background_color": "#121110",
+  "theme_color": "#121110",
+  "categories": ["health", "fitness", "sports"],
   "icons": [
+    { "src": "/static/icons/launchericon-48x48.png",   "sizes": "48x48",   "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/launchericon-72x72.png",   "sizes": "72x72",   "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/launchericon-96x96.png",   "sizes": "96x96",   "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/launchericon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/launchericon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/launchericon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/maskable-192x192.png",     "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/static/icons/maskable-512x512.png",     "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
     {
-      "src": "/static/icons/launchericon-72x72.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "name": "Свободная тренировка",
+      "short_name": "Свободная",
+      "url": "/workouts/free_workout?source=pwa",
+      "icons": [{ "src": "/static/icons/launchericon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
-      "src": "/static/icons/launchericon-96x96.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/static/icons/launchericon-128x128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/static/icons/launchericon-144x144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/static/icons/launchericon-152x152.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/static/icons/launchericon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/static/icons/launchericon-384x384.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/static/icons/launchericon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "name": "Тренировки на сегодня",
+      "short_name": "Сегодня",
+      "url": "/workouts/?source=pwa",
+      "icons": [{ "src": "/static/icons/launchericon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     }
   ]
 }

@@ -1218,3 +1218,8 @@ fieldset legend.form-label { font-size: .9rem; }
 .filter-chips a:hover { border-color: var(--gold); color: var(--fg); }
 .filter-chips a[aria-current="page"] { border-color: var(--gold); color: var(--gold); background: rgba(var(--gold-rgb), .1); }
 .filter-chips a.is-empty:not([aria-current]) { opacity: .55; }
+
+/* ---------- установка приложения ---------- */
+.install-steps { padding-left: 1.2em; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.install-share { width: 18px; height: 18px; color: var(--gold); vertical-align: -3px; }
+.landing-install { padding-left: 0; margin-top: 12px; }

@@ -1,0 +1,21 @@
+{# Инструкция установки для iPhone/iPad: Safari не даёт сайтам показывать окно установки (логика — static/js/pwa.js) #}
+<div class="modal fade" id="installIosModal" tabindex="-1" aria-labelledby="installIosTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="installIosTitle">Установка на iPhone и iPad</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <ol class="install-steps">
+                    <li>Нажмите <b>«Поделиться»</b>
+                        <svg class="icon install-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="значок «Поделиться»"><path d="M12 15V3M8 7l4-4 4 4M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>
+                        — в Safari внизу экрана, в Chrome справа в адресной строке.</li>
+                    <li>Выберите <b>«На экран Домой»</b>. Если пункта не видно, прокрутите список действий вниз.</li>
+                    <li>Нажмите <b>«Добавить»</b>.</li>
+                </ol>
+                <p class="form-text mb-0">Иконка Tracker Workout появится на экране, а сайт будет открываться как приложение — без адресной строки браузера.</p>
+            </div>
+        </div>
+    </div>
+</div>

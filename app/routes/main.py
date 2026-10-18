@@ -1,4 +1,4 @@
-from flask import render_template, Blueprint
+from flask import render_template, Blueprint, current_app, send_from_directory
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 from app.models import WorkoutSchedule, WorkoutSession
@@ -145,4 +145,13 @@ def dashboard():
 
 @bp.route('/offline')
 def offline():
+    """Страница «Нет соединения». Кэшируется service worker'ом, поэтому без данных пользователя"""
     return render_template('offline.html')
+
+
+@bp.route('/sw.js')
+def service_worker():
+    """Service worker с корня сайта — только так он управляет всеми страницами (а не только /static/)"""
+    response = send_from_directory(current_app.static_folder, 'sw.js', mimetype='application/javascript', max_age=0)
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
