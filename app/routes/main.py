@@ -109,7 +109,7 @@ def dashboard():
         'values': [round(v) for v in weekly.values()],
     }
 
-    recent = completed.order_by(WorkoutSession.date.desc()).limit(5).all()
+    recent = completed.order_by(WorkoutSession.date.desc()).limit(4).all()
 
     return render_template(
         'dashboard.html',

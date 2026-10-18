@@ -811,6 +811,10 @@ hr { border-color: var(--line); opacity: 1; }
 .panel-head h3 { font-size: 16px; margin: 0; }
 .panel-link { font: 600 13px var(--font-display); text-decoration: none; }
 .chart-box { position: relative; height: 240px; }
+/* Две панели одной высоты: график растягивается вровень с соседней панелью */
+.dash-grid-even { align-items: stretch; }
+.dash-grid-even > .panel { display: flex; flex-direction: column; }
+.dash-grid-even .chart-box { flex: 1; min-height: 240px; height: auto; }
 .empty-note { color: var(--muted); margin: 0; }
 
 .history-list { list-style: none; margin: 0; padding: 0; }
