@@ -1,0 +1,7 @@
+{# Вкладки раздела «Аналитика» #}
+{% set tabs = [('analytics.dashboard', 'Обзор'), ('analytics.records', 'Рекорды'), ('analytics.progress', 'Прогресс'), ('analytics.calendar', 'Календарь')] %}
+<nav class="tabs" aria-label="Разделы аналитики">
+    {% for endpoint, label in tabs %}
+    <a href="{{ url_for(endpoint) }}"{% if request.endpoint == endpoint %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+</nav>

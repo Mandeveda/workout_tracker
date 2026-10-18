@@ -1,179 +1,99 @@
 {% extends "base.html" %}
-{% block title %}Прогресс упражнений{% endblock %}
+{% block title %}Прогресс{% endblock %}
 {% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">📈 Прогресс упражнений</h2>
-    
-    <div class="card mb-4">
-        <div class="card-body">
-            <label class="form-label fw-bold">Выберите упражнение:</label>
-            <select id="exerciseSelect" class="form-select mb-3">
-                <option value="">-- Выберите упражнение --</option>
-                {% for exercise in exercises %}
-                    <option value="{{ exercise.id }}">{{ exercise.name }}</option>
-                {% endfor %}
-            </select>
-            
-            <div id="chartContainer" style="display: none;">
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Тип прогресса:</label>
-                    <select id="metricSelect" class="form-select">
-                        <option value="weight">Максимальный вес (кг)</option>
-                        <option value="reps">Максимальные повторения</option>
-                        <option value="tonnage">Максимальный тоннаж</option>
-                    </select>
-                </div>
-                <canvas id="progressChart" width="400" height="200"></canvas>
-            </div>
-            
-            <div id="noDataMessage" class="alert alert-info mt-3" style="display: none;">
-                <strong>Нет данных</strong> — для этого упражнения пока нет выполненных подходов.
-            </div>
-        </div>
-    </div>
-    
-    <div class="mt-3">
-        <a href="{{ url_for('analytics.records') }}" class="btn btn-outline-primary">🏆 Рекорды</a>
-        <a href="{{ url_for('analytics.dashboard') }}" class="btn btn-outline-secondary">📊 Детальная аналитика</a>
-        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">← На дашборд</a>
+<div class="page-head">
+    <div>
+        <h1>Прогресс</h1>
+        <p class="page-sub">Лучший результат каждой тренировки по выбранному упражнению</p>
     </div>
 </div>
+{% include "analytics/_tabs.html" %}
+
+{% if exercises %}
+<section class="panel">
+    <div class="progress-controls">
+        <select id="exerciseSelect" class="form-select" aria-label="Упражнение">
+            {% for e in exercises %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}
+        </select>
+        <div class="segmented" id="metricSwitch" role="radiogroup" aria-label="Показатель"></div>
+    </div>
+    <div class="progress-summary" id="summary"></div>
+    <div class="chart-box chart-box-tall"><canvas id="progressChart" role="img" aria-label="График прогресса"></canvas></div>
+    <p class="empty-note" id="noData" hidden>По этому упражнению пока нет завершённых подходов.</p>
+</section>
+{% else %}
+<div class="empty-state"><p>График появится после первой завершённой тренировки.</p></div>
+{% endif %}
 
 <script>
-    let chart = null;
-    
-    document.getElementById('exerciseSelect').addEventListener('change', function() {
-        const exerciseId = this.value;
-        if (exerciseId) {
-            loadProgressData(exerciseId);
-        } else {
-            document.getElementById('chartContainer').style.display = 'none';
-            document.getElementById('noDataMessage').style.display = 'none';
-        }
-    });
-    
-    document.getElementById('metricSelect').addEventListener('change', function() {
-        const exerciseId = document.getElementById('exerciseSelect').value;
-        if (exerciseId && chart) {
-            const metric = this.value;
-            updateChartMetric(metric);
-        }
-    });
-    
-    function loadProgressData(exerciseId) {
-        fetch(`/analytics/progress_data/${exerciseId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.dates && data.dates.length > 0) {
-                    document.getElementById('chartContainer').style.display = 'block';
-                    document.getElementById('noDataMessage').style.display = 'none';
-                    
-                    // Сохраняем данные для смены метрики
-                    window.progressData = data;
-                    
-                    // Создаём график
-                    const metric = document.getElementById('metricSelect').value;
-                    createChart(data, metric);
-                } else {
-                    document.getElementById('chartContainer').style.display = 'none';
-                    document.getElementById('noDataMessage').style.display = 'block';
-                }
-            })
-            .catch(error => {
-                console.error('Ошибка загрузки данных:', error);
-                document.getElementById('chartContainer').style.display = 'none';
-                document.getElementById('noDataMessage').style.display = 'block';
-            });
+document.addEventListener('DOMContentLoaded', function () {
+    const select = document.getElementById('exerciseSelect');
+    if (!select || !window.Chart) return;
+    const switchEl = document.getElementById('metricSwitch');
+    const summaryEl = document.getElementById('summary');
+    const canvas = document.getElementById('progressChart');
+    const noData = document.getElementById('noData');
+    const gold = getComputedStyle(document.documentElement).getPropertyValue('--gold').trim();
+
+    const metrics = {
+        strength: [['weight', 'Вес', 'кг'], ['reps', 'Повторения', 'повт.'], ['set', 'Лучший подход', 'кг']],
+        bodyweight: [['reps', 'Повторения', 'повт.']],
+        cardio: [['minutes', 'Минуты', 'мин'], ['km', 'Километры', 'км']]
+    };
+    let data = null, metric = null, chart = null;
+
+    function fmt(v) { return Number(v).toLocaleString('ru-RU', { maximumFractionDigits: 1 }); }
+
+    function renderSwitch() {
+        const list = metrics[data.type] || metrics.strength;
+        if (!list.some(m => m[0] === metric)) metric = list[0][0];
+        switchEl.innerHTML = list.map(([key, label]) =>
+            `<label><input type="radio" name="metric" value="${key}"${key === metric ? ' checked' : ''}><span>${label}</span></label>`).join('');
+        switchEl.hidden = list.length < 2;
     }
-    
-    function createChart(data, metric) {
-        const ctx = document.getElementById('progressChart').getContext('2d');
-        
-        let label, values, color;
-        switch(metric) {
-            case 'weight':
-                label = 'Максимальный вес (кг)';
-                values = data.weights;
-                color = 'rgb(54, 162, 235)';
-                break;
-            case 'reps':
-                label = 'Максимальные повторения';
-                values = data.reps;
-                color = 'rgb(75, 192, 192)';
-                break;
-            case 'tonnage':
-                label = 'Максимальный тоннаж';
-                values = data.tonnage;
-                color = 'rgb(255, 99, 132)';
-                break;
-        }
-        
-        if (chart) {
-            chart.destroy();
-        }
-        
-        chart = new Chart(ctx, {
+
+    function render() {
+        const [, label, unit] = (metrics[data.type] || metrics.strength).find(m => m[0] === metric);
+        const values = data.series[metric];
+        const first = values[0], last = values[values.length - 1], best = Math.max(...values);
+        const diff = last - first;
+        summaryEl.innerHTML = `
+            <div><span class="label">Первая</span><strong class="num">${fmt(first)} ${unit}</strong><small class="num">${data.dates[0]}</small></div>
+            <div><span class="label">Последняя</span><strong class="num">${fmt(last)} ${unit}</strong><small class="num ${diff > 0 ? 'is-up' : (diff < 0 ? 'is-down' : '')}">${diff > 0 ? '+' : (diff < 0 ? '−' : '')}${fmt(Math.abs(diff))} ${unit}</small></div>
+            <div><span class="label">Лучшая</span><strong class="num">${fmt(best)} ${unit}</strong><small>${values.length} ${values.length % 10 === 1 && values.length % 100 !== 11 ? 'тренировка' : 'тренировок'}</small></div>`;
+        if (chart) chart.destroy();
+        chart = new Chart(canvas, {
             type: 'line',
-            data: {
-                labels: data.dates,
-                datasets: [{
-                    label: label,
-                    data: values,
-                    borderColor: color,
-                    backgroundColor: color + '20',
-                    borderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    fill: true,
-                    tension: 0.3
-                }]
-            },
+            data: { labels: data.dates, datasets: [{ label, data: values, borderColor: gold, backgroundColor: gold + '22',
+                    fill: true, tension: .3, borderWidth: 2, pointRadius: values.length > 30 ? 0 : 3, pointBackgroundColor: gold }] },
             options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                let value = context.raw;
-                                if (metric === 'weight') {
-                                    return label + ': ' + value + ' кг';
-                                } else if (metric === 'tonnage') {
-                                    return label + ': ' + value;
-                                } else {
-                                    return label + ': ' + value;
-                                }
-                            }
-                        }
-                    },
-                    legend: {
-                        position: 'top',
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: metric === 'weight' ? 'кг' : (metric === 'reps' ? 'повторения' : 'тоннаж')
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Дата тренировки'
-                        }
-                    }
-                }
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${label}: ${fmt(c.raw)} ${unit}` } } },
+                scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 12 } },
+                          y: { beginAtZero: metric !== 'weight', ticks: { callback: v => fmt(v) } } }
             }
         });
     }
-    
-    function updateChartMetric(metric) {
-        if (window.progressData) {
-            createChart(window.progressData, metric);
-        }
+
+    function load() {
+        fetch(`/analytics/progress_data/${encodeURIComponent(select.value)}`)
+            .then(r => r.json())
+            .then(json => {
+                data = json;
+                const has = data.dates && data.dates.length;
+                noData.hidden = has;
+                canvas.parentElement.hidden = !has;
+                summaryEl.hidden = !has;
+                if (!has) { switchEl.hidden = true; return; }
+                renderSwitch();
+                render();
+            })
+            .catch(() => { noData.hidden = false; noData.textContent = 'Не удалось загрузить данные. Обновите страницу.'; });
     }
+
+    select.addEventListener('change', load);
+    switchEl.addEventListener('change', e => { metric = e.target.value; render(); });
+    load();
+});
 </script>
 {% endblock %}

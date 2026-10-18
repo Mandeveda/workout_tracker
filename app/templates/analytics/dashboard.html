@@ -1,57 +1,118 @@
 {% extends "base.html" %}
-{% block title %}Детальная аналитика{% endblock %}
+{% block title %}Аналитика{% endblock %}
 {% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">📊 Детальная аналитика</h2>
-    
-    <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card text-white bg-primary">
-                <div class="card-body">
-                    <h5 class="card-title">Тренировок за 30 дней</h5>
-                    <h2 class="display-4">{{ workouts_last_month }}</h2>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-6 mb-4">
-            <div class="card text-white bg-success">
-                <div class="card-body">
-                    <h5 class="card-title">Общий тоннаж за 30 дней</h5>
-                    <h2 class="display-4">{{ total_tonnage|round(0) }} кг</h2>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-6 mb-4">
-            <div class="card text-white bg-warning">
-                <div class="card-body">
-                    <h5 class="card-title">Всего рекордов</h5>
-                    <h2 class="display-4">{{ records_count }}</h2>
-                    <p class="mb-0">максимальный вес и повторения</p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-6 mb-4">
-            <div class="card text-white bg-danger">
-                <div class="card-body">
-                    <h5 class="card-title">Лучшая тренировка</h5>
-                    {% if best_workout %}
-                        <h3 class="mb-0">{{ best_workout.total_tonnage|round(0) }} кг</h3>
-                        <small>{{ best_workout.date.strftime('%d.%m.%Y') }}</small>
-                    {% else %}
-                        <p class="mb-0">Нет данных</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="mt-3">
-        <a href="{{ url_for('analytics.records') }}" class="btn btn-outline-primary">🏆 Рекорды</a>
-        <a href="{{ url_for('analytics.progress') }}" class="btn btn-outline-success">📈 Прогресс</a>
-        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">← На дашборд</a>
+<div class="page-head">
+    <div>
+        <h1>Аналитика</h1>
+        <p class="page-sub">Последние 30 дней и динамика за 12 недель</p>
     </div>
 </div>
+{% include "analytics/_tabs.html" %}
+
+<section class="stats-strip" aria-label="За 30 дней">
+    <div class="stat">
+        <span class="label">За 30 дней</span>
+        <strong class="num">{{ workouts_last_month }} <span class="stat-unit">{{ workouts_last_month|plural('тренировка', 'тренировки', 'тренировок') }}</span></strong>
+        <small>только завершённые</small>
+    </div>
+    <div class="stat">
+        <span class="label">Тоннаж, 30 дней</span>
+        <strong class="num">{{ total_tonnage|num }} кг</strong>
+        <small>{% if workouts_last_month %}в среднем {{ (total_tonnage / workouts_last_month)|num }} кг{% else %}тренировок не было{% endif %}</small>
+    </div>
+    <div class="stat">
+        <span class="label">Среднее выполнение</span>
+        <strong class="num">{{ (avg_completion|round|int ~ '%') if avg_completion is not none else '—' }}</strong>
+        <small>от плана подходов</small>
+    </div>
+    <div class="stat">
+        <span class="label">Новых рекордов</span>
+        <strong class="num">{{ fresh_records|length }}</strong>
+        <small>за 30 дней</small>
+    </div>
+</section>
+
+<div class="dash-grid">
+    <section class="panel">
+        <div class="panel-head"><h3>Тоннаж по неделям, кг</h3></div>
+        {% if chart['values']|sum > 0 %}
+        <div class="chart-box"><canvas id="weeklyChart" role="img" aria-label="Тоннаж по неделям за 12 недель"></canvas></div>
+        {% else %}
+        <p class="empty-note">За 12 недель завершённых тренировок не было.</p>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <h3>Новые рекорды</h3>
+            <a class="panel-link" href="{{ url_for('analytics.records') }}">Все рекорды</a>
+        </div>
+        {% if fresh_records %}
+        <ul class="kv-list">
+            {% for r in fresh_records %}
+            <li>
+                <span class="kv-key">{{ r.exercise.name }}</span>
+                <span class="kv-val num">
+                    {% if r.exercise.exercise_type == 'strength' %}{{ r.log.actual_weight|num(1) }} кг × {{ r.log.actual_reps }}
+                    {% elif r.exercise.exercise_type == 'cardio' %}{% if r.log.actual_weight %}{{ r.log.actual_weight|num(1) }} км{% else %}{{ r.log.actual_reps }} мин{% endif %}
+                    {% else %}{{ r.log.actual_reps }} повт.{% endif %}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-note">За 30 дней рекордов нет. Они появятся, когда вы превзойдёте свой лучший подход.</p>
+        {% endif %}
+    </section>
+</div>
+
+<div class="dash-grid mt-4">
+    <section class="panel">
+        <div class="panel-head"><h3>Упражнения по объёму, 30 дней</h3></div>
+        {% if top_exercises %}
+        <ul class="kv-list">
+            {% for item in top_exercises %}
+            <li>
+                <span class="kv-key">{{ item.exercise.name }}</span>
+                <span class="kv-val num">{% if item.tonnage %}{{ item.tonnage|num }} кг · {% endif %}{{ item.sets }} {{ item.sets|plural('подход', 'подхода', 'подходов') }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-note">Нет подходов за 30 дней.</p>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <div class="panel-head"><h3>Лучшая тренировка</h3></div>
+        {% if best_workout %}
+        <a class="best-workout" href="{{ url_for('workouts.summary', session_id=best_workout.id) }}">
+            <strong class="num">{{ best_workout.total_tonnage|num }} кг</strong>
+            <span>{{ best_workout.template.name if best_workout.template else 'Свободная тренировка' }} · {{ best_workout.date.strftime('%d.%m.%Y') }}</span>
+        </a>
+        {% else %}
+        <p class="empty-note">Появится после первой завершённой тренировки.</p>
+        {% endif %}
+    </section>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const canvas = document.getElementById('weeklyChart');
+    if (!window.Chart || !canvas) return;
+    const data = {{ chart|tojson }};
+    const gold = getComputedStyle(document.documentElement).getPropertyValue('--gold').trim();
+    new Chart(canvas, {
+        type: 'bar',
+        data: { labels: data.labels, datasets: [{ data: data.values, borderRadius: 6, maxBarThickness: 36,
+            backgroundColor: data.values.map((_, i) => i === data.values.length - 1 ? gold : gold + '55') }] },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw.toLocaleString('ru-RU') + ' кг' } } },
+            scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
+                      y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('ru-RU') } } }
+        }
+    });
+});
+</script>
 {% endblock %}

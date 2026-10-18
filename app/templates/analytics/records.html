@@ -1,86 +1,53 @@
 {% extends "base.html" %}
-{% block title %}Мои рекорды{% endblock %}
-{% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">🏆 Мои рекорды</h2>
-    
-    {% if records %}
-        <div class="row">
-            {% for record in records %}
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header bg-warning text-dark">
-                            <h4 class="mb-0">{{ record.exercise.name }}</h4>
-                        </div>
-                        <div class="card-body">
-                            <div class="row text-center">
-                                <!-- Максимальный вес -->
-                                <div class="col-md-4 mb-3">
-                                    <div class="border rounded p-2">
-                                        <h6 class="text-muted">Макс. вес</h6>
-                                        {% if record.best_weight %}
-                                            <h3 class="text-primary">{{ record.best_weight.actual_weight|round(1) }} кг</h3>
-                                            <small class="text-muted">
-                                                при {{ record.best_weight.actual_reps }} повтор.
-                                                <br>
-                                                {{ record.best_weight.session.date.strftime('%d.%m.%Y') }}
-                                            </small>
-                                        {% else %}
-                                            <p class="text-muted">—</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                
-                                <!-- Максимум повторений -->
-                                <div class="col-md-4 mb-3">
-                                    <div class="border rounded p-2">
-                                        <h6 class="text-muted">Макс. повторений</h6>
-                                        {% if record.best_reps %}
-                                            <h3 class="text-success">{{ record.best_reps.actual_reps }}</h3>
-                                            <small class="text-muted">
-                                                с весом {{ record.best_reps.actual_weight|round(1) }} кг
-                                                <br>
-                                                {{ record.best_reps.session.date.strftime('%d.%m.%Y') }}
-                                            </small>
-                                        {% else %}
-                                            <p class="text-muted">—</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                
-                                <!-- Максимальный тоннаж за подход -->
-                                <div class="col-md-4 mb-3">
-                                    <div class="border rounded p-2">
-                                        <h6 class="text-muted">Макс. тоннаж</h6>
-                                        {% if record.best_tonnage %}
-                                            <h3 class="text-danger">{{ record.max_tonnage|round(0) }}</h3>
-                                            <small class="text-muted">
-                                                {{ record.best_tonnage.actual_weight|round(1) }} кг × {{ record.best_tonnage.actual_reps }}
-                                                <br>
-                                                {{ record.best_tonnage.session.date.strftime('%d.%m.%Y') }}
-                                            </small>
-                                        {% else %}
-                                            <p class="text-muted">—</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
+{% block title %}Рекорды{% endblock %}
+{% macro rec(label, log, value, detail) -%}
+<div class="rec">
+    <span class="label">{{ label }}</span>
+    {% if log %}
+    <strong class="num">{{ value }}</strong>
+    <small class="num">{{ detail }} · {{ log.session.date.strftime('%d.%m.%Y') }}</small>
     {% else %}
-        <div class="alert alert-info">
-            <h4 class="alert-heading">Пока нет рекордов!</h4>
-            <p>Начните выполнять тренировки, чтобы увидеть свои рекорды здесь.</p>
-            <hr>
-            <a href="{{ url_for('workouts.index') }}" class="btn btn-primary">К тренировкам</a>
-        </div>
+    <strong>—</strong>
     {% endif %}
-    
-    <div class="mt-4">
-        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">← На дашборд</a>
+</div>
+{%- endmacro %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Рекорды</h1>
+        <p class="page-sub">Лучшие подходы по каждому упражнению из завершённых тренировок</p>
     </div>
 </div>
+{% include "analytics/_tabs.html" %}
+
+{% if records %}
+<div class="card-grid">
+    {% for r in records %}
+    {% set t = r.exercise.exercise_type %}
+    <article class="tcard">
+        <div class="tcard-headings">
+            <span class="tcard-title">{{ r.exercise.name }}</span>
+            <span class="tcard-meta">{{ {'strength': 'Силовое', 'bodyweight': 'Собственный вес', 'cardio': 'Кардио'}.get(t, t) }}</span>
+        </div>
+        <div class="rec-row">
+            {% if t == 'cardio' %}
+                {{ rec('Дольше всего', r.longest, (r.longest.actual_reps ~ ' мин') if r.longest, (r.longest.actual_weight|num(1) ~ ' км') if r.longest and r.longest.actual_weight else 'без дистанции') }}
+                {{ rec('Дальше всего', r.farthest, (r.farthest.actual_weight|num(1) ~ ' км') if r.farthest, (r.farthest.actual_reps ~ ' мин') if r.farthest) }}
+            {% elif t == 'bodyweight' %}
+                {{ rec('Повторы', r.max_reps, r.max_reps.actual_reps if r.max_reps, 'за подход') }}
+            {% else %}
+                {{ rec('Макс. вес', r.max_weight, (r.max_weight.actual_weight|num(1) ~ ' кг') if r.max_weight, ('× ' ~ r.max_weight.actual_reps) if r.max_weight) }}
+                {{ rec('Повторы', r.max_reps, r.max_reps.actual_reps if r.max_reps, (r.max_reps.actual_weight|num(1) ~ ' кг') if r.max_reps) }}
+                {{ rec('Подход', r.max_set, ((r.max_set.actual_weight * r.max_set.actual_reps)|num ~ ' кг') if r.max_set, (r.max_set.actual_weight|num(1) ~ ' × ' ~ r.max_set.actual_reps) if r.max_set) }}
+            {% endif %}
+        </div>
+    </article>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>Рекордов пока нет — они появятся после первой завершённой тренировки.</p>
+    <a class="btn btn-primary mt-3" href="{{ url_for('workouts.index') }}">К тренировкам</a>
+</div>
+{% endif %}
 {% endblock %}
