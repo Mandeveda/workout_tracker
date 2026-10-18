@@ -176,3 +176,25 @@ def test_cannot_move_foreign_workout(client, make_user, make_exercise, make_temp
 def test_plural(n, word):
     from app.textutil import plural
     assert plural(n, 'подход', 'подхода', 'подходов') == word
+
+
+def test_new_session_status_matches_flag(make_user):
+    """План 3.8: status по умолчанию был 'completed' при is_completed=False"""
+    from app.models import WorkoutSession
+    user = make_user('anna')
+    session = WorkoutSession(user_id=user.id)
+    db.session.add(session); db.session.commit()
+    assert (session.status, session.is_completed) == ('in_progress', False)
+
+
+def test_recalc_fills_missing_completed_flag(make_user, make_session, capsys):
+    """У старых тренировок is_completed пустой — они не видны ни в истории, ни в незавершённых"""
+    from recalc_stats import recalc
+    user = make_user('anna')
+    old = make_session(user, completed=True)
+    old.is_completed = None
+    db.session.commit()
+    recalc(apply_changes=True)
+    db.session.refresh(old)
+    assert old.is_completed is True
+    assert 'Согласовано флагов завершения: 1' in capsys.readouterr().out

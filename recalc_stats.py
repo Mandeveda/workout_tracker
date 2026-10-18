@@ -1,4 +1,5 @@
-"""Пересчёт процента выполнения подходов и итогов тренировок по уже сохранённым данным.
+"""Пересчёт процента выполнения подходов и итогов тренировок по уже сохранённым данным
+и согласование флага завершения у старых тренировок.
 
 Нужен после исправлений в расчётах (план 1.2 и далее): старые записи хранят
 проценты, посчитанные с ошибкой.
@@ -17,6 +18,14 @@ from app.routes.workouts import session_totals
 
 
 def recalc(apply_changes):
+    # Флаг завершения: у старых тренировок (до появления поля) is_completed пустой,
+    # из-за чего они не видны ни в истории, ни среди незавершённых
+    fixed_flags = 0
+    for session in WorkoutSession.query.filter(WorkoutSession.is_completed.is_(None)).all():
+        session.is_completed = session.status == 'completed'
+        fixed_flags += 1
+        print(f'  тренировка {session.id} от {session.date:%d.%m.%Y}: is_completed → {session.is_completed} (статус {session.status})')
+
     changed_logs = 0
 
     for log in SetLog.query.all():
@@ -48,7 +57,8 @@ def recalc(apply_changes):
                   f'{old_percent:.1f}% → {percent:.1f}%, тоннаж {old_tonnage:.0f} → {tonnage:.0f} кг')
             session.completion_percent, session.total_tonnage = percent, tonnage
 
-    print(f'\nПодходов с изменённым процентом: {changed_logs}')
+    print(f'\nСогласовано флагов завершения: {fixed_flags}')
+    print(f'Подходов с изменённым процентом: {changed_logs}')
     print(f'Тренировок с изменённым итогом: {changed_sessions}')
     if kept_without_logs:
         print(f'Тренировок без подходов, итог оставлен как есть: {kept_without_logs}')

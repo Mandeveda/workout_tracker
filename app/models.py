@@ -282,7 +282,7 @@ class WorkoutSession(db.Model):
     schedule_id = db.Column(db.Integer, db.ForeignKey('workout_schedules.id'), nullable=True)
     template_id = db.Column(db.Integer, db.ForeignKey('workout_templates.id'), nullable=True)
     date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    status = db.Column(db.String(20), default='completed')  # completed, skipped
+    status = db.Column(db.String(20), default='in_progress')  # in_progress, completed
     
     # Общая оценка выполнения
     completion_percent = db.Column(db.Float, default=0.0)
