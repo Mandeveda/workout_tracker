@@ -5,13 +5,9 @@ from app import db
 from app.models import User
 from app.forms import ProfileForm
 import json
-import logging
 
 bp = Blueprint('profile', __name__, url_prefix='/profile')
 
-# Настройка логирования
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 # Обхваты: ключ в истории замеров, подпись, поле модели
 MEASURES = [
@@ -100,7 +96,6 @@ def edit():
     form = ProfileForm(obj=current_user)
     
     if form.validate_on_submit():
-        logger.debug("=== РЕДАКТИРОВАНИЕ ПРОФИЛЯ ===")
         
         # Проверка уникальности username
         if form.username.data != current_user.username:
@@ -169,7 +164,6 @@ def edit():
 @login_required
 def add_measurement():
     """Добавление нового измерения"""
-    logger.debug("=== ДОБАВЛЕНИЕ ИЗМЕРЕНИЯ ===")
     
     try:
         weight = request.form.get('weight', type=float)
@@ -188,7 +182,6 @@ def add_measurement():
         calf = request.form.get('calf_circumference', type=float)
         neck = request.form.get('neck_circumference', type=float)
         
-        logger.debug(f"Получены данные: вес={weight}, грудь={chest}, талия={waist}, бедра={hips}, бицепс={biceps}, предплечье={forearm}, бедро={thigh}, икра={calf}, шея={neck}")
         
         # Создаем измерение
         measurement = {
@@ -207,14 +200,12 @@ def add_measurement():
         # Инициализация истории
         if current_user.measurements_history is None or current_user.measurements_history == '':
             current_user.measurements_history = []
-            logger.debug("Инициализирована новая история")
         
         # ✅ ВАЖНО: Создаем новый список, а не изменяем существующий
         history_list = list(current_user.measurements_history)
         history_list.append(measurement)
         current_user.measurements_history = history_list
         
-        logger.debug(f"История после добавления: {len(current_user.measurements_history)} измерений")
         
         # Обновляем текущие параметры
         current_user.weight = weight
@@ -242,12 +233,10 @@ def add_measurement():
         
         # Коммитим
         db.session.commit()
-        logger.debug("✅ Изменения сохранены в БД")
         
         # ✅ ПРОВЕРЯЕМ: перезагружаем объект
         db.session.refresh(current_user)
         final_count = len(current_user.measurements_history) if current_user.measurements_history else 0
-        logger.debug(f"После сохранения в истории: {final_count} измерений")
         
         flash(f'✅ Измерение добавлено! Теперь в истории {final_count} записей.', 'success')
         
@@ -261,38 +250,8 @@ def add_measurement():
 @bp.route('/measurements_data')
 @login_required
 def measurements_data():
-    """Данные для графика"""
-    logger.debug("=== ЗАПРОС ДАННЫХ ДЛЯ ГРАФИКА ===")
-    
-    # Принудительно обновляем объект пользователя из БД
-    db.session.refresh(current_user)
-    
-    history = current_user.measurements_history
-    
-    if history is None:
-        logger.debug("История = None")
-        history = []
-    elif isinstance(history, str):
-        # Если вдруг строка, пытаемся распарсить JSON
-        try:
-            history = json.loads(history)
-            logger.debug("Распарсили JSON строку")
-        except:
-            history = []
-            logger.debug("Не удалось распарсить JSON")
-    
-    logger.debug(f"Тип history: {type(history)}")
-    logger.debug(f"Количество измерений: {len(history) if history else 0}")
-    
-    if history and len(history) > 0:
-        # Сортируем по дате
-        history.sort(key=lambda x: x.get('date', ''))
-        logger.debug(f"Первое измерение: {history[0]}")
-        logger.debug(f"Последнее измерение: {history[-1]}")
-    else:
-        logger.debug("История пуста")
-    
-    # Формируем ответ
+    """Данные для графика замеров"""
+    history = sorted_history(current_user)
     response_data = {
         'dates': [m.get('date', '')[:10] for m in history] if history else [],
         'weights': [float(m.get('weight', 0)) for m in history] if history else [],
@@ -305,7 +264,4 @@ def measurements_data():
         'calf': [float(m.get('calf', 0)) for m in history] if history else [],
         'neck': [float(m.get('neck', 0)) for m in history] if history else []
     }
-    
-    logger.debug(f"Отправляем {len(response_data['dates'])} дат")
-    
     return jsonify(response_data)

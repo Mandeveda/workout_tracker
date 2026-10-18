@@ -6,13 +6,9 @@ from app import db, limiter
 from app.models import WorkoutSchedule, WorkoutSession, SetLog, Exercise, TemplateExercise
 from app.routes.main import session_title, human_date, MONTHS_SHORT
 import json
-import logging
 
 bp = Blueprint('workouts', __name__, url_prefix='/workouts')
 
-# Настройка логирования
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 @bp.route('/')
 @login_required
@@ -644,9 +640,6 @@ def free_workout():
             flash('Эта тренировка уже завершена', 'warning')
             return redirect(url_for('workouts.summary', session_id=workout_session.id))
         
-        logger.debug("=" * 60)
-        logger.debug("📥 ПОЛУЧЕНЫ ДАННЫЕ ИЗ ФОРМЫ:")
-        
         # Получаем данные из формы
         exercise_ids = request.form.getlist('exercise_id[]')
         set_numbers = request.form.getlist('set_number[]')
@@ -654,45 +647,23 @@ def free_workout():
         reps_list = request.form.getlist('reps[]')
         is_completed = request.form.get('action') == 'complete'
         
-        # Удаляем старые логи
-        logger.debug(f"  exercise_id[]: {exercise_ids}")
-        logger.debug(f"  set_number[]: {set_numbers}")
-        logger.debug(f"  weight[]: {weights}")
-        logger.debug(f"  reps[]: {reps_list}")
-        logger.debug(f"  is_completed: {request.form.get('complete')}")
-        
-        # Группируем по индексам для наглядности
-        logger.debug("📋 ДАННЫЕ ПО УПРАЖНЕНИЯМ:")
-        for i in range(len(exercise_ids)):
-            if exercise_ids[i] and exercise_ids[i] != 'None':
-                logger.debug(f"  [{i}] Упражнение {exercise_ids[i]}: "
-                           f"подход {set_numbers[i]}, "
-                           f"вес {weights[i]}, "
-                           f"повторы {reps_list[i]}")
-        
-        # Удаляем старые логи
+        # Форма присылает все отмеченные подходы — прежние перезаписываем
         SetLog.query.filter_by(session_id=workout_session.id).delete()
         
         saved_count = 0
-        created_logs = []
-        
         for i in range(len(exercise_ids)):
             if not exercise_ids[i] or exercise_ids[i] == 'None':
                 continue
             
             exercise_id = int(exercise_ids[i])
-            exercise_obj = Exercise.query.get(exercise_id)
-            
+            exercise_obj = db.session.get(Exercise, exercise_id)
             if not exercise_obj:
-                logger.warning(f"⚠️ Упражнение {exercise_id} не найдено в БД")
                 continue
             
             set_number = int(set_numbers[i]) if i < len(set_numbers) and set_numbers[i] else 1
             weight = float(weights[i]) if i < len(weights) and weights[i] else 0
             reps = int(reps_list[i]) if i < len(reps_list) and reps_list[i] else 0
-            
             if reps == 0:
-                logger.debug(f"  ⏭️ Пропускаем упражнение {exercise_id}: повторений 0")
                 continue
             
             set_log = SetLog(
@@ -704,43 +675,11 @@ def free_workout():
                 actual_reps=reps,
                 actual_weight=weight
             )
-            
-            if exercise_obj.exercise_type == 'bodyweight':
-                set_log.calculate_completion(current_user.weight)
-            else:
-                set_log.calculate_completion()
-            
+            set_log.calculate_completion(current_user.weight if exercise_obj.exercise_type == 'bodyweight' else None)
             db.session.add(set_log)
-            created_logs.append({
-                'exercise_id': exercise_id,
-                'set_number': set_number,
-                'weight': weight,
-                'reps': reps,
-                'completion': set_log.completion_percent
-            })
             saved_count += 1
         
-        # ЛОГИРУЕМ ЧТО БЫЛО СОЗДАНО
-        logger.debug("=" * 60)
-        logger.debug("💾 СОЗДАНЫ ЛОГИ:")
-        for log in created_logs:
-            logger.debug(f"  Упр.{log['exercise_id']} подход {log['set_number']}: "
-                        f"{log['weight']} кг × {log['reps']} повт., "
-                        f"выполнение {log['completion']:.1f}%")
-        
         db.session.commit()
-        logger.debug(f"✅ Сохранено {saved_count} подходов в БД")
-        
-        # ПРОВЕРЯЕМ ЧТО СОХРАНИЛОСЬ В БАЗЕ
-        saved_check = SetLog.query.filter_by(session_id=workout_session.id).all()
-        logger.debug("=" * 60)
-        logger.debug("📂 ЧТО СОХРАНИЛОСЬ В БАЗЕ:")
-        for log in saved_check:
-            exercise = Exercise.query.get(log.exercise_id)
-            logger.debug(f"  Упр.{log.exercise_id} ({exercise.name if exercise else '?'}) "
-                        f"подход {log.set_number}: "
-                        f"{log.actual_weight} кг × {log.actual_reps} повт.")
-        
         update_session_completion(workout_session.id)
         
         if is_completed:

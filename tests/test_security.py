@@ -99,3 +99,10 @@ def test_remember_cookie_settings(client, make_user, app):
     response = login(client, 'anna')
     cookie = next(c for c in response.headers.getlist('Set-Cookie') if c.startswith('remember_token='))
     assert 'HttpOnly' in cookie and 'SameSite=Lax' in cookie
+
+
+def test_app_does_not_enable_debug_logging(app):
+    """План 2.7: модули не включают DEBUG-логирование для всего процесса (в лог писались замеры и подходы)"""
+    import logging
+    import app.routes.workouts, app.routes.profile  # noqa: F401 — импорт модулей не должен менять логирование
+    assert logging.getLogger().level != logging.DEBUG
