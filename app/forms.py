@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from flask_login import current_user
 from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, IntegerField, FloatField, BooleanField, DateField, SelectMultipleField
 from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, NumberRange, Optional, Regexp
+from sqlalchemy import func
 from app.models import User
 
 # Сообщения валидаторов по-русски (стандартные у WTForms — на английском)
@@ -11,9 +12,14 @@ PASSWORD_LEN = 'Пароль — не меньше 6 символов'
 PASSWORDS_MATCH = 'Пароли не совпадают'
 EMAIL_FORMAT = 'Похоже, это не адрес почты: проверьте, есть ли «@» и домен'
 
+
+def normalize_email(value):
+    """Почта хранится и сравнивается без пробелов по краям и в нижнем регистре"""
+    return value.strip().lower() if value else value
+
 class RegistrationForm(FlaskForm):
     username = StringField('Имя пользователя', validators=[DataRequired(REQUIRED), Length(min=3, max=80, message=USERNAME_LEN)])
-    email = StringField('Email', validators=[DataRequired(REQUIRED), Email(EMAIL_FORMAT)])
+    email = StringField('Email', filters=[normalize_email], validators=[DataRequired(REQUIRED), Email(EMAIL_FORMAT)])
     password = PasswordField('Пароль', validators=[DataRequired(REQUIRED), Length(min=6, message=PASSWORD_LEN)])
     confirm_password = PasswordField('Подтвердите пароль', validators=[DataRequired(REQUIRED), EqualTo('password', PASSWORDS_MATCH)])
     submit = SubmitField('Зарегистрироваться')
@@ -24,7 +30,7 @@ class RegistrationForm(FlaskForm):
             raise ValidationError('Это имя уже занято')
     
     def validate_email(self, email):
-        user = User.query.filter_by(email=email.data).first()
+        user = User.query.filter(func.lower(User.email) == email.data).first()
         if user:
             raise ValidationError('Этот email уже зарегистрирован')
 
@@ -223,7 +229,7 @@ class AddExerciseForm(FlaskForm):
         self.filter_subgroup.choices = [(0, 'Все подгруппы')]
 
 class ForgotPasswordForm(FlaskForm):
-    email = StringField('Email', validators=[DataRequired(REQUIRED), Email(EMAIL_FORMAT)])
+    email = StringField('Email', filters=[normalize_email], validators=[DataRequired(REQUIRED), Email(EMAIL_FORMAT)])
     submit = SubmitField('Отправить ссылку')
 
 class ResetPasswordForm(FlaskForm):

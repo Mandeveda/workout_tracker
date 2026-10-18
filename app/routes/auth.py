@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, Blueprint, session, current_app
 from flask_login import login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from datetime import datetime, timedelta
 from flask_mail import Message
 from urllib.parse import urlsplit
@@ -86,10 +86,11 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         # Ищем пользователя по username или email
+        login_value = form.username.data.strip()
         user = User.query.filter(
             or_(
-                User.username == form.username.data,
-                User.email == form.username.data
+                User.username == login_value,
+                func.lower(User.email) == login_value.lower()
             )
         ).first()
         
@@ -230,7 +231,7 @@ def forgot_password():
     form = ForgotPasswordForm()
 
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
+        user = User.query.filter(func.lower(User.email) == form.email.data).first()
 
         if user:
             recently_sent = PasswordResetToken.query.filter(

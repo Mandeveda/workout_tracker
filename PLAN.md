@@ -30,7 +30,7 @@
 
 - [x] **2.1** Перевести на POST действия, выполняемые по ссылке: шаблоны (delete, archive, restore, delete_exercise, move_up, move_down), `exercises.del_exercise`, тренировки (skip, postpone, delete_schedule), `auth.logout`. Попутно: внедрение JS через `onclick="confirm('{{ имя }}')"` (админка, шаблоны) — `a47765a`
 - [x] **2.2** `move_up` / `move_down` берут `template_id` из URL без сверки — можно менять порядок в чужом шаблоне. — `62d1c31`
-- [ ] **2.3** Открытый редирект при входе (`next=/\evil.com`).
+- [x] **2.3** Открытый редирект при входе (`next=/\evil.com`). — `63fd864`
 - [ ] **2.4** Регистрация без проверки формата email; email сравнивается с учётом регистра. _Формат email — исправлено в `d5bb952`; осталось сравнение без учёта регистра._
 - [ ] **2.5** Тексты исключений показываются пользователю (`profile.py`, `complete_workout`).
 - [ ] **2.6** Не заданы `REMEMBER_COOKIE_SECURE` / `REMEMBER_COOKIE_DURATION`.
