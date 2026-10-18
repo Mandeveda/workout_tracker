@@ -146,9 +146,15 @@ def del_exercise(exercise_id):
         return redirect(url_for('exercises.list_exercises'))
     
     template_exercise_count = TemplateExercise.query.filter_by(exercise_id=exercise_id).count()
-
     if template_exercise_count > 0:
-        flash(f'Нельзя удалить упражнение: оно используется в {template_exercise_count} шаблонах тренировок', 'warning')
+        flash(f'Нельзя удалить «{exercise.name}»: оно есть в шаблонах тренировок ({template_exercise_count}).', 'warning')
+        return redirect(url_for('exercises.list_exercises'))
+    
+    # Подходы из истории ссылаются на упражнение — без него итоги и рекорды ломаются
+    used_in_sessions = db.session.query(SetLog.session_id).filter(SetLog.exercise_id == exercise_id).distinct().count()
+    if used_in_sessions > 0:
+        flash(f'Нельзя удалить «{exercise.name}»: оно есть в истории тренировок ({used_in_sessions}). '
+              f'Его можно переименовать или изменить описание.', 'warning')
         return redirect(url_for('exercises.list_exercises'))
     
     db.session.delete(exercise)

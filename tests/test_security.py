@@ -106,3 +106,33 @@ def test_app_does_not_enable_debug_logging(app):
     import logging
     import app.routes.workouts, app.routes.profile  # noqa: F401 — импорт модулей не должен менять логирование
     assert logging.getLogger().level != logging.DEBUG
+
+
+def test_exercise_with_history_cannot_be_deleted(client, make_user, make_exercise, make_session):
+    """План 2.8: удаление упражнения из истории ломало итоги и рекорды (подходы без упражнения)"""
+    from app import db
+    from app.models import Exercise
+    expert = make_user('expert', role_id=3)
+    athlete = make_user('anna')
+    squat = make_exercise('Приседания', author=expert)
+    session = make_session(athlete, completed=True, logs=[(squat, 8, 80)])
+
+    login(client, 'expert')
+    page = client.post(f'/exercises/del_exercise/{squat.id}', follow_redirects=True).get_data(as_text=True)
+    assert db.session.get(Exercise, squat.id) is not None
+    assert 'тренировок' in page
+
+    client.post('/auth/logout')
+    login(client, 'anna')
+    assert client.get(f'/workouts/summary/{session.id}').status_code == 200
+    assert client.get('/analytics/records').status_code == 200
+
+
+def test_unused_exercise_can_be_deleted(client, make_user, make_exercise):
+    from app import db
+    from app.models import Exercise
+    expert = make_user('expert', role_id=3)
+    lunge = make_exercise('Выпады', author=expert)
+    login(client, 'expert')
+    client.post(f'/exercises/del_exercise/{lunge.id}')
+    assert db.session.get(Exercise, lunge.id) is None
