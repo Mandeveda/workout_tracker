@@ -28,7 +28,7 @@
 
 ## Этап 2. Безопасность
 
-- [ ] **2.1** Перевести на POST действия, выполняемые по ссылке: шаблоны (delete, archive, restore, delete_exercise, move_up, move_down), `exercises.del_exercise`, тренировки (skip, postpone, delete_schedule), `auth.logout`.
+- [x] **2.1** Перевести на POST действия, выполняемые по ссылке: шаблоны (delete, archive, restore, delete_exercise, move_up, move_down), `exercises.del_exercise`, тренировки (skip, postpone, delete_schedule), `auth.logout`. Попутно: внедрение JS через `onclick="confirm('{{ имя }}')"` (админка, шаблоны) — `a47765a`
 - [ ] **2.2** `move_up` / `move_down` берут `template_id` из URL без сверки — можно менять порядок в чужом шаблоне.
 - [ ] **2.3** Открытый редирект при входе (`next=/\evil.com`).
 - [ ] **2.4** Регистрация без проверки формата email; email сравнивается с учётом регистра.

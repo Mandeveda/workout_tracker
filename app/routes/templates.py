@@ -165,6 +165,7 @@ def delete_exercise(template_id, exercise_id):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
     
+    template_id = template_exercise.template_id
     db.session.delete(template_exercise)
     db.session.commit()
     flash('Упражнение удалено из шаблона', 'success')
@@ -179,6 +180,10 @@ def move_up_exercise(template_id, exercise_id):
     if not current_user.can_edit(template_exercise.template):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
+    
+    # template_id берём из самого упражнения, а не из URL: иначе можно подставить
+    # чужой шаблон и поменять порядок его упражнений
+    template_id = template_exercise.template_id
     
     # Находим предыдущее упражнение (с меньшим order)
     prev = TemplateExercise.query.filter(
@@ -211,6 +216,9 @@ def move_down_exercise(template_id, exercise_id):
     if not current_user.can_edit(template_exercise.template):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
+    
+    # template_id берём из самого упражнения, а не из URL (см. move_up_exercise)
+    template_id = template_exercise.template_id
     
     # Находим следующее упражнение (с большим order)
     next_ex = TemplateExercise.query.filter(
