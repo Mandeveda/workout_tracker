@@ -1,106 +1,178 @@
 {% extends "base.html" %}
 {% from "_macros.html" import post_button with context %}
-{% block title %}Дашборд{% endblock %}
+{% block title %}Главная{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Мои тренировки</h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="{{ url_for('workouts.index') }}" class="btn btn-sm btn-outline-primary me-2">📅 Расписание</a>
-        <a href="{{ url_for('templates.list_templates') }}" class="btn btn-sm btn-outline-success">+ Новая программа</a>
+<div class="page-head">
+    <div>
+        <h1 class="js-greeting" data-name="{{ current_user.username }}">Привет, {{ current_user.username }}</h1>
+        <p class="page-sub">{{ today_text|capitalize }}{% if not today_workout and not active_session %} · сегодня день отдыха{% endif %}</p>
     </div>
 </div>
 
-<!-- Приветствие -->
-<div class="alert alert-info" role="alert">
-    <strong>Привет, {{ user.username }}!</strong> 
-    {% if today_workout %}
-        У вас запланирована тренировка на сегодня.
-    {% else %}
-        На сегодня тренировок нет. Отдохните или добавьте ручную.
-    {% endif %}
-</div>
-
-<div class="row">
-    <!-- Блок с тренировкой на сегодня -->
-    <div class="col-md-8">
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">🏋️ Тренировка на сегодня {{ today_date if today_date else '' }}</h5>
+<article class="hero">
+    <div class="hero-main">
+        {% if active_session %}
+            <span class="label">Тренировка не завершена</span>
+            <h2>{{ session_title(active_session) }}</h2>
+            <p class="hero-meta">Начата <b class="num">{{ active_session.date.strftime('%d.%m.%Y в %H:%M') }}</b> (UTC)</p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="{{ url_for('workouts.perform' if active_session.schedule_id else 'workouts.free_workout', session_id=active_session.id) }}">
+                    <svg class="icon"><use href="#i-play"/></svg>Продолжить
+                </a>
+                <a class="btn btn-outline-primary" href="{{ url_for('workouts.index') }}"><svg class="icon"><use href="#i-cal"/></svg>Расписание</a>
             </div>
-            <div class="card-body">
-                {% if today_workout %}
-                    <p><strong>Программа:</strong> {{ today_workout.template.name }}</p>
-                    <p><strong>Упражнений:</strong> {{ today_workout.template.template_exercises|length }}</p>
-                    <a href="{{ url_for('workouts.start_workout', schedule_id=today_workout.id) }}" class="btn btn-success">▶ Начать тренировку</a>
-                    {{ post_button(url_for('workouts.postpone_workout', schedule_id=today_workout.id), '⏩ Перенести', 'btn btn-secondary') }}
-                    {{ post_button(url_for('workouts.skip_workout', schedule_id=today_workout.id), '✖ Пропустить', 'btn btn-danger', confirm='Вы уверены, что хотите пропустить тренировку?') }}
+        {% elif today_workout %}
+            <span class="label">Сегодня по плану</span>
+            <h2>{{ today_workout.template.name }}</h2>
+            {% set n = today_workout.template.template_exercises|length %}
+            <p class="hero-meta"><b>{{ n }}</b> {{ n|plural('упражнение', 'упражнения', 'упражнений') }}</p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="{{ url_for('workouts.start_workout', schedule_id=today_workout.id) }}">
+                    <svg class="icon"><use href="#i-play"/></svg>Начать тренировку
+                </a>
+                {{ post_button(url_for('workouts.postpone_workout', schedule_id=today_workout.id), 'На завтра', 'btn btn-outline-primary') }}
+                {{ post_button(url_for('workouts.skip_workout', schedule_id=today_workout.id), 'Пропустить', 'btn btn-link hero-skip', confirm='Пропустить сегодняшнюю тренировку?') }}
+            </div>
+        {% else %}
+            <span class="label">{{ 'Следующая по плану' if next_workout else 'План пуст' }}</span>
+            {% if next_workout %}
+            <h2>{{ next_workout.template.name }}</h2>
+            {% set n = next_workout.template.template_exercises|length %}
+            <p class="hero-meta"><b>{{ next_workout_text|capitalize }}</b> · {{ n }} {{ n|plural('упражнение', 'упражнения', 'упражнений') }}</p>
+            {% else %}
+            <h2>Составьте программу</h2>
+            <p class="hero-meta">Создайте шаблон и распределите тренировки по дням недели — или тренируйтесь свободно.</p>
+            {% endif %}
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="{{ url_for('workouts.free_workout') }}"><svg class="icon"><use href="#i-play"/></svg>Свободная тренировка</a>
+                {% if next_workout %}
+                <a class="btn btn-outline-primary" href="{{ url_for('workouts.index') }}"><svg class="icon"><use href="#i-cal"/></svg>Расписание</a>
                 {% else %}
-                    <p class="text-muted">Сегодня нет запланированных тренировок.</p>
-                    <a href="{{ url_for('workouts.free_workout') }}" class="btn btn-outline-primary">➕ Ручная тренировка</a>
+                <a class="btn btn-outline-primary" href="{{ url_for('templates.list_templates') }}"><svg class="icon"><use href="#i-list"/></svg>Шаблоны</a>
                 {% endif %}
             </div>
-        </div>
-
-        <!-- Блок с последними тренировками -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">История тренировок</h5>
-            </div>
-            <div class="card-body">
-                {% if recent_workouts %}
-                    <div class="list-group">
-                        {% for session in recent_workouts %}
-                            <a href="{{ url_for('workouts.summary', session_id=session.id) }}" class="list-group-item list-group-item-action">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">{{ session.date.strftime('%d.%m.%Y') }}</h6>
-                                    <small>Выполнение: {{ session.completion_percent|round(1) }}%</small>
-                                </div>
-                                <p class="mb-1 text-muted">
-                                    {% if session.template %}
-                                        {{ session.template.name }}
-                                    {% elif session.schedule and session.schedule.template %}
-                                        {{ session.schedule.template.name }}
-                                    {% else %}
-                                        Ручная тренировка
-                                    {% endif %}
-                                </p>
-                                <small class="text-muted">Тоннаж: {{ session.total_tonnage|round(1) }} кг</small>
-                            </a>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="text-muted">Пока нет завершённых тренировок.</p>
-                {% endif %}
-            </div>
-        </div>
+        {% endif %}
     </div>
 
-    <!-- Боковая панель со статистикой -->
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0">📈 Краткая статистика</h5>
+    <div class="hero-week">
+        <div class="week" aria-label="Текущая неделя">
+            {% for d in week %}
+            <div class="week-day{% if d.done %} is-done{% elif d.planned %} is-planned{% endif %}{% if d.today %} is-today{% endif %}"
+                 title="{{ 'выполнено' if d.done else ('запланировано' if d.planned else '') }}">
+                <span>{{ d.short }}</span><b class="num">{{ d.day }}</b><i class="week-dot"></i>
             </div>
-            <div class="card-body">
-                <p><strong>Всего тренировок:</strong> {{ total_workouts }}</p>
-                <p><strong>Выполнено планов:</strong> {{ completed_plan }} ({{ plan_completion_percent }}%)</p>
-                <p><strong>Лучший тоннаж:</strong> {{ best_tonnage }} кг</p>
-                <p><strong>Рекордов:</strong> {{ pr_count }}</p>
-            </div>
+            {% endfor %}
         </div>
-
-        <div class="card">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">💡 Быстрые действия</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="{{ url_for('templates.list_templates') }}" class="btn btn-sm btn-outline-secondary">📋 Все мои шаблоны</a>
-                    <a href="{{ url_for('analytics.records') }}" class="btn btn-sm btn-outline-secondary">🏆 Мои рекорды</a>
-                    <a href="{{ url_for('analytics.dashboard') }}" class="btn btn-sm btn-outline-secondary">📊 Детальная аналитика</a>
-                </div>
-            </div>
+        <div class="week-legend">
+            <span><i class="week-dot is-done"></i>выполнено</span>
+            <span><i class="week-dot is-planned"></i>запланировано</span>
         </div>
     </div>
+</article>
+
+<section class="stats-strip" aria-label="Статистика">
+    <div class="stat">
+        <span class="label">За 30 дней</span>
+        <strong class="num">{{ month_count }} <span class="stat-unit">{{ month_count|plural('тренировка', 'тренировки', 'тренировок') }}</span></strong>
+        <small class="{{ 'is-up' if month_delta > 0 else ('is-down' if month_delta < 0 else '') }}">
+            {% if month_count == 0 and month_delta == 0 %}самое время начать
+            {% elif month_delta > 0 %}+{{ month_delta }} к прошлым 30 дням
+            {% elif month_delta < 0 %}−{{ -month_delta }} к прошлым 30 дням
+            {% else %}столько же, сколько раньше{% endif %}
+        </small>
+    </div>
+    <div class="stat">
+        <span class="label">Тоннаж, 30 дней</span>
+        <strong class="num">{{ month_tonnage|num }} кг</strong>
+        <small>{% if month_count %}в среднем {{ month_avg|num }} кг{% else %}тренировок не было{% endif %}</small>
+    </div>
+    <div class="stat">
+        <span class="label">План</span>
+        <strong class="num">{{ plan_percent ~ '%' if plan_percent is not none else '—' }}</strong>
+        <small>{% if plan_total %}{{ plan_done }} из {{ plan_total }} тренировок{% else %}плана ещё не было{% endif %}</small>
+    </div>
+    <div class="stat">
+        <span class="label">Лучший тоннаж</span>
+        <strong class="num">{{ (best_workout.total_tonnage|num ~ ' кг') if best_workout else '—' }}</strong>
+        <small>{{ best_workout.date.strftime('%d.%m.%Y') if best_workout else 'после первой тренировки' }}</small>
+    </div>
+</section>
+
+<div class="dash-grid">
+    <section class="panel">
+        <div class="panel-head">
+            <h3>Тоннаж по неделям, кг</h3>
+            <a class="panel-link" href="{{ url_for('analytics.dashboard') }}">Аналитика</a>
+        </div>
+        {% if chart['values']|sum > 0 %}
+        <div class="chart-box">
+            <canvas id="weeklyChart" aria-label="Тоннаж по неделям за последние 8 недель" role="img"></canvas>
+        </div>
+        {% else %}
+        <p class="empty-note">За последние 8 недель тренировок не было. График появится после первой завершённой тренировки.</p>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <h3>Последние тренировки</h3>
+            <a class="panel-link" href="{{ url_for('workouts.index') }}">Все</a>
+        </div>
+        {% if recent %}
+        <ul class="history-list">
+            {% for s in recent %}
+            <li>
+                <a href="{{ url_for('workouts.summary', session_id=s.id) }}">
+                    <span class="history-date num"><b>{{ s.date.day }}</b>{{ months_short[s.date.month - 1] }}</span>
+                    <span class="history-body">
+                        <span class="history-title">{{ session_title(s) }}</span>
+                        <span class="history-sub num">{{ s.total_tonnage|num }} кг</span>
+                    </span>
+                    <span class="pill num{% if s.completion_percent >= 100 %} is-full{% endif %}">{{ s.completion_percent|round|int }}%</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-note">Здесь появятся завершённые тренировки. Начните первую — свободную или по шаблону.</p>
+        {% endif %}
+    </section>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Приветствие по местному времени пользователя
+    const h1 = document.querySelector('.js-greeting');
+    const hour = new Date().getHours();
+    const greeting = hour < 5 ? 'Доброй ночи' : hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
+    h1.textContent = greeting + ', ' + h1.dataset.name;
+
+    const chartData = {{ chart|tojson }};
+    const canvas = document.getElementById('weeklyChart');
+    if (!window.Chart || !canvas) return;
+    const css = getComputedStyle(document.documentElement);
+    const gold = css.getPropertyValue('--gold').trim();
+    const last = chartData.values.length - 1;
+    new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                data: chartData.values,
+                backgroundColor: chartData.values.map((_, i) => i === last ? gold : gold + '55'),
+                borderRadius: 6,
+                maxBarThickness: 40
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.raw.toLocaleString('ru-RU') + ' кг' } } },
+            scales: {
+                x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
+                y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('ru-RU') } }
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

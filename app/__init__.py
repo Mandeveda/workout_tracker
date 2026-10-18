@@ -71,6 +71,25 @@ def create_app(config_class=None):
         from flask_login import current_user
         return dict(current_user=current_user)
     
+    @app.template_filter('num')
+    def format_number(value, digits=0):
+        """Число с разделителем разрядов: 12345.6 → «12 346», с digits=1 → «12 345,6»"""
+        try:
+            text = f'{float(value):,.{digits}f}'
+        except (TypeError, ValueError):
+            return value
+        return text.replace(',', '\u00a0').replace('.', ',')
+    
+    @app.template_filter('plural')
+    def plural(n, one, few, many):
+        """Склонение по числу: 1 упражнение, 3 упражнения, 5 упражнений"""
+        n = abs(int(n))
+        if n % 10 == 1 and n % 100 != 11:
+            return one
+        if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+            return few
+        return many
+    
     # Обработчик ошибки превышения лимита
     @app.errorhandler(429)
     def ratelimit_handler(e):
