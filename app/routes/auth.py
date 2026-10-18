@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
 from datetime import datetime, timedelta
 from flask_mail import Message
+from urllib.parse import urlsplit
 from markupsafe import escape
 import secrets
 from app import db, limiter, mail
@@ -11,6 +12,19 @@ from app.models import User, Role, PasswordResetToken
 from app.forms import RegistrationForm, LoginForm, ForgotPasswordForm, ResetPasswordForm
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+def is_safe_redirect(target):
+    """Можно ли перейти по адресу после входа: только путь внутри сайта.
+
+    Браузеры считают «\\» прямой косой чертой, поэтому «/\\evil.com» для них — это
+    «//evil.com», то есть чужой сайт. Такие адреса, как и любые со схемой или доменом, отклоняем.
+    """
+    if not target:
+        return False
+    normalized = target.replace('\\', '/')
+    parts = urlsplit(normalized)
+    return normalized.startswith('/') and not normalized.startswith('//') and not parts.scheme and not parts.netloc
+
 
 def regenerate_session():
     """Безопасная регенерация сессии для защиты от фиксации сессии"""
@@ -98,18 +112,9 @@ def login():
             session['login_time'] = datetime.now().isoformat()
             session['user_username'] = user.username
             
-            # Получаем следующий URL после входа
+            # Возвращаем туда, откуда пришли, но только на страницу этого сайта
             next_page = request.args.get('next')
-            
-            # Проверяем безопасность next_url (защита от открытых редиректов)
-            if next_page and not next_page.startswith(('http://', 'https://', '//')):
-                if next_page.startswith('/'):
-                    flash(f'Добро пожаловать, {user.username}!', 'success')
-                    return redirect(next_page)
-            
-            # Если next_page не безопасен, редиректим на дашборд
-            flash(f'Добро пожаловать, {user.username}!', 'success')
-            return redirect(url_for('main.dashboard'))
+            return redirect(next_page if is_safe_redirect(next_page) else url_for('main.dashboard'))
         else:
             # Не показываем, существует ли пользователь или неверен пароль (безопасность)
             flash('Неверный логин/email или пароль', 'danger')
