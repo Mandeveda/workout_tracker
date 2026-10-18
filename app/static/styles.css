@@ -1107,3 +1107,32 @@ fieldset legend.form-label { font-size: .9rem; }
   .filters-3 { grid-template-columns: 1fr 1fr; }
   .form-row-2 { grid-template-columns: 1fr; }
 }
+
+/* ---------- профиль ---------- */
+.profile-id { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.avatar-lg { width: 60px; height: 60px; font-size: 24px; border-width: 2px; }
+.stats-strip-5 { grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr)); }
+.delta { font-size: 12px; font-weight: 600; }
+.stat small.delta, .measure .delta { color: var(--muted); }
+.tone { font-weight: 600; }
+.tone-ok { color: var(--ok); }
+.tone-warn { color: var(--gold); }
+.tone-low { color: var(--low); }
+.tone-info { color: var(--info); }
+.panel-note { font-size: 12px; color: var(--muted); }
+.metric-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.metric-chips label { margin: 0; cursor: pointer; }
+.metric-chips input { position: absolute; opacity: 0; pointer-events: none; }
+.metric-chips span { display: block; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); font: 600 12px var(--font-display); color: var(--muted); }
+.metric-chips input:checked + span { border-color: var(--gold); color: var(--gold); background: rgba(var(--gold-rgb), .1); }
+.metric-chips input:focus-visible + span { outline: 2px solid var(--gold); }
+.measure-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+.measure { display: flex; flex-direction: column; gap: 2px; }
+.measure strong { font: 600 20px var(--font-display); }
+.params-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.params-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 767.98px) {
+  .stats-strip-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .params-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .avatar-lg { width: 48px; height: 48px; font-size: 20px; }
+}

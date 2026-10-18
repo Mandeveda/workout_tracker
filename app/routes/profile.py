@@ -13,11 +13,85 @@ bp = Blueprint('profile', __name__, url_prefix='/profile')
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Обхваты: ключ в истории замеров, подпись, поле модели
+MEASURES = [
+    ('chest', 'Грудь', 'chest_circumference'),
+    ('waist', 'Талия', 'waist_circumference'),
+    ('hips', 'Бёдра', 'hips_circumference'),
+    ('neck', 'Шея', 'neck_circumference'),
+    ('biceps', 'Бицепс', 'biceps_circumference'),
+    ('forearm', 'Предплечье', 'forearm_circumference'),
+    ('thigh', 'Бедро', 'thigh_circumference'),
+    ('calf', 'Икра', 'calf_circumference'),
+]
+
+
+def body_status(user):
+    """Оценки ИМТ, процента жира и FFMI: (значение, подпись, тон — ok/warn/low/info)"""
+    bmi = user.bmi
+    if not bmi:
+        bmi_s = None
+    elif bmi < 18.5:
+        bmi_s = (bmi, 'недостаток веса', 'warn')
+    elif bmi < 25:
+        bmi_s = (bmi, 'норма', 'ok')
+    elif bmi < 30:
+        bmi_s = (bmi, 'избыток веса', 'warn')
+    else:
+        bmi_s = (bmi, 'ожирение', 'low')
+
+    fat = user.body_fat_percentage
+    fat_s = None
+    if fat:
+        limits = (10, 20, 25) if user.gender == 'male' else (18, 28, 33)
+        labels = [('атлетичный', 'info'), ('норма', 'ok'), ('выше нормы', 'warn'), ('высокий', 'low')]
+        idx = sum(fat >= limit for limit in limits)
+        fat_s = (fat, *labels[idx])
+
+    ffmi = user.ffmi
+    ffmi_s = None
+    if ffmi:
+        steps = [(18, 'ниже среднего', 'info'), (20, 'средний', 'ok'), (22, 'хороший', 'ok'), (25, 'отличный', 'ok')]
+        ffmi_s = next(((ffmi, label, tone) for limit, label, tone in steps if ffmi < limit), (ffmi, 'выдающийся', 'ok'))
+    return {'bmi': bmi_s, 'fat': fat_s, 'ffmi': ffmi_s}
+
+
+def sorted_history(user):
+    history = user.measurements_history or []
+    if isinstance(history, str):
+        try:
+            history = json.loads(history)
+        except ValueError:
+            history = []
+    return sorted(history, key=lambda m: m.get('date', ''))
+
+
 @bp.route('/')
 @login_required
 def index():
     """Страница профиля"""
-    return render_template('profile/index.html', user=current_user)
+    history = sorted_history(current_user)
+    prev = history[-2] if len(history) >= 2 else None
+
+    def delta(key, value):
+        if not prev or not prev.get(key) or not value:
+            return None
+        return round(value - prev[key], 1)
+
+    measures = [{
+        'key': key,
+        'label': label,
+        'value': getattr(current_user, attr) or 0,
+        'delta': delta(key, getattr(current_user, attr) or 0),
+    } for key, label, attr in MEASURES]
+
+    return render_template('profile/index.html',
+                           user=current_user,
+                           status=body_status(current_user),
+                           measures=measures,
+                           weight_delta=delta('weight', current_user.weight),
+                           history_count=len(history),
+                           last_measured=datetime.fromisoformat(history[-1]['date'][:10]).strftime('%d.%m.%Y') if history else None)
 
 @bp.route('/edit', methods=['GET', 'POST'])
 @login_required
@@ -54,7 +128,7 @@ def edit():
         if current_user.measurements_history is None:
             current_user.measurements_history = []
         
-        # Создаем измерение
+        # Замер в историю добавляем, только если изменился вес или какой-то обхват
         measurement = {
             'date': datetime.utcnow().isoformat(),
             'weight': float(current_user.weight),
@@ -68,17 +142,20 @@ def edit():
             'neck': float(current_user.neck_circumference)
         }
         
-        # Добавляем в историю
         history_list = list(current_user.measurements_history)
-        history_list.append(measurement)
-        current_user.measurements_history = history_list
+        last = sorted_history(current_user)[-1] if history_list else None
+        changed = last is None or any(
+            round(float(last.get(k, 0) or 0), 1) != round(v, 1) for k, v in measurement.items() if k != 'date'
+        )
+        if changed:
+            history_list.append(measurement)
+            current_user.measurements_history = history_list
         
         # Сохраняем
         try:
             db.session.add(current_user)
             db.session.commit()
-            logger.debug(f"✅ Сохранено измерение #{len(current_user.measurements_history)}")
-            flash(f'✅ Профиль обновлен! Измерение #{len(current_user.measurements_history)} сохранено.', 'success')
+            flash('Профиль сохранён.' + (' Новый замер добавлен в историю.' if changed else ''), 'success')
         except Exception as e:
             db.session.rollback()
             logger.error(f"❌ Ошибка: {e}")

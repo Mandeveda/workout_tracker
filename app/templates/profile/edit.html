@@ -1,96 +1,56 @@
 {% extends "base.html" %}
-{% block title %}Редактирование профиля{% endblock %}
+{% block title %}Изменить профиль{% endblock %}
+{% macro field(f, unit='') -%}
+<label>{{ f.label.text }}{% if unit %}, {{ unit }}{% endif %}
+    {{ f(class="form-control" ~ (' is-invalid' if f.errors else ''), type="number", step="0.1") }}
+    {% for e in f.errors %}<span class="invalid-feedback d-block">{{ e }}</span>{% endfor %}
+</label>
+{%- endmacro %}
 {% block content %}
-<div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">✏️ Редактирование профиля</h4>
-                </div>
-                <div class="card-body">
-                    <form method="POST">
-                        {{ form.hidden_tag() }}
-                        
-                        <h5 class="mb-3">Основные данные</h5>
-                        
-                        <!-- НОВОЕ ПОЛЕ: Имя пользователя -->
-                        <div class="mb-3">
-                            {{ form.username.label(class="form-label") }}
-                            {{ form.username(class="form-control") }}
-                            {% for error in form.username.errors %}
-                                <div class="text-danger">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                {{ form.weight.label(class="form-label") }}
-                                {{ form.weight(class="form-control") }}
-                            </div>
-                            <div class="col-md-4">
-                                {{ form.height.label(class="form-label") }}
-                                {{ form.height(class="form-control") }}
-                            </div>
-                            <div class="col-md-4">
-                                {{ form.age.label(class="form-label") }}
-                                {{ form.age(class="form-control") }}
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            {{ form.gender.label(class="form-label") }}
-                            {{ form.gender(class="form-select") }}
-                        </div>
-                        
-                        <h5 class="mb-3 mt-4">Антропометрия (см)</h5>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    {{ form.chest_circumference.label(class="form-label") }}
-                                    {{ form.chest_circumference(class="form-control") }}
-                                </div>
-                                <div class="mb-3">
-                                    {{ form.waist_circumference.label(class="form-label") }}
-                                    {{ form.waist_circumference(class="form-control") }}
-                                </div>
-                                <div class="mb-3">
-                                    {{ form.hips_circumference.label(class="form-label") }}
-                                    {{ form.hips_circumference(class="form-control") }}
-                                </div>
-                                <div class="mb-3">
-                                    {{ form.biceps_circumference.label(class="form-label") }}
-                                    {{ form.biceps_circumference(class="form-control") }}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    {{ form.forearm_circumference.label(class="form-label") }}
-                                    {{ form.forearm_circumference(class="form-control") }}
-                                </div>
-                                <div class="mb-3">
-                                    {{ form.thigh_circumference.label(class="form-label") }}
-                                    {{ form.thigh_circumference(class="form-control") }}
-                                </div>
-                                <div class="mb-3">
-                                    {{ form.calf_circumference.label(class="form-label") }}
-                                    {{ form.calf_circumference(class="form-control") }}
-                                </div>
-                                <div class="mb-3">
-                                    {{ form.neck_circumference.label(class="form-label") }}
-                                    {{ form.neck_circumference(class="form-control") }}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="d-flex justify-content-between">
-                            {{ form.submit(class="btn btn-primary") }}
-                            <a href="{{ url_for('profile.index') }}" class="btn btn-secondary">Отмена</a>
-                        </div>
-                    </form>
-                </div>
-            </div>
+<div class="form-page">
+    <div class="page-head">
+        <div>
+            <h1>Изменить профиль</h1>
+            <p class="page-sub">Если поменяете вес или обхваты, в историю добавится новый замер.</p>
         </div>
     </div>
+    <form method="POST" class="panel form-panel" novalidate>
+        {{ form.hidden_tag() }}
+        <h2 class="block-title">Основное</h2>
+        <div class="mb-3">
+            {{ form.username.label(class="form-label") }}
+            {{ form.username(class="form-control" ~ (' is-invalid' if form.username.errors else '')) }}
+            {% for e in form.username.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+            <span class="form-label d-block">Пол</span>
+            <div class="segmented" role="radiogroup" aria-label="Пол">
+                <label><input type="radio" name="gender" value="male"{% if form.gender.data != 'female' %} checked{% endif %}><span>Мужской</span></label>
+                <label><input type="radio" name="gender" value="female"{% if form.gender.data == 'female' %} checked{% endif %}><span>Женский</span></label>
+            </div>
+            <div class="form-text">Нужен для расчёта процента жира.</div>
+        </div>
+        <div class="params-grid mb-4">
+            {{ field(form.weight) }}
+            {{ field(form.height) }}
+            <label>{{ form.age.label.text }}
+                {{ form.age(class="form-control" ~ (' is-invalid' if form.age.errors else ''), type="number") }}
+                {% for e in form.age.errors %}<span class="invalid-feedback d-block">{{ e }}</span>{% endfor %}
+            </label>
+        </div>
+
+        <h2 class="block-title">Обхваты, см</h2>
+        <div class="params-grid params-grid-4 mb-4">
+            {% for f in [form.chest_circumference, form.waist_circumference, form.hips_circumference, form.neck_circumference,
+                         form.biceps_circumference, form.forearm_circumference, form.thigh_circumference, form.calf_circumference] %}
+            {{ field(f) }}
+            {% endfor %}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+            <a class="btn btn-link" href="{{ url_for('profile.index') }}">Отмена</a>
+        </div>
+    </form>
 </div>
 {% endblock %}
