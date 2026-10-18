@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Workout Tracker — a server-rendered Flask 3 app (Jinja2 + Bootstrap 5 and Chart.js from jsDelivr CDN) for planning and logging strength/cardio workouts. UI text, flash messages, comments and commit messages are in Russian. Deployed to shared hosting via Phusion Passenger (tracker-workout.ru).
 
+## Fix plan
+
+`PLAN.md` tracks the agreed bug-fix plan. When a plan item is completed, mark it `[x]` and append the commit hash in the same change set. Follow the order stated at the top of the file.
+
 ## Commands
 
 ```bash

@@ -125,8 +125,8 @@ def perform(session_id):
     
     schedule = session.schedule
     if not schedule:
-        flash('Ошибка: расписание не найдено', 'danger')
-        return redirect(url_for('workouts.index'))
+        # Сессия без расписания — это свободная тренировка
+        return redirect(url_for('workouts.free_workout', session_id=session.id))
     
     planned_data = schedule.planned_data
     
@@ -575,28 +575,30 @@ def postpone_workout(schedule_id):
     flash('Тренировка перенесена на завтра', 'info')
     return redirect(url_for('workouts.index'))
 
+def get_active_free_session(session_id=None):
+    """Незавершённая свободная тренировка текущего пользователя (без расписания).
+    
+    Если передан session_id — возвращает эту сессию, при условии что она свободная,
+    незавершённая и принадлежит пользователю; иначе — последнюю такую сессию или None.
+    """
+    query = WorkoutSession.query.filter_by(
+        user_id=current_user.id,
+        is_completed=False,
+        schedule_id=None
+    )
+    if session_id and str(session_id).isdigit():
+        workout_session = query.filter_by(id=int(session_id)).first()
+        if workout_session:
+            return workout_session
+    return query.order_by(WorkoutSession.date.desc()).first()
+
 @bp.route('/free_workout', methods=['GET', 'POST'])
 @login_required
 def free_workout():
     """Свободная тренировка (без шаблона, ручной ввод упражнений)"""
     
-    # Проверяем, есть ли активная сессия
-    session_id = request.args.get('session_id')
-    workout_session = None
-    
-    if session_id and session_id.isdigit():
-        workout_session = WorkoutSession.query.get(int(session_id))
-        if workout_session and workout_session.user_id == current_user.id and not workout_session.is_completed:
-            pass
-        else:
-            workout_session = None
-    
-    if not workout_session:
-        # Ищем активную сессию
-        workout_session = WorkoutSession.query.filter_by(
-            user_id=current_user.id,
-            is_completed=False
-        ).first()
+    # Только свободные сессии: у тренировки по расписанию свои подходы, их трогать нельзя
+    workout_session = get_active_free_session(request.args.get('session_id'))
     
     if request.method == 'POST':
         if not workout_session:
@@ -726,25 +728,9 @@ def free_workout():
             return redirect(url_for('workouts.free_workout', session_id=workout_session.id))
     
     # GET запрос — загружаем данные
-    session_id = request.args.get('session_id')
-    workout_session = None
     saved_logs = []
-    
-    if session_id and session_id.isdigit():
-        workout_session = WorkoutSession.query.get(int(session_id))
-        if workout_session and workout_session.user_id == current_user.id and not workout_session.is_completed:
-            saved_logs = SetLog.query.filter_by(session_id=workout_session.id).order_by(SetLog.exercise_id, SetLog.set_number).all()
-        else:
-            session_id = None
-            workout_session = None
-    
-    if not workout_session:
-        workout_session = WorkoutSession.query.filter_by(
-            user_id=current_user.id,
-            is_completed=False
-        ).first()
-        if workout_session:
-            saved_logs = SetLog.query.filter_by(session_id=workout_session.id).order_by(SetLog.exercise_id, SetLog.set_number).all()
+    if workout_session:
+        saved_logs = SetLog.query.filter_by(session_id=workout_session.id).order_by(SetLog.exercise_id, SetLog.set_number).all()
     
     # ЛОГИРУЕМ ЧТО ЗАГРУЖАЕТСЯ ДЛЯ ОТОБРАЖЕНИЯ
     logger.debug("=" * 60)

@@ -50,7 +50,11 @@
                             <small class="text-muted">{{ session.date.strftime('%d.%m.%Y %H:%M') }}</small>
                         </div>
                         <div>
+                            {% if session.schedule_id %}
+                            <a href="{{ url_for('workouts.perform', session_id=session.id) }}" class="btn btn-warning btn-sm">
+                            {% else %}
                             <a href="{{ url_for('workouts.free_workout', session_id=session.id) }}" class="btn btn-warning btn-sm">
+                            {% endif %}
                                 ▶ Продолжить
                             </a>
                         </div>
