@@ -75,7 +75,7 @@ Bootstrap 5 остаётся; своя тема (CSS-переменные) и н
   - [x] Экран тренировки по плану (`workouts/perform.html`) — `a306db8`
   - [x] Главная (`dashboard.html`) — `e7f5147`
   - [x] Свободная тренировка (`workouts/free_workout.html`) — `1e12648`
-  - [ ] Тренировки: список и итоги (`workouts/index.html`, `summary.html`)
+  - [x] Тренировки: список и итоги (`workouts/index.html`, `summary.html`) — `7040a5b`
   - [ ] Шаблоны и программы (`templates/*`, `program/*`) — _замечание владельца: в `templates/list.html` кнопки не помещаются в контейнеры_
   - [ ] Аналитика (`analytics/*`) — _замечание владельца: в календаре маркеры («😴 Нет» и др.) не читаются из-за контраста_
   - [ ] Упражнения (`exercises/*`)
