@@ -21,6 +21,9 @@ python create_db.py           # db.create_all() for a fresh DB
 python init_database.py       # seed roles, muscle groups/subgroups, admin user from data_for_init.json
                               # (gitignored, contains a real password; copy data_for_init.example.json to create it)
 
+python recalc_stats.py [--apply]  # recompute SetLog/WorkoutSession completion from stored data
+                                  # (dry run by default; rerun after changing calculation logic)
+
 flask --app run db migrate -m "..."   # Alembic via Flask-Migrate
 flask --app run db upgrade
 ```
