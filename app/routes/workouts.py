@@ -181,7 +181,7 @@ def perform(session_id):
                             'planned_reps': exercise_plan['reps'],
                             'planned_weight': exercise_plan.get('weight', 0),
                             'actual_reps': saved_log.actual_reps if saved_log and saved_log.actual_reps else '',
-                            'actual_weight': saved_log.actual_weight if saved_log and saved_log.actual_weight else ''
+                            'actual_weight': saved_log.actual_weight if saved_log and saved_log.actual_weight is not None else ''
                         })
                 else:
                     for set_info in exercise_plan['sets']:
@@ -193,7 +193,7 @@ def perform(session_id):
                             'planned_reps': set_info['reps'],
                             'planned_weight': set_info.get('weight', 0),
                             'actual_reps': saved_log.actual_reps if saved_log and saved_log.actual_reps else '',
-                            'actual_weight': saved_log.actual_weight if saved_log and saved_log.actual_weight else ''
+                            'actual_weight': saved_log.actual_weight if saved_log and saved_log.actual_weight is not None else ''
                         })
                 
                 exercises_data.append({
@@ -203,6 +203,17 @@ def perform(session_id):
                     'exercise_type': exercise_type,
                     'sets': sets_data
                 })
+    
+    # Последний результат по каждому упражнению из прошлых завершённых тренировок
+    for exercise in exercises_data:
+        last_log = SetLog.query.join(WorkoutSession).filter(
+            WorkoutSession.user_id == current_user.id,
+            WorkoutSession.id != session.id,
+            WorkoutSession.is_completed.is_(True),
+            SetLog.exercise_id == exercise['exercise_id'],
+            SetLog.actual_reps.isnot(None)
+        ).order_by(WorkoutSession.date.desc(), SetLog.set_number).first()
+        exercise['prev'] = {'weight': last_log.actual_weight, 'reps': last_log.actual_reps} if last_log else None
     
     if request.method == 'POST':
         # Обработка сохранения (обычная отправка формы для завершения)
@@ -452,6 +463,11 @@ def save_progress(session_id):
                                 db.session.add(set_log)
                                 completions[f'{te.exercise_id}_{set_num}'] = set_log.completion_percent
     
+    # Подходы, которых нет в запросе, считаются не выполненными (отметку сняли) — удаляем
+    for log in SetLog.query.filter_by(session_id=session.id).all():
+        if f'{log.exercise_id}_{log.set_number}' not in completions:
+            db.session.delete(log)
+    
     db.session.commit()
     
     # Обновляем общий процент выполнения
@@ -495,16 +511,19 @@ def complete_workout(session_id):
 def update_session_completion(session_id):
     """Обновляет общий процент выполнения тренировки"""
     set_logs = SetLog.query.filter_by(session_id=session_id).all()
+    session = WorkoutSession.query.get(session_id)
+    if not session:
+        return
     
     if set_logs:
         total_percent = sum(log.completion_percent for log in set_logs) / len(set_logs)
         total_tonnage = sum((log.actual_reps or 0) * (log.actual_weight or 0) for log in set_logs)
-        
-        session = WorkoutSession.query.get(session_id)
-        if session:
-            session.completion_percent = round(total_percent, 1)
-            session.total_tonnage = total_tonnage
-            db.session.commit()
+    else:
+        total_percent, total_tonnage = 0, 0
+    
+    session.completion_percent = round(total_percent, 1)
+    session.total_tonnage = total_tonnage
+    db.session.commit()
 
 @bp.route('/summary/<int:session_id>')
 @login_required

@@ -1,0 +1,14 @@
+{# Окно «Техника выполнения». Открывается по клику на элемент .exercise-name-link[data-exercise-id]
+   (логика — static/js/exercise_modal.js) #}
+<div class="modal fade" id="exerciseModal" tabindex="-1" aria-labelledby="exerciseModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exerciseModalTitle">Техника выполнения</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body" id="exerciseModalContent"></div>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/exercise_modal.js') }}"></script>

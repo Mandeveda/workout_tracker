@@ -51,7 +51,8 @@ class Config:
     
     # ===== НАСТРОЙКИ CSRF ЗАЩИТЫ =====
     WTF_CSRF_ENABLED = True
-    WTF_CSRF_TIME_LIMIT = 1800
+    # Без ограничения по времени: токен и так привязан к сессии, а тренировка длится дольше 30 минут
+    WTF_CSRF_TIME_LIMIT = None
     WTF_CSRF_SECRET_KEY = os.environ.get('WTF_CSRF_SECRET_KEY', SECRET_KEY)
     
     # ===== НАСТРОЙКИ FLASK-LIMITER =====
