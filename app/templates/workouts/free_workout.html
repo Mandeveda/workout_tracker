@@ -1,579 +1,66 @@
 {% extends "base.html" %}
 {% block title %}Свободная тренировка{% endblock %}
 {% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">➕ Свободная тренировка</h2>
-    
-    <form method="POST" id="workoutForm">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="session_id" value="{{ session_id if session_id else '' }}">
-        
-        <div id="exercisesContainer">
-            {% if saved_logs %}
-                {% set exercises_dict = {} %}
-                {% for log in saved_logs %}
-                    {% if log.exercise_id not in exercises_dict %}
-                        {% set _ = exercises_dict.update({log.exercise_id: []}) %}
-                    {% endif %}
-                    {% set _ = exercises_dict[log.exercise_id].append(log) %}
-                {% endfor %}
-                
-                {% for exercise_id, logs in exercises_dict.items() %}
-                    {% set exercise = logs[0].exercise %}
-                    <div class="card mb-4 exercise-card" data-exercise-id="{{ exercise_id }}">
-                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                            <h4 class="mb-0">
-                                {{ exercise.name }}
-                                <span class="exercise-name-link" data-exercise-id="{{ exercise.id }}" 
-                                      title="Нажмите для просмотра техники" style="cursor: pointer; margin-left: 5px; color: #e6eaec;">
-                                    &#9432;
-                                </span>
-                            </h4>
-                            <div>
-                                <span class="badge bg-light text-dark me-2">{{ exercise.exercise_type }}</span>
-                                <button type="button" class="btn btn-sm btn-danger remove-exercise">Удалить упражнение</button>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-bordered">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th style="width: 10%">Подход</th>
-                                            <th style="width: 35%">Вес × Повторения</th>
-                                            <th style="width: 15%">Выполнение</th>
-                                            <th style="width: 10%"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="sets_body_{{ exercise_id }}">
-                                        {% for log in logs %}
-                                            <tr class="set-row" data-set-number="{{ log.set_number }}">
-                                                <input type="hidden" name="exercise_id[]" value="{{ exercise_id }}">
-                                                <td class="text-center fw-bold">{{ log.set_number }}</td>
-                                                <td>
-                                                    <div class="row g-2">
-                                                        {% if exercise.exercise_type != 'bodyweight' %}
-                                                        <div class="col-md-5">
-                                                            <input type="number" step="0.5" 
-                                                                   name="weight[]" 
-                                                                   class="form-control weight-input" 
-                                                                   value="{{ log.actual_weight }}"
-                                                                   placeholder="Вес">
-                                                        </div>
-                                                        <div class="col-md-5">
-                                                            <input type="number" 
-                                                                   name="reps[]" 
-                                                                   class="form-control reps-input" 
-                                                                   value="{{ log.actual_reps }}"
-                                                                   placeholder="Повторы">
-                                                        </div>
-                                                        {% else %}
-                                                        <div class="col-md-10">
-                                                            <input type="number" 
-                                                                   name="reps[]" 
-                                                                   class="form-control reps-input" 
-                                                                   value="{{ log.actual_reps }}"
-                                                                   placeholder="Повторы">
-                                                        </div>
-                                                        <input type="hidden" name="weight[]" value="0">
-                                                        {% endif %}
-                                                        <input type="hidden" name="set_number[]" value="{{ log.set_number }}">
-                                                    </div>
-                                                </td>
-                                                <td class="text-center" id="completion_{{ exercise_id }}_{{ log.set_number }}">
-                                                    {% if log.completion_percent > 0 %}
-                                                        {{ log.completion_percent|round(1) }}%
-                                                    {% else %}
-                                                        —
-                                                    {% endif %}
-                                                </td>
-                                                <td class="text-center">
-                                                    <button type="button" class="btn btn-sm btn-danger remove-set-btn" 
-                                                            data-exercise-id="{{ exercise_id }}" data-set-number="{{ log.set_number }}">
-                                                        Удалить
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                            
-                            <div class="mt-2">
-                                <button type="button" class="btn btn-sm btn-success add-set-btn" data-exercise-id="{{ exercise_id }}">
-                                    + Добавить подход
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                {% endfor %}
-            {% endif %}
+<div class="session" id="freeSession"
+     data-save-url="{{ url_for('workouts.free_workout', session_id=workout_session.id) if workout_session else url_for('workouts.free_workout') }}"
+     data-started="{{ workout_session.date.strftime('%Y-%m-%dT%H:%M:%SZ') if workout_session else '' }}">
+
+    <header class="session-head">
+        <div class="session-row">
+            <div class="session-title">
+                <span class="label">Без плана</span>
+                <h1>Свободная тренировка</h1>
+                <span class="session-timer num" id="elapsed" aria-label="Время тренировки">00:00:00</span>
+            </div>
+            <button type="button" class="btn btn-primary" id="finishBtn">Завершить</button>
         </div>
-        
-        <div class="mb-3">
-            <button type="button" id="addExerciseBtn" class="btn btn-outline-primary">+ Добавить упражнение</button>
+        <div class="session-row session-meta">
+            <span class="num" id="progressText"></span>
+            <span class="num" id="tonnageText"></span>
+            <span class="save-status" id="saveStatus" aria-live="polite"></span>
         </div>
-        
-        <div class="text-center mt-4">
-            <button type="submit" name="action" value="save" class="btn btn-warning btn-lg me-3">
-                💾 Сохранить прогресс
-            </button>
-            <button type="submit" name="action" value="complete" class="btn btn-success btn-lg">
-                🏁 Завершить тренировку
-            </button>
-            <a href="{{ url_for('workouts.index') }}" class="btn btn-secondary btn-lg ms-3">Отмена</a>
-        </div>
-    </form>
+    </header>
+
+    <p class="session-hint">
+        Добавьте упражнение, впишите вес и повторения и нажмите <svg class="icon"><use href="#i-check"/></svg>.
+        В новый подход подставляются значения предыдущего. Сохраняются только отмеченные подходы.
+    </p>
+
+    <div class="exercises" id="exercises"></div>
+
+    <div class="empty-state" id="emptyState">
+        <p>Пока ни одного упражнения.</p>
+    </div>
+
+    <button type="button" class="btn btn-outline-primary add-exercise-btn" data-bs-toggle="modal" data-bs-target="#exercisePicker">
+        + Добавить упражнение
+    </button>
+
+    <div class="session-foot">
+        <button type="button" class="btn btn-primary btn-lg" id="finishBtnBottom">Завершить тренировку</button>
+        <a class="btn btn-link" href="{{ url_for('workouts.index') }}">Продолжить позже</a>
+    </div>
 </div>
 
-<!-- Модальное окно для техники упражнения -->
-<div class="modal fade" id="exerciseModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+<div class="modal fade" id="exercisePicker" tabindex="-1" aria-labelledby="exercisePickerTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="exerciseModalTitle">Техника выполнения</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header">
+                <h5 class="modal-title" id="exercisePickerTitle">Выбор упражнения</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
             </div>
             <div class="modal-body">
-                <div id="exerciseModalContent">
-                    <div class="text-center py-3">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Загрузка...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                <input type="search" class="form-control picker-search" id="pickerSearch" placeholder="Название или группа мышц" autocomplete="off">
+                <ul class="picker-list" id="pickerList"></ul>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-    .exercise-name-link {
-        cursor: pointer;
-        color: #e6eaec;
-        text-decoration: none;
-        transition: color 0.2s;
-    }
-    .exercise-name-link:hover {
-        color: #a6aaaf;
-        text-decoration: none;
-    }
-    .modal-media-container {
-        max-height: 400px;
-        overflow: hidden;
-        text-align: center;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 10px;
-    }
-    .modal-media-container img {
-        max-height: 350px;
-        max-width: 100%;
-        object-fit: contain;
-    }
-    .modal-media-container iframe {
-        width: 100%;
-        height: 350px;
-        border: none;
-    }
-    .exercise-details {
-        margin-top: 15px;
-    }
-    .exercise-details .badge {
-        font-size: 0.9rem;
-        padding: 5px 10px;
-    }
-    .last-result {
-        background-color: #e8f4fd;
-        border-radius: 8px;
-        padding: 10px 15px;
-        margin-top: 10px;
-    }
-    .exercise-card {
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .set-row input {
-        min-width: 60px;
-    }
-</style>
+{% include "_rest_bar.html" %}
+{% include "_exercise_modal.html" %}
 
-<script>
-    // ============================================================
-    // ФУНКЦИИ ДЛЯ МОДАЛЬНОГО ОКНА (подсказка техники)
-    // ============================================================
-    
-    function loadExerciseData(exerciseId) {
-        const container = document.getElementById('exerciseModalContent');
-        container.innerHTML = `
-            <div class="text-center py-3">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Загрузка...</span>
-                </div>
-            </div>
-        `;
-        
-        fetch(`/exercises/get_exercise_data/${exerciseId}`)
-            .then(response => response.json())
-            .then(data => {
-                renderExerciseData(data);
-            })
-            .catch(error => {
-                console.error('Ошибка загрузки данных:', error);
-                container.innerHTML = `
-                    <div class="alert alert-danger">
-                        Ошибка загрузки данных упражнения
-                    </div>
-                `;
-            });
-    }
-
-    function renderExerciseData(data) {
-        const container = document.getElementById('exerciseModalContent');
-        document.getElementById('exerciseModalTitle').textContent = data.name;
-        
-        let mediaHtml = '';
-        if (data.media_type === 'image' || data.media_type === 'gif') {
-            mediaHtml = `
-                <div class="modal-media-container">
-                    <img src="${escapeHtml(safeUrl(data.media_url))}" alt="${escapeHtml(data.name)}" class="img-fluid">
-                </div>
-            `;
-        } else if (data.media_type === 'youtube' && data.youtube_id) {
-            mediaHtml = `
-                <div class="modal-media-container">
-                    <iframe src="https://www.youtube.com/embed/${encodeURIComponent(data.youtube_id)}" 
-                            title="${escapeHtml(data.name)}" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                            allowfullscreen></iframe>
-                </div>
-            `;
-        }
-        
-        let lastResultHtml = '';
-        if (data.last_result) {
-            lastResultHtml = `
-                <div class="last-result">
-                    <strong>Последний результат:</strong>
-                    ${escapeHtml(data.last_result.date)}
-                    — ${data.last_result.weight ? escapeHtml(data.last_result.weight) + ' кг × ' : ''}${escapeHtml(data.last_result.reps)} повторений
-                </div>
-            `;
-        }
-        
-        container.innerHTML = `
-            ${mediaHtml}
-            <div class="exercise-details">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Тип:</strong> 
-                            <span class="badge bg-secondary">${escapeHtml(data.exercise_type)}</span>
-                        </p>
-                        ${data.muscle_group ? `<p><strong>Группа мышц:</strong> ${escapeHtml(data.muscle_group)}</p>` : ''}
-                        ${data.muscle_subgroup ? `<p><strong>Подгруппа:</strong> ${escapeHtml(data.muscle_subgroup)}</p>` : ''}
-                    </div>
-                    <div class="col-md-6">
-                        ${lastResultHtml}
-                    </div>
-                </div>
-                <div class="mt-3">
-                    <strong>Описание техники:</strong>
-                    <p class="text-muted">${escapeHtml(data.description || 'Описание отсутствует')}</p>
-                </div>
-            </div>
-        `;
-    }
-
-    // Обработчик клика на иконку информации
-    function handleInfoClick(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        const exerciseId = this.getAttribute('data-exercise-id');
-        if (exerciseId && exerciseId !== '') {
-            loadExerciseData(exerciseId);
-            const modal = new bootstrap.Modal(document.getElementById('exerciseModal'));
-            modal.show();
-        }
-    }
-
-    // ============================================================
-    // ДОБАВЛЕНИЕ НОВОГО УПРАЖНЕНИЯ
-    // ============================================================
-    
-    function addNewExercise() {
-        const container = document.getElementById('exercisesContainer');
-        const tempId = 'new_' + Date.now();
-        
-        const card = document.createElement('div');
-        card.className = 'card mb-4 exercise-card';
-        card.setAttribute('data-new', 'true');
-        card.innerHTML = `
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">
-                    Новое упражнение
-                    <span class="exercise-name-link" data-exercise-id="" 
-                          title="Нажмите для просмотра техники" style="cursor: pointer; margin-left: 5px; color: #e6eaec; display: none;">
-                        &#9432;
-                    </span>
-                </h4>
-                <div>
-                    <button type="button" class="btn btn-sm btn-danger remove-exercise">✖ Удалить упражнение</button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Выберите упражнение</label>
-                    <select class="form-select exercise-select" data-temp-id="${tempId}" required>
-                        <option value="">-- Выберите упражнение --</option>
-                        {% for exercise in exercises %}
-                            <option value="{{ exercise.id }}" data-exercise-type="{{ exercise.exercise_type }}">
-                                {{ exercise.name }} ({{ exercise.exercise_type }})
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="table-responsive">
-                    <table class="table table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 10%">Подход</th>
-                                <th style="width: 35%">Вес × Повторения</th>
-                                <th style="width: 15%">Выполнение</th>
-                                <th style="width: 10%"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="sets_body_${tempId}">
-                            <tr class="set-row" data-set-number="1">
-                                <input type="hidden" name="exercise_id[]" class="exercise-id-input" value="">
-                                <td class="text-center fw-bold">1</td>
-                                <td>
-                                    <div class="row g-2">
-                                        <div class="col-md-5 weight-field">
-                                            <input type="number" step="0.5" 
-                                                   name="weight[]" 
-                                                   class="form-control weight-input" 
-                                                   placeholder="Вес">
-                                        </div>
-                                        <div class="col-md-5">
-                                            <input type="number" 
-                                                   name="reps[]" 
-                                                   class="form-control reps-input" 
-                                                   placeholder="Повторы" required>
-                                        </div>
-                                        <input type="hidden" name="set_number[]" value="1">
-                                    </div>
-                                </td>
-                                <td class="text-center completion-cell">—</td>
-                                <td class="text-center">
-                                    <button type="button" class="btn btn-sm btn-danger remove-set-btn" 
-                                            data-temp-id="${tempId}" data-set-number="1">
-                                        ✖
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="mt-2">
-                    <button type="button" class="btn btn-sm btn-success add-set-btn-new" data-temp-id="${tempId}">
-                        + Добавить подход
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        container.appendChild(card);
-        
-        // Обработчик выбора упражнения
-        const select = card.querySelector('.exercise-select');
-        const exerciseIdInputs = card.querySelectorAll('.exercise-id-input');
-        
-        select.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const exerciseType = selectedOption.getAttribute('data-exercise-type');
-            const exerciseName = selectedOption.text.split('(')[0].trim();
-            const exerciseId = selectedOption.value;
-            
-            // Обновляем заголовок с иконкой
-            const headerTitle = card.querySelector('.card-header h4');
-            headerTitle.innerHTML = `
-                ${escapeHtml(exerciseName)}
-                <span class="exercise-name-link" data-exercise-id="${exerciseId}" 
-                      title="Нажмите для просмотра техники" style="cursor: pointer; margin-left: 5px; color: #e6eaec;">
-                    &#9432;
-                </span>
-            `;
-            
-            // Добавляем обработчик на новую иконку
-            const newInfoLink = headerTitle.querySelector('.exercise-name-link');
-            if (newInfoLink) {
-                newInfoLink.removeEventListener('click', handleInfoClick);
-                newInfoLink.addEventListener('click', handleInfoClick);
-            }
-            
-            exerciseIdInputs.forEach(input => input.value = exerciseId);
-            
-            const weightFields = card.querySelectorAll('.weight-field');
-            if (exerciseType === 'bodyweight') {
-                weightFields.forEach(field => field.style.display = 'none');
-                card.querySelectorAll('input[name="weight[]"]').forEach(input => input.value = '0');
-            } else {
-                weightFields.forEach(field => field.style.display = 'block');
-            }
-        });
-        
-        // Обработчик добавления подхода
-        const addBtn = card.querySelector('.add-set-btn-new');
-        addBtn.addEventListener('click', function() {
-            const tempId = this.getAttribute('data-temp-id');
-            const tbody = document.getElementById(`sets_body_${tempId}`);
-            const setCount = tbody.querySelectorAll('.set-row').length;
-            const newSetNumber = setCount + 1;
-            
-            const select = card.querySelector('.exercise-select');
-            const selectedOption = select.options[select.selectedIndex];
-            const exerciseType = selectedOption.getAttribute('data-exercise-type');
-            const hasWeight = exerciseType !== 'bodyweight';
-            const exerciseId = select.value;
-            
-            const row = document.createElement('tr');
-            row.className = 'set-row';
-            row.setAttribute('data-set-number', newSetNumber);
-            row.innerHTML = `
-                <input type="hidden" name="exercise_id[]" class="exercise-id-input" value="${exerciseId}">
-                <td class="text-center fw-bold">${newSetNumber}</td>
-                <td>
-                    <div class="row g-2">
-                        ${hasWeight ? `
-                        <div class="col-md-5 weight-field">
-                            <input type="number" step="0.5" name="weight[]" class="form-control weight-input" placeholder="Вес">
-                        </div>
-                        ` : ''}
-                        <div class="${hasWeight ? 'col-md-5' : 'col-md-10'}">
-                            <input type="number" name="reps[]" class="form-control reps-input" placeholder="Повторы" required>
-                        </div>
-                        ${!hasWeight ? '<input type="hidden" name="weight[]" value="0">' : ''}
-                        <input type="hidden" name="set_number[]" value="${newSetNumber}">
-                    </div>
-                </td>
-                <td class="text-center completion-cell">—</td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-danger remove-set-btn" 
-                            data-temp-id="${tempId}" data-set-number="${newSetNumber}">
-                        ✖
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(row);
-            
-            row.querySelector('.remove-set-btn').addEventListener('click', function() {
-                row.remove();
-                const rows = tbody.querySelectorAll('.set-row');
-                rows.forEach((r, idx) => {
-                    const num = idx + 1;
-                    r.querySelector('td:first-child').textContent = num;
-                    r.querySelector('input[name="set_number[]"]').value = num;
-                    r.setAttribute('data-set-number', num);
-                });
-            });
-        });
-        
-        card.querySelector('.remove-exercise').addEventListener('click', function() {
-            card.remove();
-        });
-    }
-    
-    // ============================================================
-    // ИНИЦИАЛИЗАЦИЯ
-    // ============================================================
-
-    document.addEventListener('DOMContentLoaded', function() {
-        // Кнопка добавления упражнения
-        document.getElementById('addExerciseBtn').addEventListener('click', addNewExercise);
-        
-        // === ФУНКЦИЯ ДЛЯ ИНИЦИАЛИЗАЦИИ ВСЕХ ИКОНОК ===
-        function initAllInfoLinks() {
-            document.querySelectorAll('.exercise-name-link').forEach(link => {
-                const exerciseId = link.getAttribute('data-exercise-id');
-                if (exerciseId && exerciseId !== '') {
-                    link.removeEventListener('click', handleInfoClick);
-                    link.addEventListener('click', handleInfoClick);
-                }
-            });
-        }
-        
-        // Инициализируем все иконки при загрузке
-        initAllInfoLinks();
-        
-        // Обработчики для существующих карточек (после сохранения)
-        document.querySelectorAll('.exercise-card:not([data-new])').forEach(card => {
-            const exerciseId = card.getAttribute('data-exercise-id');
-            
-            // Обработчик добавления подхода
-            card.querySelector('.add-set-btn').addEventListener('click', function() {
-                const tbody = document.getElementById(`sets_body_${exerciseId}`);
-                const setCount = tbody.querySelectorAll('.set-row').length;
-                const newSetNumber = setCount + 1;
-                
-                const exerciseType = card.querySelector('.badge.bg-light')?.textContent.trim() || 'strength';
-                const hasWeight = exerciseType !== 'bodyweight';
-                
-                const row = document.createElement('tr');
-                row.className = 'set-row';
-                row.setAttribute('data-set-number', newSetNumber);
-                row.innerHTML = `
-                    <input type="hidden" name="exercise_id[]" value="${exerciseId}">
-                    <td class="text-center fw-bold">${newSetNumber}</td>
-                    <td>
-                        <div class="row g-2">
-                            ${hasWeight ? `
-                            <div class="col-md-5">
-                                <input type="number" step="0.5" name="weight[]" class="form-control weight-input" placeholder="Вес">
-                            </div>
-                            ` : ''}
-                            <div class="${hasWeight ? 'col-md-5' : 'col-md-10'}">
-                                <input type="number" name="reps[]" class="form-control reps-input" placeholder="Повторы" required>
-                            </div>
-                            ${!hasWeight ? '<input type="hidden" name="weight[]" value="0">' : ''}
-                            <input type="hidden" name="set_number[]" value="${newSetNumber}">
-                        </div>
-                    </td>
-                    <td class="text-center completion-cell">—</td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-danger remove-set-btn" 
-                                data-exercise-id="${exerciseId}" data-set-number="${newSetNumber}">
-                            ✖
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-                
-                row.querySelector('.remove-set-btn').addEventListener('click', function() {
-                    row.remove();
-                    const rows = tbody.querySelectorAll('.set-row');
-                    rows.forEach((r, idx) => {
-                        const num = idx + 1;
-                        r.querySelector('td:first-child').textContent = num;
-                        r.querySelector('input[name="set_number[]"]').value = num;
-                        r.setAttribute('data-set-number', num);
-                    });
-                });
-            });
-            
-            card.querySelector('.remove-exercise').addEventListener('click', function() {
-                card.remove();
-            });
-        });
-        
-        // === ОБНОВЛЯЕМ ОБРАБОТЧИКИ ПОСЛЕ СОХРАНЕНИЯ (если форма отправляется через AJAX) ===
-        // Если сохранение происходит через обычную отправку формы (перезагрузка страницы),
-        // то этот блок не нужен, так как страница перезагрузится и DOMContentLoaded сработает снова.
-        // Но если сохранение через AJAX, добавьте:
-        // document.addEventListener('workoutSaved', initAllInfoLinks);
-    });
-</script>
+<script id="freeWorkoutData" type="application/json">{{ {'groups': groups, 'catalog': catalog}|tojson }}</script>
+<script src="{{ url_for('static', filename='js/workout_common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/free_workout.js') }}"></script>
 {% endblock %}

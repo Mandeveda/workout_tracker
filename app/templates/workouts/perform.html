@@ -104,20 +104,9 @@
     </div>
 </div>
 
-<div class="rest-bar" id="restBar" hidden>
-    <div class="rest-inner">
-        <div>
-            <span class="label">Отдых</span>
-            <div class="rest-time num" id="restTime">1:30</div>
-        </div>
-        <div class="rest-btns">
-            <button type="button" class="rest-chip" data-rest="-15">−15 с</button>
-            <button type="button" class="rest-chip" data-rest="15">+15 с</button>
-            <button type="button" class="rest-chip" id="restSkip">Пропустить</button>
-        </div>
-    </div>
-</div>
+{% include "_rest_bar.html" %}
 
 {% include "_exercise_modal.html" %}
+<script src="{{ url_for('static', filename='js/workout_common.js') }}"></script>
 <script src="{{ url_for('static', filename='js/perform.js') }}"></script>
 {% endblock %}

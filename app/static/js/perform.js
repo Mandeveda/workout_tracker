@@ -84,8 +84,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function setStatus(text, isError) {
-        statusEl.textContent = text;
-        statusEl.classList.toggle('is-error', !!isError);
+        WorkoutUI.setStatus(statusEl, text, isError);
     }
 
     function save() {
@@ -96,8 +95,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(response => response.json().then(data => ({ ok: response.ok, data })))
             .then(({ ok, data }) => {
                 if (!ok || !data.success) throw new Error(data.error || 'save failed');
-                const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-                setStatus('Сохранено в ' + time);
+                setStatus(WorkoutUI.savedAt());
             })
             .catch(error => {
                 dirty = true;
@@ -127,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             inputsOf(row).forEach(input => { if (input.value.trim() === '') input.value = input.placeholder; });
             row.classList.add('done');
-            startRest(REST_SECONDS);
+            rest.start(REST_SECONDS);
         }
         paintRow(row);
         updateSummary();
@@ -161,52 +159,9 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('finishBtn').addEventListener('click', finish);
     document.getElementById('finishBtnBottom').addEventListener('click', finish);
 
-    // ---------- таймер отдыха ----------
-    const restBar = document.getElementById('restBar');
-    const restTime = document.getElementById('restTime');
-    let restLeft = 0;
-    let restTick = null;
+    const rest = WorkoutUI.restTimer();
 
-    function fmtTime(seconds) {
-        return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
-    }
-    function stopRest() {
-        clearInterval(restTick);
-        restBar.hidden = true;
-    }
-    function startRest(seconds) {
-        restLeft = seconds;
-        restTime.textContent = fmtTime(restLeft);
-        restBar.hidden = false;
-        clearInterval(restTick);
-        restTick = setInterval(function () {
-            restLeft -= 1;
-            restTime.textContent = fmtTime(Math.max(restLeft, 0));
-            if (restLeft <= 0) {
-                stopRest();
-                if (navigator.vibrate) navigator.vibrate(300);
-            }
-        }, 1000);
-    }
-    restBar.addEventListener('click', function (event) {
-        const step = event.target.closest('[data-rest]');
-        if (step) {
-            restLeft = Math.max(5, restLeft + parseInt(step.dataset.rest, 10));
-            restTime.textContent = fmtTime(restLeft);
-        }
-        if (event.target.closest('#restSkip')) stopRest();
-    });
-
-    // ---------- секундомер тренировки ----------
-    const started = new Date(root.dataset.started).getTime();
-    const elapsedEl = document.getElementById('elapsed');
-    function tick() {
-        const total = Math.max(0, Math.floor((Date.now() - started) / 1000));
-        const parts = [Math.floor(total / 3600), Math.floor(total % 3600 / 60), total % 60];
-        elapsedEl.textContent = parts.map(v => String(v).padStart(2, '0')).join(':');
-    }
-    tick();
-    setInterval(tick, 1000);
+    WorkoutUI.startElapsed(document.getElementById('elapsed'), root.dataset.started);
 
     rows.forEach(paintRow);
     updateSummary();

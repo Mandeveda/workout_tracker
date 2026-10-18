@@ -733,43 +733,64 @@ def free_workout():
                         f"подход {log.set_number}: "
                         f"{log.actual_weight} кг × {log.actual_reps} повт.")
         
-        if saved_count > 0:
-            update_session_completion(workout_session.id)
+        update_session_completion(workout_session.id)
         
         if is_completed:
             workout_session.is_completed = True
             workout_session.status = 'completed'
             db.session.commit()
+        
+        # Фоновое сохранение со страницы (fetch) — отвечаем JSON
+        if request.headers.get('X-Requested-With') == 'fetch':
+            return jsonify({
+                'success': True,
+                'session_id': workout_session.id,
+                'saved': saved_count,
+                'redirect': url_for('workouts.summary', session_id=workout_session.id) if is_completed else None,
+            })
+        
+        if is_completed:
             flash('Свободная тренировка завершена!', 'success')
             return redirect(url_for('workouts.summary', session_id=workout_session.id))
-        else:
-            flash(f'Прогресс сохранён! ({saved_count} подходов)', 'success')
-            return redirect(url_for('workouts.free_workout', session_id=workout_session.id))
+        flash(f'Прогресс сохранён! ({saved_count} подходов)', 'success')
+        return redirect(url_for('workouts.free_workout', session_id=workout_session.id))
     
-    # GET запрос — загружаем данные
-    saved_logs = []
+    # GET — сохранённые подходы, сгруппированные по упражнениям в порядке добавления
+    groups = []
     if workout_session:
-        saved_logs = SetLog.query.filter_by(session_id=workout_session.id).order_by(SetLog.exercise_id, SetLog.set_number).all()
+        by_exercise = {}
+        for log in SetLog.query.filter_by(session_id=workout_session.id).order_by(SetLog.id).all():
+            if log.exercise_id not in by_exercise:
+                by_exercise[log.exercise_id] = {
+                    'id': log.exercise_id,
+                    'name': log.exercise.name,
+                    'type': log.exercise.exercise_type,
+                    'sets': [],
+                }
+                groups.append(by_exercise[log.exercise_id])
+            by_exercise[log.exercise_id]['sets'].append({'w': log.actual_weight or 0, 'r': log.actual_reps})
     
-    # ЛОГИРУЕМ ЧТО ЗАГРУЖАЕТСЯ ДЛЯ ОТОБРАЖЕНИЯ
-    logger.debug("=" * 60)
-    logger.debug("📖 ЗАГРУЖЕНО ДЛЯ ОТОБРАЖЕНИЯ:")
-    if saved_logs:
-        for log in saved_logs:
-            exercise = Exercise.query.get(log.exercise_id)
-            logger.debug(f"  Упр.{log.exercise_id} ({exercise.name if exercise else '?'}) "
-                        f"подход {log.set_number}: "
-                        f"{log.actual_weight} кг × {log.actual_reps} повт.")
-        logger.debug(f"  Всего: {len(saved_logs)} подходов")
-    else:
-        logger.debug("  Нет данных")
+    # «Прошлый раз» — первый подход последней завершённой тренировки с этим упражнением
+    for group in groups:
+        last_log = SetLog.query.join(WorkoutSession).filter(
+            WorkoutSession.user_id == current_user.id,
+            WorkoutSession.is_completed.is_(True),
+            SetLog.exercise_id == group['id'],
+            SetLog.actual_reps.isnot(None)
+        ).order_by(WorkoutSession.date.desc(), SetLog.set_number).first()
+        group['prev'] = {'w': last_log.actual_weight or 0, 'r': last_log.actual_reps} if last_log else None
     
-    exercises = Exercise.query.order_by(Exercise.name).all()
+    catalog = [{
+        'id': e.id,
+        'name': e.name,
+        'type': e.exercise_type,
+        'group': e.muscle_group.display_name if e.muscle_group else '',
+    } for e in Exercise.query.order_by(Exercise.name).all()]
     
-    return render_template('workouts/free_workout.html', 
-                         exercises=exercises, 
-                         saved_logs=saved_logs,
-                         session_id=workout_session.id if workout_session else None)
+    return render_template('workouts/free_workout.html',
+                           groups=groups,
+                           catalog=catalog,
+                           workout_session=workout_session)
 
 @bp.route('/delete_schedule/<int:schedule_id>', methods=['POST'])
 @login_required
