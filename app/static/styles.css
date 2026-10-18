@@ -1140,3 +1140,53 @@ fieldset legend.form-label { font-size: .9rem; }
   .params-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .avatar-lg { width: 48px; height: 48px; font-size: 20px; }
 }
+
+/* ---------- вход, регистрация ---------- */
+.auth-wrap { display: flex; justify-content: center; padding-block: 24px 48px; }
+.auth-card { width: 100%; max-width: 420px; padding: 28px; }
+.auth-card h1 { font-size: 26px; margin: 0; }
+.auth-card .page-sub { margin: 6px 0 22px; }
+.auth-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; margin-top: 16px; font-size: 14px; color: var(--muted); }
+
+/* ---------- главная для гостей ---------- */
+.landing-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+  padding-block: 32px 56px;
+}
+.landing-hero::before { /* золотые диагонали, как на референсе */
+  content: "";
+  position: absolute;
+  inset: -40px -80px auto auto;
+  width: 220px;
+  height: 220px;
+  background: repeating-linear-gradient(135deg, transparent 0 46px, rgba(var(--gold-rgb), .35) 46px 48px);
+  -webkit-mask-image: linear-gradient(225deg, #000 20%, transparent 75%);
+          mask-image: linear-gradient(225deg, #000 20%, transparent 75%);
+  pointer-events: none;
+}
+.landing-copy h1 { font-size: clamp(30px, 4.6vw, 48px); line-height: 1.12; margin: 12px 0 18px; }
+.landing-lead { font-size: 17px; color: var(--muted); max-width: 34em; margin-bottom: 28px; }
+.landing-demo { position: relative; }
+.landing-demo .ex { box-shadow: var(--shadow); }
+.landing-demo .cell-in { display: inline-grid; place-items: center; }
+.demo-val.is-hint { color: var(--muted); opacity: .75; }
+.landing-demo-note { margin: 12px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
+.landing-demo-note .icon { width: 15px; height: 15px; color: var(--gold); vertical-align: -3px; }
+.landing-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  padding-block: 32px 16px;
+  border-top: 1px solid var(--line);
+}
+.landing-features h2 { font-size: 18px; margin: 0 0 8px; padding-top: 14px; border-top: 2px solid var(--gold); display: inline-block; }
+.landing-features p { color: var(--muted); margin: 0; }
+@media (max-width: 991.98px) {
+  .landing-hero { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-top: 8px; }
+  .landing-hero::before { display: none; }
+  .landing-features { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+}

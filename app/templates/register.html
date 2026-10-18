@@ -1,42 +1,20 @@
 {% extends "base.html" %}
+{% from "_macros.html" import form_field %}
 {% block title %}Регистрация{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <h2 class="mb-4">Регистрация</h2>
-        <form method="POST">
-            {{ form.hidden_tag() }}
-            <div class="mb-3">
-                {{ form.username.label(class="form-label") }}
-                {{ form.username(class="form-control") }}
-                {% for error in form.username.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            </div>
-            <div class="mb-3">
-                {{ form.email.label(class="form-label") }}
-                {{ form.email(class="form-control") }}
-                {% for error in form.email.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            </div>
-            <div class="mb-3">
-                {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-control") }}
-                {% for error in form.password.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            </div>
-            <div class="mb-3">
-                {{ form.confirm_password.label(class="form-label") }}
-                {{ form.confirm_password(class="form-control") }}
-                {% for error in form.confirm_password.errors %}
-                    <div class="text-danger">{{ error }}</div>
-                {% endfor %}
-            </div>
-            {{ form.submit(class="btn btn-primary") }}
-            <a href="{{ url_for('auth.login') }}" class="btn btn-secondary">Уже есть аккаунт</a>
-        </form>
-    </div>
+<div class="auth-wrap">
+    <form method="POST" class="panel auth-card" novalidate>
+        {{ form.hidden_tag() }}
+        <h1>Регистрация</h1>
+        <p class="page-sub">Аккаунт нужен, чтобы сохранять тренировки и видеть прогресс.</p>
+        {{ form_field(form.username, autocomplete="username", autofocus=True, hint="От 3 символов, будет видно в профиле") }}
+        {{ form_field(form.email, type="email", autocomplete="email", inputmode="email", hint="Для восстановления пароля") }}
+        {{ form_field(form.password, autocomplete="new-password", hint="Не меньше 6 символов") }}
+        {{ form_field(form.confirm_password, autocomplete="new-password") }}
+        <button type="submit" class="btn btn-primary w-100">Создать аккаунт</button>
+        <div class="auth-links">
+            <span>Уже есть аккаунт? <a href="{{ url_for('auth.login') }}">Войти</a></span>
+        </div>
+    </form>
 </div>
 {% endblock %}

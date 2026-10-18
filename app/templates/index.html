@@ -1,45 +1,65 @@
 {% extends "base.html" %}
-{% block title %}Главная{% endblock %}
+{% block title %}Трекер тренировок{% endblock %}
 {% block content %}
-<div class="px-4 py-5 my-5 text-center">
-    <h1 class="display-5 fw-bold text-body-emphasis">Tracker Workout</h1>
-    <div class="col-lg-6 mx-auto">
-        <p class="lead mb-4">
-            Ваш персональный трекер тренировок. Составляйте планы, отслеживайте прогресс, 
-            анализируйте результаты и достигайте новых рекордов.
-        </p>
-        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-            {% if not current_user.is_authenticated %}
-                <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg px-4 gap-3">Начать сейчас</a>
-                <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary btn-lg px-4">Войти</a>
+<section class="landing-hero">
+    <div class="landing-copy">
+        <span class="label">Трекер тренировок</span>
+        <h1>Тренируйтесь по плану.<br>Отмечайте подход одним касанием.</h1>
+        <p class="landing-lead">Соберите шаблон, разложите тренировки по дням недели и записывайте результат прямо в зале — вес и повторения уже подставлены. Прогресс, рекорды и тоннаж посчитаются сами.</p>
+        <div class="hero-actions">
+            {% if current_user.is_authenticated %}
+            <a class="btn btn-primary btn-lg" href="{{ url_for('main.dashboard') }}">Перейти к тренировкам</a>
             {% else %}
-                <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary btn-lg px-4 gap-3">Перейти к тренировкам</a>
+            <a class="btn btn-primary btn-lg" href="{{ url_for('auth.register') }}">Начать бесплатно</a>
+            <a class="btn btn-outline-primary btn-lg" href="{{ url_for('auth.login') }}">Войти</a>
             {% endif %}
         </div>
     </div>
-</div>
 
-<div class="container px-4 py-5">
-    <h2 class="pb-2 border-bottom">Возможности</h2>
-    <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
-        <div class="col d-flex align-items-start">
-            <div>
-                <h3 class="fs-2">Планы тренировок</h3>
-                <p>Создавайте шаблоны, назначайте на дни недели, система сама сгенерирует расписание на недели вперёд.</p>
+    {# Живой пример экрана тренировки: нажатие ✓ отмечает подход (без сохранения) #}
+    <div class="landing-demo" aria-label="Пример экрана тренировки">
+        <article class="ex">
+            <div class="ex-head">
+                <div class="ex-name">Жим штанги лёжа</div>
+                <div class="ex-type">Силовое · прошлый раз 70 кг × 8</div>
             </div>
-        </div>
-        <div class="col d-flex align-items-start">
-            <div>
-                <h3 class="fs-2">Анализ прогресса</h3>
-                <p>Тоннаж, рекорды, процент выполнения плана — всё в удобных графиках.</p>
-            </div>
-        </div>
-        <div class="col d-flex align-items-start">
-            <div>
-                <h3 class="fs-2">Гибкость</h3>
-                <p>Переносите, пропускайте, заменяйте упражнения — без потери истории.</p>
-            </div>
-        </div>
+            <table class="sets">
+                <thead><tr><th>№</th><th>кг</th><th>повт</th><th><span class="visually-hidden">Отметка</span></th></tr></thead>
+                <tbody>
+                    <tr class="set-row done"><td><span class="set-n">1</span></td><td><span class="cell-in demo-val">72,5</span></td><td><span class="cell-in demo-val">8</span></td><td><button type="button" class="check" aria-label="Подход 1"><svg class="icon"><use href="#i-check"/></svg></button></td></tr>
+                    <tr class="set-row done"><td><span class="set-n">2</span></td><td><span class="cell-in demo-val">72,5</span></td><td><span class="cell-in demo-val">8</span></td><td><button type="button" class="check" aria-label="Подход 2"><svg class="icon"><use href="#i-check"/></svg></button></td></tr>
+                    <tr class="set-row"><td><span class="set-n">3</span></td><td><span class="cell-in demo-val is-hint">72,5</span></td><td><span class="cell-in demo-val is-hint">8</span></td><td><button type="button" class="check" aria-label="Подход 3"><svg class="icon"><use href="#i-check"/></svg></button></td></tr>
+                </tbody>
+            </table>
+        </article>
+        <p class="landing-demo-note">Попробуйте: нажмите <svg class="icon"><use href="#i-check"/></svg> у третьего подхода</p>
     </div>
-</div>
+</section>
+
+<section class="landing-features">
+    <div>
+        <h2>План по дням недели</h2>
+        <p>Шаблон «День ног» в понедельник и четверг на 8 недель — расписание составится само. Пропустили — перенесите на завтра.</p>
+    </div>
+    <div>
+        <h2>Записи без лишних касаний</h2>
+        <p>Плановые цифры уже в полях. Справились — нажали ✓. Нет — исправили число. Таймер отдыха запустится сам.</p>
+    </div>
+    <div>
+        <h2>Прогресс и рекорды</h2>
+        <p>Тоннаж по неделям, лучший подход по каждому упражнению, календарь тренировок и замеры тела.</p>
+    </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelector('.landing-demo').addEventListener('click', function (e) {
+        const btn = e.target.closest('.check');
+        if (!btn) return;
+        const row = btn.closest('.set-row');
+        row.classList.toggle('done');
+        row.querySelectorAll('.demo-val').forEach(v => v.classList.toggle('is-hint', !row.classList.contains('done')));
+    });
+});
+</script>
 {% endblock %}

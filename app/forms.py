@@ -4,11 +4,18 @@ from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAr
 from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, NumberRange, Optional, Regexp
 from app.models import User
 
+# Сообщения валидаторов по-русски (стандартные у WTForms — на английском)
+REQUIRED = 'Заполните это поле'
+USERNAME_LEN = 'Имя — от 3 до 80 символов'
+PASSWORD_LEN = 'Пароль — не меньше 6 символов'
+PASSWORDS_MATCH = 'Пароли не совпадают'
+EMAIL_FORMAT = 'Похоже, это не адрес почты: проверьте, есть ли «@» и домен'
+
 class RegistrationForm(FlaskForm):
-    username = StringField('Имя пользователя', validators=[DataRequired(), Length(min=3, max=80)])
-    email = StringField('Email', validators=[DataRequired()])  # Убрали Email() валидатор
-    password = PasswordField('Пароль', validators=[DataRequired(), Length(min=6)])
-    confirm_password = PasswordField('Подтвердите пароль', validators=[DataRequired(), EqualTo('password')])
+    username = StringField('Имя пользователя', validators=[DataRequired(REQUIRED), Length(min=3, max=80, message=USERNAME_LEN)])
+    email = StringField('Email', validators=[DataRequired(REQUIRED), Email(EMAIL_FORMAT)])
+    password = PasswordField('Пароль', validators=[DataRequired(REQUIRED), Length(min=6, message=PASSWORD_LEN)])
+    confirm_password = PasswordField('Подтвердите пароль', validators=[DataRequired(REQUIRED), EqualTo('password', PASSWORDS_MATCH)])
     submit = SubmitField('Зарегистрироваться')
     
     def validate_username(self, username):
@@ -22,8 +29,8 @@ class RegistrationForm(FlaskForm):
             raise ValidationError('Этот email уже зарегистрирован')
 
 class LoginForm(FlaskForm):
-    username = StringField('Логин или Email', validators=[DataRequired()])
-    password = PasswordField('Пароль', validators=[DataRequired()])
+    username = StringField('Логин или Email', validators=[DataRequired(REQUIRED)])
+    password = PasswordField('Пароль', validators=[DataRequired(REQUIRED)])
     submit = SubmitField('Войти')
 
 class ExerciseForm(FlaskForm):
@@ -216,10 +223,10 @@ class AddExerciseForm(FlaskForm):
         self.filter_subgroup.choices = [(0, 'Все подгруппы')]
 
 class ForgotPasswordForm(FlaskForm):
-    email = StringField('Email', validators=[DataRequired(), Email()])
+    email = StringField('Email', validators=[DataRequired(REQUIRED), Email(EMAIL_FORMAT)])
     submit = SubmitField('Отправить ссылку')
 
 class ResetPasswordForm(FlaskForm):
-    password = PasswordField('Новый пароль', validators=[DataRequired(), Length(min=6)])
-    confirm_password = PasswordField('Подтвердите пароль', validators=[DataRequired(), EqualTo('password')])
+    password = PasswordField('Новый пароль', validators=[DataRequired(REQUIRED), Length(min=6, message=PASSWORD_LEN)])
+    confirm_password = PasswordField('Подтвердите пароль', validators=[DataRequired(REQUIRED), EqualTo('password', PASSWORDS_MATCH)])
     submit = SubmitField('Сменить пароль')
