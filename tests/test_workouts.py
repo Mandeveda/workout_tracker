@@ -68,3 +68,48 @@ def test_free_workout_ajax_save_keeps_order_and_cardio_fields(client, make_user,
     logs = SetLog.query.filter_by(session_id=result['session_id']).order_by(SetLog.id).all()
     assert [l.exercise_id for l in logs] == [run.id, bench.id]
     assert (logs[0].actual_reps, logs[0].actual_weight) == (30, 5)   # минуты в reps, км в weight
+
+
+# ---------- План 3.7: единый путь сохранения тренировки по плану ----------
+@pytest.fixture
+def mixed(make_user, make_exercise, make_template, make_session):
+    user = make_user('anna', weight=80)
+    squat = make_exercise('Присед')
+    pullup = make_exercise('Подтягивания', 'bodyweight')
+    bike = make_exercise('Велотренажёр', 'cardio')
+    plans = [(squat, STRENGTH_PLAN),
+             (pullup, {'input_type': 'progressive', 'sets': [{'set_number': 1, 'reps': 10, 'weight': 0},
+                                                             {'set_number': 2, 'reps': 8, 'weight': 0}]}),
+             (bike, {'input_type': 'cardio', 'duration': 20, 'distance': 5})]
+    _, schedule = make_template(user, plans)
+    return user, squat, pullup, bike, make_session(user, schedule)
+
+
+def test_save_progress_all_exercise_types(client, mixed):
+    user, squat, pullup, bike, session = mixed
+    login(client, 'anna')
+    result = client.post(f'/workouts/save_progress/{session.id}', data={
+        f'weight_{squat.id}_1': '60', f'reps_{squat.id}_1': '8',        # 100%
+        f'reps_{pullup.id}_2': '4',                                       # 4 из 8 = 50%
+        f'actual_duration_{bike.id}': '10', f'actual_distance_{bike.id}': '3',   # 10 из 20 мин = 50%
+    }).get_json()
+    assert result['completions'] == {f'{squat.id}_1': 100, f'{pullup.id}_2': 50, f'{bike.id}_1': 50}
+    logs = {(l.exercise_id, l.set_number): l for l in SetLog.query.filter_by(session_id=session.id)}
+    assert (logs[(bike.id, 1)].actual_reps, logs[(bike.id, 1)].actual_weight) == (10, 3)
+    assert logs[(pullup.id, 2)].planned_reps == 8 and logs[(squat.id, 1)].template_exercise_id is not None
+
+
+def test_save_progress_updates_existing_set(client, mixed):
+    user, squat, _, _, session = mixed
+    login(client, 'anna')
+    for reps in ('8', '6'):
+        client.post(f'/workouts/save_progress/{session.id}', data={f'weight_{squat.id}_1': '60', f'reps_{squat.id}_1': reps})
+    logs = SetLog.query.filter_by(session_id=session.id).all()
+    assert len(logs) == 1 and logs[0].actual_reps == 6 and round(logs[0].completion_percent) == 75
+
+
+def test_perform_accepts_only_get(client, mixed):
+    *_, session = mixed
+    login(client, 'anna')
+    assert client.get(f'/workouts/perform/{session.id}').status_code == 200
+    assert client.post(f'/workouts/perform/{session.id}').status_code == 405
