@@ -136,7 +136,7 @@ def get_subgroups():
         return jsonify([{'id': s.id, 'display_name': s.display_name} for s in subgroups])
     return jsonify([])
 
-@bp.route('/del_exercise/<int:exercise_id>')
+@bp.route('/del_exercise/<int:exercise_id>', methods=['POST'])
 @login_required
 def del_exercise(exercise_id):
     """Удаление упражнения из базы"""

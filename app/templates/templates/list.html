@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import post_button with context %}
 {% block title %}Мои шаблоны{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -30,12 +31,10 @@
                         <a href="{{ url_for('templates.edit_template', template_id=template.id) }}" class="btn btn-sm btn-outline-primary">Редактировать</a>
                         <a href="{{ url_for('program.create_program', template_id=template.id) }}" class="btn btn-sm btn-outline-success">Создать программу</a>
                         {% if current_user.role.name == 'admin' or template.user_id == current_user.id %}
-                            <a href="{{ url_for('templates.archive_template', template_id=template.id) }}" 
-                                class="btn btn-sm btn-outline-warning"
-                                onclick="return confirm('Архивировать шаблон «{{ template.name }}»? Он исчезнет из списка активных.')">📦 Архивировать</a>
-                            <a href="{{ url_for('templates.delete_template', template_id=template.id) }}" 
-                               class="btn btn-sm btn-outline-danger"
-                               onclick="return confirm('Удалить шаблон «{{ template.name }}»? Все упражнения внутри будут удалены.')">Удалить</a>
+                            {{ post_button(url_for('templates.archive_template', template_id=template.id), '📦 Архивировать', 'btn btn-sm btn-outline-warning',
+                                           confirm='Архивировать шаблон «' ~ template.name ~ '»? Он исчезнет из списка активных.') }}
+                            {{ post_button(url_for('templates.delete_template', template_id=template.id), 'Удалить', 'btn btn-sm btn-outline-danger',
+                                           confirm='Удалить шаблон «' ~ template.name ~ '»? Все упражнения внутри будут удалены.') }}
                         {% endif %}
                     </div>
                 </div>

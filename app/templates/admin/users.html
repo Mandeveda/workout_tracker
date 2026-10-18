@@ -79,7 +79,7 @@
                                         <!-- Сброс пароля -->
                                         <form method="POST" action="{{ url_for('admin.reset_password', user_id=user.id) }}" 
                                               style="display: inline;" 
-                                              onsubmit="return confirm('Сбросить пароль для {{ user.username }}? Будет сгенерирован временный пароль.')">
+                                              data-confirm="Сбросить пароль для {{ user.username }}? Будет сгенерирован временный пароль.">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <input type="hidden" name="search" value="{{ search }}">
                                             <button type="submit" class="btn btn-outline-warning" 
@@ -91,7 +91,7 @@
                                         <!-- Блокировка -->
                                         <form method="POST" action="{{ url_for('admin.block_user', user_id=user.id) }}" 
                                               style="display: inline;" 
-                                              onsubmit="return confirm('{{ "Разблокировать" if user.is_blocked else "Заблокировать" }} пользователя {{ user.username }}?')">
+                                              data-confirm="{{ 'Разблокировать' if user.is_blocked else 'Заблокировать' }} пользователя {{ user.username }}?">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <input type="hidden" name="search" value="{{ search }}">
                                             <button type="submit" class="btn btn-outline-{% if user.is_blocked %}success{% else %}danger{% endif %}"
@@ -103,7 +103,7 @@
                                         <!-- Удаление -->
                                         <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}" 
                                               style="display: inline;" 
-                                              onsubmit="return confirm('Удалить пользователя {{ user.username }}? Все данные будут потеряны.')">
+                                              data-confirm="Удалить пользователя {{ user.username }}? Все данные будут потеряны.">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <input type="hidden" name="search" value="{{ search }}">
                                             <button type="submit" class="btn btn-outline-danger" 

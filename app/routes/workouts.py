@@ -542,7 +542,7 @@ def summary(session_id):
                          session=session,
                          exercises_summary=exercises_summary)
 
-@bp.route('/skip/<int:schedule_id>')
+@bp.route('/skip/<int:schedule_id>', methods=['POST'])
 @login_required
 def skip_workout(schedule_id):
     """Пропустить тренировку"""
@@ -558,7 +558,7 @@ def skip_workout(schedule_id):
     flash('Тренировка отмечена как пропущенная', 'info')
     return redirect(url_for('workouts.index'))
 
-@bp.route('/postpone/<int:schedule_id>')
+@bp.route('/postpone/<int:schedule_id>', methods=['POST'])
 @login_required
 def postpone_workout(schedule_id):
     """Перенести тренировку на завтра"""
@@ -752,7 +752,7 @@ def free_workout():
                          saved_logs=saved_logs,
                          session_id=workout_session.id if workout_session else None)
 
-@bp.route('/delete_schedule/<int:schedule_id>')
+@bp.route('/delete_schedule/<int:schedule_id>', methods=['POST'])
 @login_required
 def delete_schedule(schedule_id):
     """Удаление запланированной программы (только если нет выполненных тренировок)"""

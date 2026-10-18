@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import post_button with context %}
 {% block title %}Дашборд{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -31,8 +32,8 @@
                     <p><strong>Программа:</strong> {{ today_workout.template.name }}</p>
                     <p><strong>Упражнений:</strong> {{ today_workout.template.template_exercises|length }}</p>
                     <a href="{{ url_for('workouts.start_workout', schedule_id=today_workout.id) }}" class="btn btn-success">▶ Начать тренировку</a>
-                    <a href="{{ url_for('workouts.postpone_workout', schedule_id=today_workout.id) }}" class="btn btn-secondary">⏩ Перенести</a>
-                    <a href="{{ url_for('workouts.skip_workout', schedule_id=today_workout.id) }}" class="btn btn-danger" onclick="return confirm('Вы уверены, что хотите пропустить тренировку?')">✖ Пропустить</a>
+                    {{ post_button(url_for('workouts.postpone_workout', schedule_id=today_workout.id), '⏩ Перенести', 'btn btn-secondary') }}
+                    {{ post_button(url_for('workouts.skip_workout', schedule_id=today_workout.id), '✖ Пропустить', 'btn btn-danger', confirm='Вы уверены, что хотите пропустить тренировку?') }}
                 {% else %}
                     <p class="text-muted">Сегодня нет запланированных тренировок.</p>
                     <a href="{{ url_for('workouts.free_workout') }}" class="btn btn-outline-primary">➕ Ручная тренировка</a>

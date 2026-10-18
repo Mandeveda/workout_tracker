@@ -154,7 +154,7 @@ def add_exercise(template_id):
                          template=template,
                          exercises=exercises)
 
-@bp.route('/delete_exercise/<int:template_id>/<int:exercise_id>')
+@bp.route('/delete_exercise/<int:template_id>/<int:exercise_id>', methods=['POST'])
 @login_required
 def delete_exercise(template_id, exercise_id):
     """Удаление упражнения из шаблона"""
@@ -170,7 +170,7 @@ def delete_exercise(template_id, exercise_id):
     flash('Упражнение удалено из шаблона', 'success')
     return redirect(url_for('templates.edit_template', template_id=template_id))
 
-@bp.route('/move_up/<int:template_id>/<int:exercise_id>')
+@bp.route('/move_up/<int:template_id>/<int:exercise_id>', methods=['POST'])
 @login_required
 def move_up_exercise(template_id, exercise_id):
     """Переместить упражнение вверх по порядку"""
@@ -202,7 +202,7 @@ def move_up_exercise(template_id, exercise_id):
     
     return redirect(url_for('templates.edit_template', template_id=template_id))
 
-@bp.route('/move_down/<int:template_id>/<int:exercise_id>')
+@bp.route('/move_down/<int:template_id>/<int:exercise_id>', methods=['POST'])
 @login_required
 def move_down_exercise(template_id, exercise_id):
     """Переместить упражнение вниз по порядку"""
@@ -234,7 +234,7 @@ def move_down_exercise(template_id, exercise_id):
     
     return redirect(url_for('templates.edit_template', template_id=template_id))
 
-@bp.route('/delete/<int:template_id>')
+@bp.route('/delete/<int:template_id>', methods=['POST'])
 @login_required
 def delete_template(template_id):
     """Удаление шаблона с проверкой"""
@@ -265,7 +265,7 @@ def delete_template(template_id):
     
     return redirect(url_for('templates.list_templates'))
 
-@bp.route('/archive/<int:template_id>')
+@bp.route('/archive/<int:template_id>', methods=['POST'])
 @login_required
 def archive_template(template_id):
     """Архивация шаблона (делаем неактивным)"""
@@ -290,7 +290,7 @@ def archive_template(template_id):
     flash(f'Шаблон "{template.name}" архивирован (скрыт из списка активных)', 'success')
     return redirect(url_for('templates.list_templates'))
 
-@bp.route('/restore/<int:template_id>')
+@bp.route('/restore/<int:template_id>', methods=['POST'])
 @login_required
 def restore_template(template_id):
     """Восстановление шаблона из архива"""

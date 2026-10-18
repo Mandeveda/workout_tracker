@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import post_button with context %}
 {% block title %}База упражнений{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -82,7 +83,7 @@
                         <div class="mt-auto pt-2">
                             {% if current_user.role.name in ['expert', 'admin'] and (exercise.created_by_id == current_user.id or current_user.role.name == 'admin') %}
                                 <a href="{{ url_for('exercises.edit_exercise', id=exercise.id) }}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
-                                <a href="{{ url_for('exercises.del_exercise', exercise_id=exercise.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Удалить упражнение?')">Удалить</a>
+                                {{ post_button(url_for('exercises.del_exercise', exercise_id=exercise.id), 'Удалить', confirm='Удалить упражнение?') }}
                             {% endif %}
                         </div>
                     </div>
@@ -171,7 +172,10 @@
                             <div class="mt-2">
                                 ${exercise.can_edit ? `
                                     <a href="/exercises/edit/${exercise.id}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
-                                    <a href="/exercises/del_exercise/${exercise.id}" class="btn btn-sm btn-danger" onclick="return confirm('Удалить упражнение?')">Удалить</a>
+                                    <form method="POST" action="/exercises/del_exercise/${exercise.id}" class="d-inline" data-confirm="Удалить упражнение?">
+                                        <input type="hidden" name="csrf_token" value="${escapeHtml(csrfToken)}">
+                                        <button type="submit" class="btn btn-sm btn-danger">Удалить</button>
+                                    </form>
                                 ` : ''}
                             </div>
                         </div>

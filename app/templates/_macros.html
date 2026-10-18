@@ -1,0 +1,10 @@
+{# Кнопка, отправляющая POST-запрос (для действий, изменяющих данные).
+   Изменять данные по обычной ссылке (GET) нельзя: такую ссылку может открыть
+   чужой сайт, браузер при предзагрузке или поисковый робот.
+   confirm — текст подтверждения (показывается через data-confirm, см. static/js/utils.js) #}
+{% macro post_button(url, label, class='btn btn-sm btn-danger', confirm=None) -%}
+<form method="POST" action="{{ url }}" class="d-inline"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="{{ class }}">{{ label }}</button>
+</form>
+{%- endmacro %}

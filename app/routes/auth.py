@@ -119,7 +119,7 @@ def login():
     
     return render_template('login.html', form=form)
 
-@bp.route('/logout')
+@bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
     # Сохраняем имя пользователя для сообщения

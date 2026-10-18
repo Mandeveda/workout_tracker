@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import post_button with context %}
 {% block title %}Мои тренировки{% endblock %}
 {% block content %}
 <div class="container mt-4">
@@ -19,9 +20,10 @@
                         </div>
                         <div>
                             <a href="{{ url_for('workouts.start_workout', schedule_id=workout.id) }}" class="btn btn-primary">▶ Начать</a>
-                            <a href="{{ url_for('workouts.postpone_workout', schedule_id=workout.id) }}" class="btn btn-secondary">⏩ Перенести</a>
-                            <a href="{{ url_for('workouts.skip_workout', schedule_id=workout.id) }}" class="btn btn-danger">✖ Пропустить</a>
-                            <a href="{{ url_for('workouts.delete_schedule', schedule_id=workout.id) }}" class="btn btn-danger btn-sm" onclick="return confirm('Удалить программу «{{ workout.template.name }}»? Все невыполненные тренировки будут удалены.')">🗑️ Удалить</a>
+                            {{ post_button(url_for('workouts.postpone_workout', schedule_id=workout.id), '⏩ Перенести', 'btn btn-secondary') }}
+                            {{ post_button(url_for('workouts.skip_workout', schedule_id=workout.id), '✖ Пропустить', 'btn btn-danger', confirm='Пропустить тренировку?') }}
+                            {{ post_button(url_for('workouts.delete_schedule', schedule_id=workout.id), '🗑️ Удалить', 'btn btn-danger btn-sm',
+                                           confirm='Удалить программу «' ~ workout.template.name ~ '»? Все невыполненные тренировки будут удалены.') }}
                         </div>
                     </div>
                 {% endfor %}
@@ -80,7 +82,7 @@
                         </div>
                         <div>
                             <a href="{{ url_for('workouts.start_workout', schedule_id=workout.id) }}" class="btn btn-sm btn-primary">Начать</a>
-                            <a href="{{ url_for('workouts.delete_schedule', schedule_id=workout.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Удалить программу?')">🗑️ Удалить</a>
+                            {{ post_button(url_for('workouts.delete_schedule', schedule_id=workout.id), '🗑️ Удалить', 'btn btn-sm btn-danger', confirm='Удалить программу?') }}
                         </div>
                     </div>
                 {% endfor %}

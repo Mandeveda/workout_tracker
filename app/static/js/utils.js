@@ -21,3 +21,12 @@ function safeUrl(url) {
         return '';
     }
 }
+
+// Подтверждение перед отправкой формы: <form data-confirm="Удалить?">
+// Текст берётся из атрибута, а не из onclick, поэтому данные (названия) не попадают в JS-код
+document.addEventListener('submit', function (event) {
+    const message = event.target.dataset ? event.target.dataset.confirm : null;
+    if (message && !confirm(message)) {
+        event.preventDefault();
+    }
+});
