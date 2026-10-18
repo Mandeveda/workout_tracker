@@ -92,3 +92,14 @@ def test_recalc_keeps_totals_of_sessions_without_logs(make_user, make_session, c
     db.session.refresh(lost)
     assert (lost.completion_percent, lost.total_tonnage) == (100, 2025)
     assert 'итог оставлен как есть: 1' in capsys.readouterr().out
+
+
+def test_tonnage_counts_only_strength(plan, make_session):
+    """План 3.2: кардио добавляло в тоннаж «минуты × км»; собственный вес в тоннаж не входит (решение владельца)"""
+    user, schedule, squat, pullup, bike = plan
+    session = make_session(user, schedule)
+    add_log(session, squat, 1, (8, 80), (8, 80))      # 640 кг
+    add_log(session, pullup, 1, (10, 0), (10, 0))
+    add_log(session, bike, 1, (20, 5), (20, 5))       # было бы +100 «кг»
+    update_session_completion(session.id)
+    assert session.total_tonnage == 640

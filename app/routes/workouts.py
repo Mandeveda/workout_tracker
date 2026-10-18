@@ -543,7 +543,10 @@ def session_totals(session):
     planned = sum(planned_sets_by_exercise(session.schedule).values())
     divider = max(planned, len(set_logs))
     percent = min(100, sum(log.completion_percent for log in set_logs) / divider)
-    tonnage = sum((log.actual_reps or 0) * (log.actual_weight or 0) for log in set_logs)
+    # Тоннаж — вес снаряда × повторения, только силовые: у кардио в этих полях минуты и км,
+    # собственный вес в тоннаж не входит (решение владельца проекта)
+    tonnage = sum((log.actual_reps or 0) * (log.actual_weight or 0)
+                  for log in set_logs if log.exercise and log.exercise.exercise_type == 'strength')
     return round(percent, 1), tonnage
 
 
