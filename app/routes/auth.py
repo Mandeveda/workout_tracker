@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
 from datetime import datetime, timedelta
 from flask_mail import Message
+from markupsafe import escape
 import secrets
 from app import db, limiter, mail
 from app.models import User, Role, PasswordResetToken
@@ -157,7 +158,9 @@ def send_reset_email(user, token):
     if not sender:
         raise ValueError("MAIL_DEFAULT_SENDER не настроен в конфигурации")
     
-    reset_url = url_for('auth.reset_password', token=token, _external=True)
+    reset_url = url_for('auth.reset_password', token=token, _external=True,
+                        _scheme=current_app.config.get('PREFERRED_URL_SCHEME', 'http'))
+    username = escape(user.username)
     
     html = f'''
     <!DOCTYPE html>
@@ -179,7 +182,7 @@ def send_reset_email(user, token):
                 <h2>🔐 Workout Tracker</h2>
             </div>
             <div class="content">
-                <h3>Здравствуйте, {user.username}!</h3>
+                <h3>Здравствуйте, {username}!</h3>
                 <p>Вы запросили сброс пароля. Нажмите на кнопку ниже, чтобы установить новый пароль:</p>
                 <p style="text-align: center; margin: 30px 0;">
                     <a href="{reset_url}" class="button">Сбросить пароль</a>
@@ -209,47 +212,46 @@ def send_reset_email(user, token):
     
     mail.send(msg)
 
+# Не чаще одного письма пользователю за этот интервал (защита ящика от спама с разных IP)
+RESET_EMAIL_INTERVAL = timedelta(minutes=2)
+
 @bp.route('/forgot_password', methods=['GET', 'POST'])
+@limiter.limit("5 per hour", methods=['POST'])
 def forgot_password():
     """Страница запроса сброса пароля"""
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
-    
+
     form = ForgotPasswordForm()
-    
+
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
-        
+
         if user:
-            # Удаляем старые неиспользованные токены
-            old_tokens = PasswordResetToken.query.filter_by(user_id=user.id, used=False).all()
-            for token in old_tokens:
-                if token.is_expired():
-                    db.session.delete(token)
-            db.session.commit()
-            
-            # Создаём новый токен
-            token = generate_reset_token(user.id)
-            
-            # Отправляем письмо
-            #try:
-            #    send_reset_email(user, token)
-            #    flash('Письмо со ссылкой для сброса пароля отправлено на ваш email', 'success')
-            #except Exception as e:
-            #    # В продакшене нужно логировать ошибку
-            #    flash('Ошибка при отправке письма. Попробуйте позже.', 'danger')
-            #    return render_template('auth/forgot_password.html', form=form)
-            try:
-                send_reset_email(user, token)
-                flash('Письмо со ссылкой для сброса пароля отправлено на ваш email', 'success')
-            except Exception as e:
-                # Детальное логирование ошибки
-                print(f"❌ Ошибка отправки письма: {e}")
-                flash(f'Ошибка при отправке письма: {str(e)}', 'danger')
-                return render_template('auth/forgot_password.html', form=form)            
-        else:
-            flash('Пользователь с таким email не найден', 'warning')
-        
+            recently_sent = PasswordResetToken.query.filter(
+                PasswordResetToken.user_id == user.id,
+                PasswordResetToken.created_at > datetime.utcnow() - RESET_EMAIL_INTERVAL
+            ).first()
+
+            if not recently_sent:
+                # Действует только последняя ссылка: удаляем все прежние неиспользованные токены
+                PasswordResetToken.query.filter_by(user_id=user.id, used=False).delete()
+                db.session.commit()
+
+                token = generate_reset_token(user.id)
+
+                try:
+                    send_reset_email(user, token)
+                except Exception:
+                    current_app.logger.exception('Ошибка отправки письма сброса пароля (user_id=%s)', user.id)
+                    # Убираем токен, чтобы повторный запрос не попал под ограничение интервала
+                    PasswordResetToken.query.filter_by(token=token).delete()
+                    db.session.commit()
+                    flash('Ошибка при отправке письма. Попробуйте позже.', 'danger')
+                    return render_template('auth/forgot_password.html', form=form)
+
+        # Одинаковый ответ независимо от того, существует ли email
+        flash('Если этот email зарегистрирован, мы отправили на него ссылку для сброса пароля', 'info')
         return redirect(url_for('auth.login'))
     
     return render_template('auth/forgot_password.html', form=form)
@@ -272,8 +274,8 @@ def reset_password(token):
         user = User.query.get(reset_token.user_id)
         user.password_hash = generate_password_hash(form.password.data)
         
-        # Помечаем токен как использованный
-        reset_token.used = True
+        # Помечаем использованными все токены пользователя, а не только текущий
+        PasswordResetToken.query.filter_by(user_id=user.id, used=False).update({'used': True})
         db.session.commit()
         
         flash('Пароль успешно изменён! Теперь вы можете войти с новым паролем.', 'success')

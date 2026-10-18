@@ -124,6 +124,8 @@ class ProductionConfig(Config):
     
     # Более строгие настройки для продакшена
     SESSION_COOKIE_SAMESITE = 'Strict'
+    # Схема для внешних ссылок (письма): за Passenger запрос может прийти как http
+    PREFERRED_URL_SCHEME = 'https'
 
 # Выбор конфигурации на основе переменной окружения
 config_map = {
