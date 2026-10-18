@@ -47,6 +47,12 @@ class Config:
     SESSION_COOKIE_DOMAIN = os.environ.get('SESSION_COOKIE_DOMAIN', None)
     
     PERMANENT_SESSION_LIFETIME = timedelta(hours=int(os.environ.get('SESSION_LIFETIME_HOURS', 24)))
+
+    # Cookie «запомнить меня» (Flask-Login): по умолчанию она живёт год и без флага Secure
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)
+    REMEMBER_COOKIE_SECURE = SESSION_COOKIE_SECURE      # только по HTTPS там, где HTTPS
+    REMEMBER_COOKIE_HTTPONLY = True                     # недоступна JavaScript
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
     SESSION_REFRESH_EACH_REQUEST = True
     
     # ===== НАСТРОЙКИ CSRF ЗАЩИТЫ =====
@@ -118,6 +124,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', False)
     ENVIRONMENT = 'development'
+    REMEMBER_COOKIE_SECURE = SESSION_COOKIE_SECURE
 
 class ProductionConfig(Config):
     DEBUG = False
@@ -125,6 +132,7 @@ class ProductionConfig(Config):
     
     # Более строгие настройки для продакшена
     SESSION_COOKIE_SAMESITE = 'Strict'
+    REMEMBER_COOKIE_SECURE = True
     # Схема для внешних ссылок (письма): за Passenger запрос может прийти как http
     PREFERRED_URL_SCHEME = 'https'
 

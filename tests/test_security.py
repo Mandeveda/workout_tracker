@@ -85,3 +85,17 @@ def test_complete_workout_error_does_not_leak_details(client, make_user, make_ex
     response = client.post(f'/workouts/complete/{session.id}')
     assert response.status_code == 500
     assert SECRET_ERROR not in response.get_data(as_text=True)
+
+
+def test_remember_cookie_settings(client, make_user, app):
+    """План 2.6: cookie «запомнить меня» — 30 дней, только по HTTPS на сервере, недоступна JS"""
+    from datetime import timedelta
+    from config import ProductionConfig
+    assert app.config['REMEMBER_COOKIE_DURATION'] == timedelta(days=30)
+    assert ProductionConfig.REMEMBER_COOKIE_SECURE is True
+    assert app.config['REMEMBER_COOKIE_HTTPONLY'] is True
+
+    make_user('anna')
+    response = login(client, 'anna')
+    cookie = next(c for c in response.headers.getlist('Set-Cookie') if c.startswith('remember_token='))
+    assert 'HttpOnly' in cookie and 'SameSite=Lax' in cookie
