@@ -509,21 +509,50 @@ def complete_workout(session_id):
         current_app.logger.exception('Ошибка завершения тренировки (session_id=%s)', session_id)
         return jsonify({'success': False, 'error': 'Не удалось завершить тренировку'}), 500
 
+def planned_sets_by_exercise(schedule):
+    """Сколько подходов запланировано по каждому упражнению: {exercise_id: число}.
+
+    Учитываются только упражнения, которые есть и в плане, и в шаблоне, — ровно те,
+    что показываются на экране тренировки. Кардио — один «подход».
+    """
+    if not schedule:
+        return {}
+    in_template = {te.exercise_id for te in schedule.template.template_exercises}
+    planned = {}
+    for exercise_id, plan in (schedule.planned_data or {}).items():
+        if int(exercise_id) not in in_template:
+            continue
+        if plan.get('input_type') == 'progressive':
+            planned[int(exercise_id)] = len(plan.get('sets') or [])
+        elif plan.get('input_type') == 'cardio':
+            planned[int(exercise_id)] = 1
+        else:
+            planned[int(exercise_id)] = int(plan.get('sets') or 0)
+    return planned
+
+
+def session_totals(session):
+    """Процент выполнения и тоннаж тренировки, без сохранения: (процент, тоннаж).
+
+    По плану — сумма процентов отмеченных подходов делится на число запланированных
+    (неотмеченный подход = 0%). Свободная тренировка — среднее по записанным подходам.
+    """
+    set_logs = SetLog.query.filter_by(session_id=session.id).all()
+    if not set_logs:
+        return 0, 0
+    planned = sum(planned_sets_by_exercise(session.schedule).values())
+    divider = max(planned, len(set_logs))
+    percent = min(100, sum(log.completion_percent for log in set_logs) / divider)
+    tonnage = sum((log.actual_reps or 0) * (log.actual_weight or 0) for log in set_logs)
+    return round(percent, 1), tonnage
+
+
 def update_session_completion(session_id):
-    """Обновляет общий процент выполнения тренировки"""
-    set_logs = SetLog.query.filter_by(session_id=session_id).all()
-    session = WorkoutSession.query.get(session_id)
+    """Пересчитывает и сохраняет процент выполнения и тоннаж тренировки"""
+    session = db.session.get(WorkoutSession, session_id)
     if not session:
         return
-    
-    if set_logs:
-        total_percent = sum(log.completion_percent for log in set_logs) / len(set_logs)
-        total_tonnage = sum((log.actual_reps or 0) * (log.actual_weight or 0) for log in set_logs)
-    else:
-        total_percent, total_tonnage = 0, 0
-    
-    session.completion_percent = round(total_percent, 1)
-    session.total_tonnage = total_tonnage
+    session.completion_percent, session.total_tonnage = session_totals(session)
     db.session.commit()
 
 @bp.route('/summary/<int:session_id>')
@@ -550,13 +579,13 @@ def summary(session_id):
             }
         exercises_summary[log.exercise_id]['sets'].append(log)
     
-    # Считаем средний процент по упражнениям
-    for ex_id in exercises_summary:
-        sets = exercises_summary[ex_id]['sets']
-        if sets:
-            exercises_summary[ex_id]['total_completion'] = sum(s.completion_percent for s in sets) / len(sets)
-        else:
-            exercises_summary[ex_id]['total_completion'] = 0
+    # Процент по упражнению — от запланированных подходов (как и общий процент тренировки)
+    planned = planned_sets_by_exercise(session.schedule)
+    for ex_id, data in exercises_summary.items():
+        sets = data['sets']
+        divider = max(planned.get(ex_id, 0), len(sets))
+        data['total_completion'] = min(100, sum(s.completion_percent for s in sets) / divider) if divider else 0
+        data['planned_sets'] = planned.get(ex_id)
     
     return render_template('workouts/summary.html', 
                          session=session,

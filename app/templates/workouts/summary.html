@@ -55,7 +55,7 @@
         <div class="ex-head ex-head-row">
             <div>
                 <div class="ex-name">{{ ex.name }}</div>
-                <div class="ex-type">{{ type_names.get(ex.exercise_type, ex.exercise_type) }}</div>
+                <div class="ex-type">{{ type_names.get(ex.exercise_type, ex.exercise_type) }}{% if ex.planned_sets %} · отмечено {{ ex.sets|length }} из {{ ex.planned_sets }}{% endif %}</div>
             </div>
             {% if not is_free %}{{ pct_pill(ex.total_completion) }}{% endif %}
         </div>

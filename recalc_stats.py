@@ -13,12 +13,11 @@ import sys
 
 from app import create_app, db
 from app.models import SetLog, WorkoutSession
-from app.routes.workouts import update_session_completion
+from app.routes.workouts import session_totals
 
 
 def recalc(apply_changes):
     changed_logs = 0
-    sessions_to_update = set()
 
     for log in SetLog.query.all():
         old_percent = log.completion_percent or 0
@@ -27,22 +26,32 @@ def recalc(apply_changes):
 
         if round(old_percent, 1) != round(new_percent, 1):
             changed_logs += 1
-            sessions_to_update.add(log.session_id)
             exercise_name = log.exercise.name if log.exercise else f'#{log.exercise_id}'
             print(f'  подход {log.id} ({exercise_name}, подход {log.set_number}): '
                   f'{old_percent:.1f}% → {new_percent:.1f}%')
 
+    # Итоги пересчитываем у всех тренировок: правила подсчёта процента и тоннажа могли измениться.
+    # Тренировки без подходов не трогаем: у некоторых старых подходы были потеряны,
+    # и сохранённый итог — единственное, что от них осталось.
     changed_sessions = 0
-    for session in WorkoutSession.query.filter(WorkoutSession.id.in_(sessions_to_update)).all():
-        logs = SetLog.query.filter_by(session_id=session.id).all()
-        new_percent = round(sum(l.completion_percent for l in logs) / len(logs), 1) if logs else 0
-        if round(session.completion_percent or 0, 1) != new_percent:
+    kept_without_logs = 0
+    for session in WorkoutSession.query.order_by(WorkoutSession.date).all():
+        if not SetLog.query.filter_by(session_id=session.id).count():
+            if session.completion_percent or session.total_tonnage:
+                kept_without_logs += 1
+            continue
+        percent, tonnage = session_totals(session)
+        old_percent, old_tonnage = round(session.completion_percent or 0, 1), round(session.total_tonnage or 0, 1)
+        if old_percent != percent or old_tonnage != round(tonnage, 1):
             changed_sessions += 1
             print(f'  тренировка {session.id} от {session.date:%d.%m.%Y}: '
-                  f'{session.completion_percent or 0:.1f}% → {new_percent:.1f}%')
+                  f'{old_percent:.1f}% → {percent:.1f}%, тоннаж {old_tonnage:.0f} → {tonnage:.0f} кг')
+            session.completion_percent, session.total_tonnage = percent, tonnage
 
     print(f'\nПодходов с изменённым процентом: {changed_logs}')
     print(f'Тренировок с изменённым итогом: {changed_sessions}')
+    if kept_without_logs:
+        print(f'Тренировок без подходов, итог оставлен как есть: {kept_without_logs}')
 
     if not apply_changes:
         db.session.rollback()
@@ -50,8 +59,6 @@ def recalc(apply_changes):
         return
 
     db.session.commit()
-    for session_id in sessions_to_update:
-        update_session_completion(session_id)
     print('\n✅ Изменения записаны в БД')
 
 
