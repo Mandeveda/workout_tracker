@@ -4,6 +4,7 @@ from flask_wtf.csrf import generate_csrf
 from datetime import datetime
 from app import db, limiter
 from app.models import WorkoutSchedule, WorkoutSession, SetLog, Exercise, TemplateExercise
+from app.routes.main import session_title, human_date, MONTHS_SHORT
 import json
 import logging
 
@@ -49,7 +50,10 @@ def index():
                          active_sessions=active_sessions,
                          today_workouts=today_workouts,
                          upcoming=upcoming,
-                         history=history)
+                         history=history,
+                         session_title=session_title,
+                         human_date=human_date,
+                         months_short=MONTHS_SHORT)
 
 @bp.route('/start')
 @bp.route('/start/<int:schedule_id>')
@@ -535,7 +539,7 @@ def summary(session_id):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('workouts.index'))
     
-    set_logs = SetLog.query.filter_by(session_id=session.id).all()
+    set_logs = SetLog.query.filter_by(session_id=session.id).order_by(SetLog.id).all()
     
     # Группируем по упражнениям
     exercises_summary = {}
@@ -559,7 +563,10 @@ def summary(session_id):
     
     return render_template('workouts/summary.html', 
                          session=session,
-                         exercises_summary=exercises_summary)
+                         exercises_summary=exercises_summary,
+                         sets_count=len(set_logs),
+                         title=session_title(session),
+                         date_text=human_date(session.date.date()))
 
 @bp.route('/skip/<int:schedule_id>', methods=['POST'])
 @login_required

@@ -1,120 +1,107 @@
 {% extends "base.html" %}
 {% from "_macros.html" import post_button with context %}
-{% block title %}Мои тренировки{% endblock %}
+{% block title %}Тренировки{% endblock %}
 {% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">Мои тренировки</h2>
-    
-    <!-- Сегодняшние тренировки -->
-    <div class="card mb-4">
-        <div class="card-header bg-success text-white">
-            <h4 class="mb-0">📅 Сегодня ({{ today_workouts|length }})</h4>
-        </div>
-        <div class="card-body">
-            {% if today_workouts %}
-                {% for workout in today_workouts %}
-                    <div class="d-flex justify-content-between align-items-center mb-3 p-2 border rounded">
-                        <div>
-                            <h5 class="mb-1">{{ workout.template.name }}</h5>
-                            <small class="text-muted">{{ workout.scheduled_date.strftime('%d.%m.%Y') }}</small>
-                        </div>
-                        <div>
-                            <a href="{{ url_for('workouts.start_workout', schedule_id=workout.id) }}" class="btn btn-primary">▶ Начать</a>
-                            {{ post_button(url_for('workouts.postpone_workout', schedule_id=workout.id), '⏩ Перенести', 'btn btn-secondary') }}
-                            {{ post_button(url_for('workouts.skip_workout', schedule_id=workout.id), '✖ Пропустить', 'btn btn-danger', confirm='Пропустить тренировку?') }}
-                            {{ post_button(url_for('workouts.delete_schedule', schedule_id=workout.id), '🗑️ Удалить', 'btn btn-danger btn-sm',
-                                           confirm='Удалить программу «' ~ workout.template.name ~ '»? Все невыполненные тренировки будут удалены.') }}
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-muted">На сегодня тренировок нет</p>
-            {% endif %}
-        </div>
+<div class="page-head">
+    <div>
+        <h1>Тренировки</h1>
+        <p class="page-sub">Сегодня, ближайшие по расписанию и история</p>
     </div>
-    <!-- Активные (незавершённые) тренировки -->
-    <div class="card mb-4">
-        <div class="card-header bg-warning text-dark">
-            <h4 class="mb-0">⏳ Активные тренировки</h4>
-        </div>
-        <div class="card-body">
-            {% if active_sessions %}
-                {% for session in active_sessions %}
-                    <div class="d-flex justify-content-between align-items-center mb-3 p-2 border rounded">
-                        <div>
-                            <h5 class="mb-1">
-                                {% if session.template %}
-                                    {{ session.template.name }}
-                                {% else %}
-                                    Свободная тренировка
-                                {% endif %}
-                            </h5>
-                            <small class="text-muted">{{ session.date.strftime('%d.%m.%Y %H:%M') }}</small>
-                        </div>
-                        <div>
-                            {% if session.schedule_id %}
-                            <a href="{{ url_for('workouts.perform', session_id=session.id) }}" class="btn btn-warning btn-sm">
-                            {% else %}
-                            <a href="{{ url_for('workouts.free_workout', session_id=session.id) }}" class="btn btn-warning btn-sm">
-                            {% endif %}
-                                ▶ Продолжить
-                            </a>
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-muted">Нет активных тренировок</p>
-            {% endif %}
-        </div>
-    </div>
-    <!-- Предстоящие тренировки -->
-    <div class="card mb-4">
-        <div class="card-header bg-info text-white">
-            <h4 class="mb-0">📆 Предстоящие тренировки</h4>
-        </div>
-        <div class="card-body">
-            {% if upcoming %}
-                {% for workout in upcoming %}
-                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
-                        <div>
-                            <strong>{{ workout.template.name }}</strong>
-                            <span class="text-muted ms-3">{{ workout.scheduled_date.strftime('%d.%m.%Y') }}</span>
-                        </div>
-                        <div>
-                            <a href="{{ url_for('workouts.start_workout', schedule_id=workout.id) }}" class="btn btn-sm btn-primary">Начать</a>
-                            {{ post_button(url_for('workouts.delete_schedule', schedule_id=workout.id), '🗑️ Удалить', 'btn btn-sm btn-danger', confirm='Удалить программу?') }}
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-muted">Нет запланированных тренировок</p>
-            {% endif %}
-        </div>
-    </div>
-    
-    <!-- История -->
-    <div class="card">
-        <div class="card-header bg-secondary text-white">
-            <h4 class="mb-0">📊 История тренировок</h4>
-        </div>
-        <div class="card-body">
-            {% if history %}
-                {% for session in history %}
-                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
-                        <div>
-                            <strong>{{ session.date.strftime('%d.%m.%Y') }}</strong>
-                            <span class="text-muted ms-3">Тоннаж: {{ session.total_tonnage|round(1) }} кг</span>
-                        </div>
-                        <div>
-                            <span class="badge bg-success">Выполнение: {{ session.completion_percent|round(1) }}%</span>
-                            <a href="{{ url_for('workouts.summary', session_id=session.id) }}" class="btn btn-sm btn-info ms-2">Детали</a>
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-muted">Нет завершённых тренировок</p>
-            {% endif %}
-        </div>
+    <div class="page-actions">
+        <a class="btn btn-primary" href="{{ url_for('workouts.free_workout') }}"><svg class="icon"><use href="#i-play"/></svg>Свободная тренировка</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('templates.list_templates') }}"><svg class="icon"><use href="#i-list"/></svg>Программы</a>
     </div>
 </div>
+
+{% if active_sessions %}
+<section class="block">
+    <h2 class="block-title">Не завершены</h2>
+    <div class="row-list">
+        {% for s in active_sessions %}
+        <div class="row-item is-accent">
+            <div class="row-main">
+                <span class="row-title">{{ session_title(s) }}</span>
+                <span class="row-sub num">начата {{ s.date.strftime('%d.%m.%Y в %H:%M') }} (UTC)</span>
+            </div>
+            <div class="row-actions">
+                <a class="btn btn-primary btn-sm" href="{{ url_for('workouts.perform' if s.schedule_id else 'workouts.free_workout', session_id=s.id) }}">
+                    <svg class="icon"><use href="#i-play"/></svg>Продолжить
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="block">
+    <h2 class="block-title">Сегодня</h2>
+    {% if today_workouts %}
+    <div class="row-list">
+        {% for w in today_workouts %}
+        {% set n = w.template.template_exercises|length %}
+        <div class="row-item is-stack">
+            <div class="row-main">
+                <span class="row-title">{{ w.template.name }}</span>
+                <span class="row-sub">{{ n }} {{ n|plural('упражнение', 'упражнения', 'упражнений') }}</span>
+            </div>
+            <div class="row-actions">
+                <a class="btn btn-primary btn-sm" href="{{ url_for('workouts.start_workout', schedule_id=w.id) }}"><svg class="icon"><use href="#i-play"/></svg>Начать</a>
+                {{ post_button(url_for('workouts.postpone_workout', schedule_id=w.id), 'На завтра', 'btn btn-outline-primary btn-sm') }}
+                {{ post_button(url_for('workouts.skip_workout', schedule_id=w.id), 'Пропустить', 'btn btn-link btn-sm row-muted-action', confirm='Пропустить тренировку «' ~ w.template.name ~ '»?') }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-note">На сегодня ничего не запланировано. Можно потренироваться свободно.</p>
+    {% endif %}
+</section>
+
+<section class="block">
+    <h2 class="block-title">Ближайшие</h2>
+    {% if upcoming %}
+    <div class="row-list">
+        {% for w in upcoming %}
+        <div class="row-item">
+            <span class="history-date num"><b>{{ w.scheduled_date.day }}</b>{{ months_short[w.scheduled_date.month - 1] }}</span>
+            <div class="row-main">
+                <span class="row-title">{{ w.template.name }}</span>
+                <span class="row-sub">{{ human_date(w.scheduled_date)|capitalize }}</span>
+            </div>
+            <div class="row-actions">
+                {{ post_button(url_for('workouts.delete_schedule', schedule_id=w.id), 'Убрать', 'btn btn-link btn-sm row-muted-action',
+                               confirm='Убрать тренировку «' ~ w.template.name ~ '» за ' ~ w.scheduled_date.strftime('%d.%m') ~ ' из расписания?') }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-note">Расписание пустое. Создайте программу из шаблона — тренировки появятся здесь.</p>
+    {% endif %}
+</section>
+
+<section class="block">
+    <h2 class="block-title">История</h2>
+    {% if history %}
+    <div class="panel">
+        <ul class="history-list">
+            {% for s in history %}
+            <li>
+                <a href="{{ url_for('workouts.summary', session_id=s.id) }}">
+                    <span class="history-date num"><b>{{ s.date.day }}</b>{{ months_short[s.date.month - 1] }}</span>
+                    <span class="history-body">
+                        <span class="history-title">{{ session_title(s) }}</span>
+                        <span class="history-sub num">{{ s.total_tonnage|num }} кг</span>
+                    </span>
+                    <span class="pill num{% if s.completion_percent >= 100 %} is-full{% endif %}">{{ s.completion_percent|round|int }}%</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <p class="empty-note">Завершённых тренировок пока нет.</p>
+    {% endif %}
+</section>
 {% endblock %}

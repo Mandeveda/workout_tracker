@@ -508,9 +508,24 @@ hr { border-color: var(--line); opacity: 1; }
   letter-spacing: .08em;
   text-transform: uppercase;
 }
-.table-success { --bs-table-bg: rgba(var(--ok-rgb), .12); --bs-table-color: var(--fg); --bs-table-border-color: var(--line); }
-.table-warning { --bs-table-bg: rgba(var(--warn-rgb), .12); --bs-table-color: var(--fg); --bs-table-border-color: var(--line); }
-.table-danger { --bs-table-bg: rgba(var(--low-rgb), .12); --bs-table-color: var(--fg); --bs-table-border-color: var(--line); }
+.table-success { --bs-table-bg: rgba(var(--ok-rgb), .12); }
+.table-warning { --bs-table-bg: rgba(var(--warn-rgb), .12); }
+.table-danger { --bs-table-bg: rgba(var(--low-rgb), .12); }
+.table-info { --bs-table-bg: rgba(var(--info-rgb), .12); }
+.table-primary { --bs-table-bg: rgba(var(--gold-rgb), .12); }
+/* Bootstrap задаёт цветным строкам свои светлые цвета подсветки и чередования —
+   в тёмной теме текст на них пропадал. Приводим к палитре. */
+.table-success, .table-warning, .table-danger, .table-info, .table-primary,
+.table-light, .table-dark, .table-secondary {
+  --bs-table-color: var(--fg);
+  --bs-table-border-color: var(--line);
+  --bs-table-striped-bg: rgba(var(--fg-rgb), .04);
+  --bs-table-striped-color: var(--fg);
+  --bs-table-hover-bg: rgba(var(--gold-rgb), .1);
+  --bs-table-hover-color: var(--fg);
+  --bs-table-active-bg: rgba(var(--gold-rgb), .14);
+  --bs-table-active-color: var(--fg);
+}
 
 .list-group {
   --bs-list-group-bg: var(--surface);
@@ -837,3 +852,36 @@ hr { border-color: var(--line); opacity: 1; }
   .stat strong { font-size: 22px; }
   .hero-actions .btn-primary { flex: 1 1 100%; }
 }
+
+/* ---------- списки с действиями (тренировки, расписание) ---------- */
+.block { margin-bottom: 28px; }
+.block-title { font-size: 17px; font-weight: 600; margin: 0 0 12px; }
+.row-list { display: flex; flex-direction: column; gap: 8px; }
+.row-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.row-item.is-accent { border-color: var(--gold); }
+.row-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.row-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-sub { font-size: 13px; color: var(--muted); }
+.row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.row-muted-action { --bs-btn-color: var(--muted); --bs-btn-hover-color: var(--low); }
+.row-item .history-date { width: 40px; flex: none; }
+@media (max-width: 575.98px) {
+  .row-item.is-stack { flex-wrap: wrap; }
+  .row-item.is-stack .row-actions { width: 100%; justify-content: flex-start; }
+}
+.narrow-page { max-width: 860px; }
+
+.pill.is-low { border-color: rgba(var(--low-rgb), .6); color: var(--low); }
+
+/* итоги тренировки */
+.summary-sets td { padding-block: 10px; }
+.summary-sets td:last-child { text-align: right; }
+.muted-cell { color: var(--muted); }

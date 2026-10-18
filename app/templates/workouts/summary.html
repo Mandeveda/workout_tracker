@@ -1,178 +1,89 @@
 {% extends "base.html" %}
-{% block title %}Результаты тренировки{% endblock %}
+{% block title %}Итоги: {{ title }}{% endblock %}
+{% set type_names = {'strength': 'Силовое', 'bodyweight': 'Собственный вес', 'cardio': 'Кардио'} %}
+{% macro fmt(value) %}{{ ('%g' % value) if value is number else '0' }}{% endmacro %}
+{% macro result(type, reps, weight) -%}
+    {%- if type == 'strength' %}{{ fmt(weight) }} кг × {{ reps }}
+    {%- elif type == 'cardio' %}{{ reps }} мин{% if weight %} · {{ fmt(weight) }} км{% endif %}
+    {%- else %}{{ reps }} повт.{% endif -%}
+{%- endmacro %}
+{% macro pct_pill(value) -%}
+<span class="pill num {{ 'is-full' if value >= 100 else ('is-low' if value < 80 else '') }}">{{ value|round|int }}%</span>
+{%- endmacro %}
 {% block content %}
-<div class="container mt-4">
-    <!-- Заголовок -->
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <h2>Результаты тренировки</h2>
-            <p class="text-muted">
-                {{ session.date.strftime('%d.%m.%Y %H:%M') }}
-                {% if session.schedule %}
-                    | {{ session.schedule.template.name }}
-                {% else %}
-                    | Свободная тренировка
-                {% endif %}
-            </p>
-        </div>
-        <div class="col-md-4 text-end">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <h5 class="card-title">Общее выполнение</h5>
-                    <h2 class="display-4">{{ session.completion_percent|round(1) }}%</h2>
-                    <p class="mb-0">Тоннаж: {{ session.total_tonnage|round(1) }} кг</p>
-                </div>
-            </div>
-        </div>
+{% set is_free = session.schedule_id is none %}
+<div class="narrow-page">
+<div class="page-head">
+    <div>
+        <span class="label">{{ 'Итоги тренировки' if session.is_completed else 'Тренировка не завершена' }}</span>
+        <h1>{{ title }}</h1>
+        <p class="page-sub">{{ date_text|capitalize }}, {{ session.date.strftime('%H:%M') }} (UTC)</p>
     </div>
-
-    <!-- Детали по упражнениям -->
-    {% if exercises_summary %}
-        {% for exercise_id, exercise_data in exercises_summary.items() %}
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <div>
-                        <h4 class="mb-0">{{ exercise_data.name }}</h4>
-                        <small>{{ exercise_data.exercise_type }}</small>
-                    </div>
-                    <span class="badge bg-light text-dark fs-6">
-                        {{ exercise_data.total_completion|round(1) }}%
-                    </span>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 10%">Подход</th>
-                                    <th style="width: 35%">План</th>
-                                    <th style="width: 35%">Факт</th>
-                                    <th style="width: 20%">Выполнение</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for set_log in exercise_data.sets %}
-                                    <tr>
-                                        <td class="text-center fw-bold">{{ set_log.set_number }}</td>
-                                        <td class="text-center">
-                                            {% if exercise_data.exercise_type == 'strength' %}
-                                                {{ set_log.planned_weight|round(1) if set_log.planned_weight else 0 }} кг × {{ set_log.planned_reps }} повтор.
-                                            {% elif exercise_data.exercise_type == 'bodyweight' %}
-                                                {{ set_log.planned_reps }} повторений
-                                            {% elif exercise_data.exercise_type == 'cardio' %}
-                                                {% if set_log.planned_weight %}
-                                                    {{ set_log.planned_weight|round(1) }} км × {{ set_log.planned_reps }} мин
-                                                {% else %}
-                                                    Длительность: {{ set_log.planned_reps }} мин
-                                                {% endif %}
-                                            {% else %}
-                                                {{ set_log.planned_reps }} повтор.
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-center">
-                                            {% if exercise_data.exercise_type == 'strength' %}
-                                                {% if set_log.actual_weight and set_log.actual_reps %}
-                                                    {{ set_log.actual_weight|round(1) if set_log.actual_weight else 0 }} кг × {{ set_log.actual_reps }} повтор.
-                                                {% else %}
-                                                    <span class="text-muted">—</span>
-                                                {% endif %}
-                                            {% elif exercise_data.exercise_type == 'bodyweight' %}
-                                                {% if set_log.actual_reps %}
-                                                    {{ set_log.actual_reps }} повтор.
-                                                {% else %}
-                                                    <span class="text-muted">—</span>
-                                                {% endif %}
-                                            {% elif exercise_data.exercise_type == 'cardio' %}
-                                                {% if set_log.actual_weight and set_log.actual_reps %}
-                                                    {{ set_log.actual_weight|round(1) if set_log.actual_weight else 0 }} км × {{ set_log.actual_reps }} мин
-                                                {% elif set_log.actual_reps %}
-                                                    {{ set_log.actual_reps }} мин
-                                                {% else %}
-                                                    <span class="text-muted">—</span>
-                                                {% endif %}
-                                            {% else %}
-                                                {% if set_log.actual_reps %}
-                                                    {{ set_log.actual_reps }} повтор.
-                                                {% else %}
-                                                    <span class="text-muted">—</span>
-                                                {% endif %}
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-center">
-                                            {% if set_log.completion_percent > 0 %}
-                                                {% if set_log.completion_percent >= 100 %}
-                                                    <span class="badge bg-success fs-6">
-                                                        {{ set_log.completion_percent|round(1) }}%
-                                                    </span>
-                                                {% elif set_log.completion_percent >= 80 %}
-                                                    <span class="badge bg-warning fs-6">
-                                                        {{ set_log.completion_percent|round(1) }}%
-                                                    </span>
-                                                {% else %}
-                                                    <span class="badge bg-danger fs-6">
-                                                        {{ set_log.completion_percent|round(1) }}%
-                                                    </span>
-                                                {% endif %}
-                                            {% else %}
-                                                <span class="text-muted">—</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                            <tfoot class="table-secondary">
-                                <tr>
-                                    <td colspan="3" class="text-end fw-bold">Среднее выполнение:</td>
-                                    <td class="text-center fw-bold">
-                                        {{ exercise_data.total_completion|round(1) }}%
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    {% else %}
-        <div class="alert alert-info">
-            Нет данных о подходах в этой тренировке.
-        </div>
-    {% endif %}
-
-    <!-- Кнопки навигации -->
-    <div class="d-flex justify-content-between mt-4">
-        <a href="{{ url_for('workouts.index') }}" class="btn btn-secondary">
-            ← К списку тренировок
-        </a>
-        <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary">
-            На дашборд
-        </a>
+    <div class="page-actions">
+        <a class="btn btn-primary" href="{{ url_for('main.dashboard') }}">На главную</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('workouts.index') }}">К тренировкам</a>
     </div>
 </div>
 
-<style>
-    .table tbody tr:hover {
-        background-color: #f8f9fa;
-    }
-    
-    .badge {
-        padding: 8px 12px;
-        min-width: 70px;
-    }
-    
-    .display-4 {
-        font-size: 2.5rem;
-        font-weight: 300;
-    }
-    
-    .card-header .badge {
-        font-size: 1rem;
-        padding: 5px 10px;
-    }
-    
-    .card-header small {
-        font-size: 0.8rem;
-        opacity: 0.9;
-    }
-</style>
+<section class="stats-strip" aria-label="Итоги">
+    <div class="stat">
+        <span class="label">Выполнение</span>
+        <strong class="num">{{ session.completion_percent|round|int }}%</strong>
+        <small>{{ 'без плана' if is_free else 'от плана' }}</small>
+    </div>
+    <div class="stat">
+        <span class="label">Тоннаж</span>
+        <strong class="num">{{ session.total_tonnage|num }} кг</strong>
+        <small>вес × повторения</small>
+    </div>
+    <div class="stat">
+        <span class="label">Подходы</span>
+        <strong class="num">{{ sets_count }}</strong>
+        <small>{{ sets_count|plural('подход', 'подхода', 'подходов') }} записано</small>
+    </div>
+    <div class="stat">
+        <span class="label">Упражнения</span>
+        <strong class="num">{{ exercises_summary|length }}</strong>
+        <small>{{ exercises_summary|length|plural('упражнение', 'упражнения', 'упражнений') }}</small>
+    </div>
+</section>
+
+{% if exercises_summary %}
+<div class="exercises">
+    {% for exercise_id, ex in exercises_summary.items() %}
+    <article class="ex">
+        <div class="ex-head ex-head-row">
+            <div>
+                <div class="ex-name">{{ ex.name }}</div>
+                <div class="ex-type">{{ type_names.get(ex.exercise_type, ex.exercise_type) }}</div>
+            </div>
+            {% if not is_free %}{{ pct_pill(ex.total_completion) }}{% endif %}
+        </div>
+        <table class="sets summary-sets">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    {% if not is_free %}<th>План</th>{% endif %}
+                    <th>{{ 'Результат' if is_free else 'Факт' }}</th>
+                    {% if not is_free %}<th>%</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in ex.sets %}
+                <tr>
+                    <td><span class="set-n">{{ s.set_number }}</span></td>
+                    {% if not is_free %}<td class="num muted-cell">{{ result(ex.exercise_type, s.planned_reps, s.planned_weight) }}</td>{% endif %}
+                    <td class="num">{{ result(ex.exercise_type, s.actual_reps, s.actual_weight) }}</td>
+                    {% if not is_free %}<td>{{ pct_pill(s.completion_percent) }}</td>{% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </article>
+    {% endfor %}
+</div>
+{% else %}
+<p class="empty-note">В этой тренировке не записано ни одного подхода.</p>
+{% endif %}
+</div>
 {% endblock %}
