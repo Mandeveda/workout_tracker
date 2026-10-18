@@ -66,6 +66,10 @@ Roles seeded with fixed ids: 1 `admin`, 2 `user` (default `role_id`), 3 `expert`
 
 CSRFProtect is global. `base.html` exposes the token in `<meta name="csrf-token">`; `static/js/csrf.js` injects it into every form, and an inline script in `base.html` monkey-patches `window.fetch` to add `X-CSRFToken`. JSON endpoints therefore work without extra code as long as the page extends `base.html`.
 
+### Theme and layout
+
+Bootstrap 5.3 (CDN) recoloured via its `--bs-*` variables in `static/styles.css`; all colours are tokens (`--bg`, `--surface`, `--gold`, …) defined for `:root[data-bs-theme="dark"]` (default) and `[data-bs-theme="light"]`. The theme attribute is set by an inline script in `base.html` `<head>` from `localStorage['tw-theme']` and toggled by `.js-theme-toggle` (utils.js). Fonts: Montserrat (headings, buttons) + Open Sans (body) from Google Fonts — allowed in the production CSP in `config.py`. Use tokens, never literal colours. Layout: sidebar (desktop) / mobile bar + offcanvas + bottom tabbar, in `base.html`. Partials: `_macros.html` (`post_button`), `_icons.html` (SVG sprite, `<use href="#i-name">`), `_flashes.html`. Legacy coloured `card-header bg-*` classes are neutralised in CSS until each page is redesigned (PLAN.md 6.4). Approved mockup: https://claude.ai/artifact/E74eUQcBUutNVaqtdybAj2
+
 ### PWA
 
 `static/manifest.json`, `static/sw.js` (registered from `base.html` as `/static/sw.js`), `main.offline` route + `offline.html`. Bump the cache names in `sw.js` when changing cached static files.

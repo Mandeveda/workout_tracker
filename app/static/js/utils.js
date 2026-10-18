@@ -30,3 +30,24 @@ document.addEventListener('submit', function (event) {
         event.preventDefault();
     }
 });
+
+// Переключатель темы (кнопки .js-theme-toggle). Выбор запоминается в браузере
+document.addEventListener('click', function (event) {
+    if (!event.target.closest('.js-theme-toggle')) return;
+    const html = document.documentElement;
+    const next = html.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+    html.setAttribute('data-bs-theme', next);
+    try { localStorage.setItem('tw-theme', next); } catch (e) {}
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', next === 'light' ? '#f7f2ea' : '#121110');
+});
+
+// Сообщения об успехе и информация скрываются сами через 5 секунд
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.alert.js-autohide').forEach(function (el) {
+        setTimeout(function () {
+            if (window.bootstrap && bootstrap.Alert) bootstrap.Alert.getOrCreateInstance(el).close();
+            else el.remove();
+        }, 5000);
+    });
+});
