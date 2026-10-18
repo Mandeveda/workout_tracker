@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint, jsonify
+from flask import render_template, redirect, url_for, flash, request, Blueprint, jsonify, current_app
 from flask_login import login_required, current_user
 from flask_wtf.csrf import generate_csrf
 from datetime import datetime
@@ -508,9 +508,10 @@ def complete_workout(session_id):
         
         return jsonify({'success': True, 'redirect': url_for('workouts.summary', session_id=session.id)})
     
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        current_app.logger.exception('Ошибка завершения тренировки (session_id=%s)', session_id)
+        return jsonify({'success': False, 'error': 'Не удалось завершить тренировку'}), 500
 
 def update_session_completion(session_id):
     """Обновляет общий процент выполнения тренировки"""

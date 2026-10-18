@@ -50,3 +50,38 @@ def test_password_reset_finds_email_in_any_case(client, make_user, app):
     with mail.record_messages() as outbox:
         client.post('/auth/forgot_password', data={'email': 'ANNA@Example.com'})
     assert len(outbox) == 1 and PasswordResetToken.query.count() == 1
+
+
+SECRET_ERROR = 'sqlite3.OperationalError: /home/k/secret/workout.db is locked'
+
+
+def _break_commit(monkeypatch):
+    """Сохранение в базу падает с ошибкой, в тексте которой внутренние подробности"""
+    from app import db
+    def broken_commit():
+        raise RuntimeError(SECRET_ERROR)
+    monkeypatch.setattr(db.session, 'commit', broken_commit)
+
+
+def test_profile_errors_do_not_leak_details(client, make_user, monkeypatch):
+    """План 2.5: тексты исключений не показываются пользователю"""
+    make_user('anna')
+    login(client, 'anna')
+    _break_commit(monkeypatch)
+    page = client.post('/profile/add_measurement', data={'weight': '80'}, follow_redirects=True).get_data(as_text=True)
+    assert SECRET_ERROR not in page and 'Не удалось сохранить' in page
+    page = client.post('/profile/edit', data={'username': 'anna', 'weight': 81, 'height': 180, 'age': 30, 'gender': 'male',
+                                              **{f'{k}_circumference': 0 for k in ('chest', 'waist', 'hips', 'biceps', 'forearm', 'thigh', 'calf', 'neck')}},
+                       follow_redirects=True).get_data(as_text=True)
+    assert SECRET_ERROR not in page and 'Не удалось сохранить' in page
+
+
+def test_complete_workout_error_does_not_leak_details(client, make_user, make_exercise, make_template, make_session, monkeypatch):
+    user = make_user('anna')
+    _, schedule = make_template(user, [(make_exercise('Присед'), {'input_type': 'fixed', 'sets': 1, 'reps': 5, 'weight': 50})])
+    session = make_session(user, schedule)
+    login(client, 'anna')
+    _break_commit(monkeypatch)
+    response = client.post(f'/workouts/complete/{session.id}')
+    assert response.status_code == 500
+    assert SECRET_ERROR not in response.get_data(as_text=True)

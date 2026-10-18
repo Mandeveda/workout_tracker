@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint, jsonify
+from flask import render_template, redirect, url_for, flash, request, Blueprint, jsonify, current_app
 from flask_login import login_required, current_user
 from datetime import datetime
 from app import db
@@ -156,10 +156,10 @@ def edit():
             db.session.add(current_user)
             db.session.commit()
             flash('Профиль сохранён.' + (' Новый замер добавлен в историю.' if changed else ''), 'success')
-        except Exception as e:
+        except Exception:
             db.session.rollback()
-            logger.error(f"❌ Ошибка: {e}")
-            flash(f'❌ Ошибка: {str(e)}', 'danger')
+            current_app.logger.exception('Ошибка сохранения профиля (user_id=%s)', current_user.id)
+            flash('Не удалось сохранить. Попробуйте ещё раз — если ошибка повторится, напишите администратору.', 'danger')
         
         return redirect(url_for('profile.index'))
     
@@ -251,12 +251,10 @@ def add_measurement():
         
         flash(f'✅ Измерение добавлено! Теперь в истории {final_count} записей.', 'success')
         
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        logger.error(f"❌ ОШИБКА: {e}")
-        import traceback
-        traceback.print_exc()
-        flash(f'❌ Ошибка: {str(e)}', 'danger')
+        current_app.logger.exception('Ошибка сохранения замера (user_id=%s)', current_user.id)
+        flash('Не удалось сохранить. Попробуйте ещё раз — если ошибка повторится, напишите администратору.', 'danger')
     
     return redirect(url_for('profile.index'))
 
