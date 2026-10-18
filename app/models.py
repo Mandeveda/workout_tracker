@@ -299,8 +299,15 @@ class SetLog(db.Model):
         
         Для упражнений с собственным весом использует вес пользователя
         """
+        # У только что созданного подхода связь exercise ещё не загружена
+        # (заполнен только exercise_id), поэтому при необходимости берём упражнение из БД
+        exercise = self.exercise
+        if exercise is None and self.exercise_id:
+            exercise = db.session.get(Exercise, self.exercise_id)
+        exercise_type = exercise.exercise_type if exercise else 'strength'
+        
         # Для кардио
-        if self.exercise and self.exercise.exercise_type == 'cardio':
+        if exercise_type == 'cardio':
             # Кардио: сравниваем длительность и дистанцию
             if self.actual_reps and self.planned_reps:
                 planned_volume = self.planned_reps  # длительность в минутах
@@ -314,7 +321,7 @@ class SetLog(db.Model):
             return self.completion_percent
         
         # Для bodyweight (собственный вес)
-        if self.exercise and self.exercise.exercise_type == 'bodyweight':
+        if exercise_type == 'bodyweight':
             if self.actual_reps and self.planned_reps > 0:
                 # Используем вес пользователя если передан, иначе 70 (средний вес)
                 weight = user_weight if user_weight and user_weight > 0 else 70
@@ -338,7 +345,8 @@ class SetLog(db.Model):
             if planned_volume > 0:
                 self.completion_percent = min(100, (actual_volume / planned_volume) * 100)
             else:
-                self.completion_percent = 0
+                # План без веса (0 кг) — сравниваем только повторения
+                self.completion_percent = min(100, (self.actual_reps / self.planned_reps) * 100)
         else:
             self.completion_percent = 0
             
