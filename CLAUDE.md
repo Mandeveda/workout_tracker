@@ -14,7 +14,8 @@ pip install -r requirements.txt
 
 python run.py                 # dev server on 0.0.0.0:5000
 python create_db.py           # db.create_all() for a fresh DB
-python init_database.py       # seed roles, muscle groups/subgroups from data_for_init.json (gitignored)
+python init_database.py       # seed roles, muscle groups/subgroups, admin user from data_for_init.json
+                              # (gitignored, contains a real password; copy data_for_init.example.json to create it)
 
 flask --app run db migrate -m "..."   # Alembic via Flask-Migrate
 flask --app run db upgrade

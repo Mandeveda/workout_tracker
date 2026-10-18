@@ -6,3 +6,5 @@ instance/
 *.log
 .DS_Store
 data_for_init.json
+.cache/
+*.zip
