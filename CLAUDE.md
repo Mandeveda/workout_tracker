@@ -28,9 +28,13 @@ python recalc_stats.py [--apply]  # recompute SetLog/WorkoutSession completion f
 
 flask --app run db migrate -m "..."   # Alembic via Flask-Migrate
 flask --app run db upgrade
+
+pip install -r requirements-dev.txt   # once: pytest (dev only, not on the server)
+pytest                                # all tests, ~7 s
+pytest tests/test_auth.py -k reset    # one file / matching tests
 ```
 
-There are no tests, linter or build step.
+Tests (`tests/`) run against an in-memory SQLite DB created per test (`conftest.py`: fixtures `make_user`, `make_exercise`, `make_template`, `make_session`, helpers `login`, `csrf_token`). `conftest.py` sets env vars *before* importing the app because `config.py` reads them at import, and clears `flask.g` before each request because the test keeps an app context open (Flask-Login/Flask-WTF cache in `g`). Add a test with every bug fix. No linter or build step.
 
 ## Configuration
 
