@@ -196,11 +196,6 @@
     }
     
     // Экранирование HTML
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
     
     // Автоматическая фильтрация при изменении любого фильтра
     document.querySelectorAll('#filterSearch, #filterType, #filterMuscleGroup, #filterSubgroup').forEach(el => {

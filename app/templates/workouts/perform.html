@@ -438,7 +438,7 @@
         alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
         alertDiv.role = 'alert';
         alertDiv.innerHTML = `
-            ${message}
+            ${escapeHtml(message)}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
         const container = document.querySelector('.container.mt-4');
@@ -619,14 +619,14 @@ function loadExerciseData(exerciseId) {
         if (data.media_type === 'image' || data.media_type === 'gif') {
             mediaHtml = `
                 <div class="modal-media-container">
-                    <img src="${data.media_url}" alt="${data.name}" class="img-fluid">
+                    <img src="${escapeHtml(safeUrl(data.media_url))}" alt="${escapeHtml(data.name)}" class="img-fluid">
                 </div>
             `;
         } else if (data.media_type === 'youtube' && data.youtube_id) {
             mediaHtml = `
                 <div class="modal-media-container">
-                    <iframe src="https://www.youtube.com/embed/${data.youtube_id}" 
-                            title="${data.name}" 
+                    <iframe src="https://www.youtube.com/embed/${encodeURIComponent(data.youtube_id)}" 
+                            title="${escapeHtml(data.name)}" 
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                             allowfullscreen></iframe>
                 </div>
@@ -638,8 +638,8 @@ function loadExerciseData(exerciseId) {
             lastResultHtml = `
                 <div class="last-result">
                     <strong>Последний результат:</strong>
-                    ${data.last_result.date}
-                    — ${data.last_result.weight ? data.last_result.weight + ' кг × ' : ''}${data.last_result.reps} повторений
+                    ${escapeHtml(data.last_result.date)}
+                    — ${data.last_result.weight ? escapeHtml(data.last_result.weight) + ' кг × ' : ''}${escapeHtml(data.last_result.reps)} повторений
                 </div>
             `;
         }
@@ -651,10 +651,10 @@ function loadExerciseData(exerciseId) {
                 <div class="row">
                     <div class="col-md-6">
                         <p><strong>Тип:</strong> 
-                            <span class="badge bg-secondary">${data.exercise_type}</span>
+                            <span class="badge bg-secondary">${escapeHtml(data.exercise_type)}</span>
                         </p>
-                        ${data.muscle_group ? `<p><strong>Группа мышц:</strong> ${data.muscle_group}</p>` : ''}
-                        ${data.muscle_subgroup ? `<p><strong>Подгруппа:</strong> ${data.muscle_subgroup}</p>` : ''}
+                        ${data.muscle_group ? `<p><strong>Группа мышц:</strong> ${escapeHtml(data.muscle_group)}</p>` : ''}
+                        ${data.muscle_subgroup ? `<p><strong>Подгруппа:</strong> ${escapeHtml(data.muscle_subgroup)}</p>` : ''}
                     </div>
                     <div class="col-md-6">
                         ${lastResultHtml}
@@ -662,7 +662,7 @@ function loadExerciseData(exerciseId) {
                 </div>
                 <div class="mt-3">
                     <strong>Описание техники:</strong>
-                    <p class="text-muted">${data.description || 'Описание отсутствует'}</p>
+                    <p class="text-muted">${escapeHtml(data.description || 'Описание отсутствует')}</p>
                 </div>
             </div>
         `;

@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from flask_login import current_user
 from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, IntegerField, FloatField, BooleanField, DateField, SelectMultipleField
-from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, NumberRange, Optional
+from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, NumberRange, Optional, Regexp
 from app.models import User
 
 class RegistrationForm(FlaskForm):
@@ -46,8 +46,14 @@ class ExerciseForm(FlaskForm):
         ('gif', 'GIF-анимация'),
         ('youtube', 'YouTube видео')
     ], default='none')
-    media_url = StringField('Ссылка на изображение/GIF', validators=[Length(max=500)])
-    youtube_id = StringField('ID YouTube видео', validators=[Length(max=20)])
+    media_url = StringField('Ссылка на изображение/GIF', validators=[
+        Optional(), Length(max=500),
+        Regexp(r'^https?://', message='Ссылка должна начинаться с http:// или https://')
+    ])
+    youtube_id = StringField('ID YouTube видео', validators=[
+        Optional(),
+        Regexp(r'^[A-Za-z0-9_-]{11}$', message='ID видео YouTube — 11 символов: буквы, цифры, «-» и «_»')
+    ])
     
     submit = SubmitField('Создать упражнение')
     
