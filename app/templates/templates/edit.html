@@ -1,97 +1,82 @@
 {% extends "base.html" %}
 {% from "_macros.html" import post_button with context %}
-
-{% block title %}Редактировать шаблон тренировки{% endblock %}
-
+{% block title %}{{ template.name }}{% endblock %}
+{% set type_names = {'strength': 'Силовое', 'bodyweight': 'Собственный вес', 'cardio': 'Кардио'} %}
 {% block content %}
-<div class="container mt-5">
-    <h1>Редактировать шаблон: {{ template.name }}</h1>
-    
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-warning">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <!-- ФОРМА 1: Редактирование имени шаблона -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h3>Основная информация</h3>
+{% set items = template_exercises|sort(attribute='order') %}
+<div class="form-page">
+    <div class="page-head">
+        <div>
+            <span class="label">Шаблон</span>
+            <h1>{{ template.name }}</h1>
+            <p class="page-sub">{{ items|length }} {{ items|length|plural('упражнение', 'упражнения', 'упражнений') }} · порядок здесь — порядок на тренировке</p>
         </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('templates.edit_template', template_id=template.id) }}">
-                <input type="hidden" name="edit_name" value="1">
-                <div class="mb-3">
-                    <label for="name" class="form-label">Название шаблона</label>
-                    <input type="text" name="name" id="name" class="form-control" value="{{ template.name }}" required>
-                </div>
-                <button type="submit" class="btn btn-primary">Сохранить название</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- ФОРМА 2: Добавление упражнения (обновлено) -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h3>Добавить упражнение</h3>
-        </div>
-        <div class="card-body">
-            <p class="text-muted">Перейдите на страницу выбора упражнения с фильтрацией по группам мышц.</p>
-            <a href="{{ url_for('templates.add_exercise', template_id=template.id) }}" class="btn btn-success">
-                ➕ Перейти к выбору упражнения
-            </a>
-        </div>
-    </div>
-
-    <!-- Список упражнений в шаблоне -->
-    <div class="card">
-        <div class="card-header">
-            <h3>Упражнения в шаблоне</h3>
-        </div>
-        <div class="card-body">
-            {% if template_exercises %}
-                <div class="list-group">
-                    {% for template_exercise in template_exercises|sort(attribute='order') %}
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h5 class="mb-1">
-                                        {{ loop.index }}. {{ template_exercise.exercise.name }}
-                                        {% if template_exercise.order != loop.index - 1 %}
-                                            <small class="text-warning">(order: {{ template_exercise.order }})</small>
-                                        {% endif %}
-                                    </h5>
-                                    <small class="text-muted">
-                                        Тип: {{ template_exercise.exercise.exercise_type }} |
-                                        Порядок: {{ template_exercise.order }}
-                                        {% if template_exercise.exercise.muscle_group %}
-                                            | Группа: {{ template_exercise.exercise.muscle_group.display_name }}
-                                        {% endif %}
-                                    </small>
-                                </div>
-                                <div>
-                                    {{ post_button(url_for('templates.move_up_exercise', template_id=template.id, exercise_id=template_exercise.id), '↑', 'btn btn-sm btn-outline-secondary') }}
-                                    {{ post_button(url_for('templates.move_down_exercise', template_id=template.id, exercise_id=template_exercise.id), '↓', 'btn btn-sm btn-outline-secondary') }}
-                                    {{ post_button(url_for('templates.delete_exercise', template_id=template.id, exercise_id=template_exercise.id), 'Удалить', confirm='Удалить упражнение?') }}
-                                </div>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="alert alert-info">
-                    В шаблоне пока нет упражнений.
-                </div>
+        <div class="page-actions">
+            {% if items %}
+            <a class="btn btn-primary" href="{{ url_for('program.create_program', template_id=template.id) }}"><svg class="icon"><use href="#i-cal"/></svg>В расписание</a>
             {% endif %}
+            <a class="btn btn-outline-primary" href="{{ url_for('templates.list_templates') }}">← К шаблонам</a>
         </div>
     </div>
-    
-    <div class="mt-3 d-flex justify-content-between">
-        <a href="{{ url_for('templates.list_templates') }}" class="btn btn-secondary">Вернуться к списку шаблонов</a>
-        {{ post_button(url_for('templates.delete_template', template_id=template.id), 'Удалить шаблон', 'btn btn-danger',
-                       confirm='Вы уверены? Шаблон будет удалён без возможности восстановления.') }}
+
+    <form method="POST" action="{{ url_for('templates.edit_template', template_id=template.id) }}" class="panel rename-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="edit_name" value="1">
+        <label for="name" class="form-label">Название</label>
+        <div class="rename-row">
+            <input type="text" name="name" id="name" class="form-control" value="{{ template.name }}" maxlength="100" required>
+            <button type="submit" class="btn btn-outline-primary">Сохранить</button>
+        </div>
+    </form>
+
+    <section class="block">
+        <div class="block-head">
+            <h2 class="block-title">Упражнения</h2>
+            <a class="btn btn-primary btn-sm" href="{{ url_for('templates.add_exercise', template_id=template.id) }}"><svg class="icon"><use href="#i-plus"/></svg>Добавить</a>
+        </div>
+        {% if items %}
+        <ol class="order-list">
+            {% for te in items %}
+            <li class="order-item">
+                <span class="order-n num">{{ loop.index }}</span>
+                <div class="row-main">
+                    <span class="row-title">{{ te.exercise.name }}</span>
+                    <span class="row-sub">{{ type_names.get(te.exercise.exercise_type, te.exercise.exercise_type) }}{% if te.exercise.muscle_group %} · {{ te.exercise.muscle_group.display_name }}{% endif %}</span>
+                </div>
+                <div class="order-actions">
+                    {% if not loop.first %}
+                    <form method="POST" action="{{ url_for('templates.move_up_exercise', template_id=template.id, exercise_id=te.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="icon-btn icon-btn-sm" aria-label="Поднять «{{ te.exercise.name }}»"><svg class="icon"><use href="#i-up"/></svg></button>
+                    </form>
+                    {% else %}<span class="icon-btn-spacer"></span>{% endif %}
+                    {% if not loop.last %}
+                    <form method="POST" action="{{ url_for('templates.move_down_exercise', template_id=template.id, exercise_id=te.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="icon-btn icon-btn-sm" aria-label="Опустить «{{ te.exercise.name }}»"><svg class="icon"><use href="#i-down"/></svg></button>
+                    </form>
+                    {% else %}<span class="icon-btn-spacer"></span>{% endif %}
+                    <form method="POST" action="{{ url_for('templates.delete_exercise', template_id=template.id, exercise_id=te.id) }}"
+                          data-confirm="Убрать «{{ te.exercise.name }}» из шаблона?">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="icon-btn icon-btn-sm icon-btn-danger" aria-label="Убрать «{{ te.exercise.name }}»"><svg class="icon"><use href="#i-x"/></svg></button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ol>
+        {% else %}
+        <div class="empty-state">
+            <p>В шаблоне пока нет упражнений.</p>
+            <a class="btn btn-primary mt-3" href="{{ url_for('templates.add_exercise', template_id=template.id) }}"><svg class="icon"><use href="#i-plus"/></svg>Добавить упражнения</a>
+        </div>
+        {% endif %}
+    </section>
+
+    <div class="danger-zone">
+        {{ post_button(url_for('templates.delete_template', template_id=template.id), 'Удалить шаблон', 'btn btn-link btn-sm row-muted-action',
+                       confirm='Удалить шаблон «' ~ template.name ~ '» без возможности восстановления?') }}
+        <span class="form-text">Удалить можно только шаблон без упражнений и без тренировок в расписании.</span>
     </div>
 </div>
 {% endblock %}

@@ -2,35 +2,23 @@
 {% from "_macros.html" import post_button with context %}
 {% block title %}Архив шаблонов{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>📦 Архив шаблонов</h2>
-    <a href="{{ url_for('templates.list_templates') }}" class="btn btn-outline-secondary">← Активные шаблоны</a>
+<div class="page-head">
+    <div>
+        <h1>Архив шаблонов</h1>
+        <p class="page-sub">Шаблоны, убранные из списка. Их можно вернуть или удалить.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-primary" href="{{ url_for('templates.list_templates') }}">← К шаблонам</a>
+    </div>
 </div>
 
 {% if templates %}
-    <div class="row">
-        {% for template in templates %}
-            <div class="col-md-4 mb-3">
-                <div class="card border-warning">
-                    <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0">{{ template.name }}</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text">
-                            <small class="text-muted">
-                                Упражнений: {{ template.template_exercises|length }}
-                            </small>
-                        </p>
-                        {{ post_button(url_for('templates.restore_template', template_id=template.id), '↩️ Восстановить', 'btn btn-sm btn-success',
-                                       confirm='Восстановить шаблон «' ~ template.name ~ '»?') }}
-                        {{ post_button(url_for('templates.delete_template', template_id=template.id), '🗑️ Удалить навсегда', 'btn btn-sm btn-danger',
-                                       confirm='Удалить шаблон «' ~ template.name ~ '» навсегда?') }}
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
+<div class="card-grid">
+    {% for template in templates %}
+        {% with archived = True %}{% include "templates/_template_card.html" %}{% endwith %}
+    {% endfor %}
+</div>
 {% else %}
-    <div class="alert alert-info">В архиве нет шаблонов</div>
+<div class="empty-state"><p>В архиве пусто.</p></div>
 {% endif %}
 {% endblock %}

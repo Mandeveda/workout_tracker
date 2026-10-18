@@ -1,0 +1,55 @@
+{# Карточка шаблона для списка и архива. Ожидает: template, archived (bool) #}
+{% from "_macros.html" import post_button with context %}
+{% set items = template.template_exercises|sort(attribute='order') %}
+{% set n = items|length %}
+<article class="tcard{% if archived %} is-archived{% endif %}">
+    <div class="tcard-head">
+        <div class="tcard-headings">
+            <a class="tcard-title" href="{{ url_for('templates.edit_template', template_id=template.id) }}">{{ template.name }}</a>
+            <div class="tcard-meta">
+                {{ n }} {{ n|plural('упражнение', 'упражнения', 'упражнений') }}
+                {% if current_user.role.name == 'admin' and template.user_id != current_user.id %} · владелец {{ template.user.username }}{% endif %}
+                {% if archived %} · в архиве{% endif %}
+            </div>
+        </div>
+        {% if current_user.role.name == 'admin' or template.user_id == current_user.id %}
+        <div class="dropdown">
+            <button type="button" class="icon-btn icon-btn-sm" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Действия с шаблоном">
+                <svg class="icon"><use href="#i-more"/></svg>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                {% if archived %}
+                <li>{{ post_button(url_for('templates.restore_template', template_id=template.id), 'Вернуть из архива', 'dropdown-item') }}</li>
+                {% else %}
+                <li><a class="dropdown-item" href="{{ url_for('templates.edit_template', template_id=template.id) }}">Изменить</a></li>
+                <li>{{ post_button(url_for('templates.archive_template', template_id=template.id), 'В архив', 'dropdown-item',
+                                   confirm='Убрать шаблон «' ~ template.name ~ '» в архив? Его можно будет вернуть.') }}</li>
+                {% endif %}
+                <li><hr class="dropdown-divider"></li>
+                <li>{{ post_button(url_for('templates.delete_template', template_id=template.id), 'Удалить', 'dropdown-item text-danger',
+                                   confirm='Удалить шаблон «' ~ template.name ~ '» без возможности восстановления?') }}</li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if n %}
+    <ol class="tcard-exercises">
+        {% for te in items[:4] %}<li>{{ te.exercise.name }}</li>{% endfor %}
+        {% if n > 4 %}<li class="tcard-more">ещё {{ n - 4 }}</li>{% endif %}
+    </ol>
+    {% else %}
+    <p class="tcard-empty">Пока без упражнений</p>
+    {% endif %}
+
+    <div class="tcard-actions">
+        {% if archived %}
+            {{ post_button(url_for('templates.restore_template', template_id=template.id), 'Вернуть из архива', 'btn btn-outline-primary btn-sm') }}
+        {% elif n %}
+            <a class="btn btn-primary btn-sm" href="{{ url_for('program.create_program', template_id=template.id) }}"><svg class="icon"><use href="#i-cal"/></svg>В расписание</a>
+            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('templates.edit_template', template_id=template.id) }}">Изменить</a>
+        {% else %}
+            <a class="btn btn-primary btn-sm" href="{{ url_for('templates.add_exercise', template_id=template.id) }}"><svg class="icon"><use href="#i-plus"/></svg>Добавить упражнения</a>
+        {% endif %}
+    </div>
+</article>

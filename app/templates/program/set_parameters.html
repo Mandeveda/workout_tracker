@@ -1,333 +1,163 @@
 {% extends "base.html" %}
-{% block title %}Настройка параметров{% endblock %}
+{% block title %}Нагрузка: {{ template.name }}{% endblock %}
+{% set type_names = {'strength': 'Силовое · кг × повторения', 'bodyweight': 'Собственный вес · повторения', 'cardio': 'Кардио · минуты, км'} %}
+{% macro fmt(value) %}{{ ('%g' % value) if value is number else value }}{% endmacro %}
 {% block content %}
-<div class="container mt-4">
-    <h2>Настройка программы: {{ template.name }}</h2>
-    <p class="text-muted">Заполните параметры для каждого упражнения</p>
-    
-    {% if last_data %}
-        <div class="alert alert-info mb-4">
-            <strong>💡 Автозаполнение:</strong> 
-            В поля подставлены ваши последние фактические результаты по упражнениям. 
-            Вы можете скорректировать их перед созданием программы.
+<div class="form-page">
+    <div class="page-head">
+        <div>
+            <span class="label">Шаг 2 из 2 · нагрузка</span>
+            <h1>Нагрузка в «{{ template.name }}»</h1>
+            <p class="page-sub">Сколько подходов, повторений и какой вес. {% if last_data %}Где есть прошлые результаты, они уже подставлены.{% endif %}</p>
         </div>
-    {% endif %}
-    
-    <form method="POST" id="mainForm">
+    </div>
+
+    <form method="POST" id="paramsForm" novalidate>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        
+        <div class="exercises">
         {% for te in template_exercises %}
-            {% set form = forms[te.id] %}
-            <div class="card mb-4" id="exercise_card_{{ te.id }}">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">{{ te.exercise.name }}</h4>
-                    <small>{{ te.exercise.exercise_type }}</small>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Тип нагрузки</label>
-                        <select class="form-select input-type-select" name="ex_{{ te.id }}-input_type" data-exercise-id="{{ te.id }}">
-                            <option value="fixed" {% if form.input_type.data == 'fixed' %}selected{% endif %}>Одинаково во всех подходах</option>
-                            <option value="progressive" {% if form.input_type.data == 'progressive' %}selected{% endif %}>Индивидуально для каждого подхода</option>
-                        </select>
-                    </div>
-                    
-                    <!-- FIXED режим -->
-                    <div id="fixed_mode_{{ te.id }}" class="fixed-mode">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <label class="form-label">Количество подходов</label>
-                                <input type="number" name="ex_{{ te.id }}-sets" 
-                                    class="form-control" 
-                                    value="{{ form.sets.data or 3 }}" 
-                                    min="1" max="20">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Повторений в подходе</label>
-                                <input type="number" name="ex_{{ te.id }}-reps" 
-                                    class="form-control" 
-                                    value="{{ last_data[te.id].reps if last_data.get(te.id) else form.reps.data or 10 }}" 
-                                    min="1" max="100">
-                            </div>
-                            {% if te.exercise.exercise_type == 'strength' %}
-                            <div class="col-md-4">
-                                <label class="form-label">Вес (кг)</label>
-                                <input type="number" step="0.5" name="ex_{{ te.id }}-weight" 
-                                    class="form-control" 
-                                    value="{{ last_data[te.id].weight if last_data.get(te.id) else form.weight.data or 0 }}">
-                            </div>
-                            {% elif te.exercise.exercise_type == 'bodyweight' %}
-                            <div class="col-md-4">
-                                <label class="form-label text-muted">Вес (не используется)</label>
-                                <input type="hidden" name="ex_{{ te.id }}-weight" value="0">
-                            </div>
-                            {% endif %}
-                        </div>
-                        {% if last_data.get(te.id) %}
-                            <div class="mt-2">
-                                <small class="text-muted">
-                                    ⏳ Последний результат: 
-                                    {{ last_data[te.id].weight }} кг × {{ last_data[te.id].reps }} 
-                                    ({{ last_data[te.id].date.strftime('%d.%m.%Y') }})
-                                </small>
-                            </div>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- PROGRESSIVE режим -->
-                    <div id="progressive_mode_{{ te.id }}" class="progressive-mode" style="display: none;">
-                        <div class="alert alert-info mb-3">
-                            <strong>Индивидуальные подходы</strong> — добавьте необходимое количество подходов
-                            {% if last_data.get(te.id) %}
-                                <br>
-                                <span class="text-muted">
-                                    ⏳ Последний результат: 
-                                    {{ last_data[te.id].weight }} кг × {{ last_data[te.id].reps }} 
-                                    ({{ last_data[te.id].date.strftime('%d.%m.%Y') }})
-                                </span>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- Если есть последние данные, автоматически добавляем подход -->
-                        {% if last_data.get(te.id) %}
-                            <script>
-                                document.addEventListener('DOMContentLoaded', function() {
-                                    const exerciseId = {{ te.id }};
-                                    const weight = {{ last_data[te.id].weight }};
-                                    const reps = {{ last_data[te.id].reps }};
-                                    
-                                    setTimeout(function() {
-                                        const weightInput = document.querySelector(`.progressive-weight[data-exercise-id="${exerciseId}"]`);
-                                        const repsInput = document.querySelector(`.progressive-reps[data-exercise-id="${exerciseId}"]`);
-                                        const addBtn = document.querySelector(`.add-set-btn[data-exercise-id="${exerciseId}"]`);
-                                        
-                                        if (weightInput && repsInput && addBtn) {
-                                            weightInput.value = weight;
-                                            repsInput.value = reps;
-                                            addBtn.click();
-                                        }
-                                    }, 300);
-                                });
-                            </script>
-                        {% endif %}
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-5">
-                                <label class="form-label">Вес (кг)</label>
-                                <input type="number" step="0.5" class="form-control progressive-weight" data-exercise-id="{{ te.id }}" placeholder="50">
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label">Повторения</label>
-                                <input type="number" class="form-control progressive-reps" data-exercise-id="{{ te.id }}" placeholder="10">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">&nbsp;</label>
-                                <button type="button" class="btn btn-success form-control add-set-btn" data-exercise-id="{{ te.id }}">+ Добавить</button>
-                            </div>
-                        </div>
-                        
-                        <div class="mt-3">
-                            <label class="form-label fw-bold">Добавленные подходы:</label>
-                            <div id="sets_list_{{ te.id }}" class="list-group">
-                                <div class="list-group-item text-muted">Нет добавленных подходов</div>
-                            </div>
-                        </div>
-                        
-                        <input type="hidden" name="progressive_data_{{ te.id }}" id="progressive_data_{{ te.id }}" value="">
+            {% set type = te.exercise.exercise_type %}
+            {% set last = last_data.get(te.id) %}
+            <article class="ex params" data-te="{{ te.id }}" data-type="{{ type }}"
+                     data-last-weight="{{ fmt(last.weight) if last else '' }}" data-last-reps="{{ last.reps if last else '' }}">
+                <div class="ex-head">
+                    <div class="ex-name">{{ te.exercise.name }}</div>
+                    <div class="ex-type">
+                        {{ type_names.get(type, type) }}
+                        {% if last %}· <span class="num">прошлый раз {% if type == 'strength' %}{{ fmt(last.weight) }} кг × {% endif %}{{ last.reps }}, {{ last.date.strftime('%d.%m.%Y') }}</span>{% endif %}
                     </div>
                 </div>
-            </div>
+
+                <div class="params-body">
+                {% if type == 'cardio' %}
+                    <div class="params-grid">
+                        <label>Минут<input class="form-control" type="number" inputmode="numeric" min="1" max="600" name="duration_{{ te.id }}" value="30" required></label>
+                        <label>Километров<input class="form-control" type="number" inputmode="decimal" min="0" step="0.1" name="distance_{{ te.id }}" value="0"></label>
+                        <label>Пульс, уд/мин<input class="form-control" type="number" inputmode="numeric" min="40" max="220" name="heart_rate_{{ te.id }}" placeholder="необязательно"></label>
+                    </div>
+                {% else %}
+                    <div class="segmented" role="radiogroup" aria-label="Как задать нагрузку">
+                        <label><input type="radio" name="ex_{{ te.id }}-input_type" value="fixed" checked><span>Одинаково для всех</span></label>
+                        <label><input type="radio" name="ex_{{ te.id }}-input_type" value="progressive"><span>Каждый отдельно</span></label>
+                    </div>
+
+                    <div class="mode-fixed params-grid">
+                        <label>Подходов<input class="form-control" type="number" inputmode="numeric" min="1" max="20" name="ex_{{ te.id }}-sets" value="3" required></label>
+                        <label>Повторений<input class="form-control" type="number" inputmode="numeric" min="1" max="100" name="ex_{{ te.id }}-reps" value="{{ last.reps if last else 10 }}" required></label>
+                        {% if type == 'strength' %}
+                        <label>Вес, кг<input class="form-control" type="number" inputmode="decimal" min="0" step="0.5" name="ex_{{ te.id }}-weight" value="{{ fmt(last.weight) if last else 0 }}" required></label>
+                        {% endif %}
+                    </div>
+
+                    <div class="mode-progressive" hidden>
+                        <table class="sets plan-sets">
+                            <thead><tr><th>№</th>{% if type == 'strength' %}<th>кг</th>{% endif %}<th>повт</th><th><span class="visually-hidden">Убрать</span></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                        <button type="button" class="add-set">+ Подход</button>
+                        <input type="hidden" name="progressive_data_{{ te.id }}" value="">
+                    </div>
+                {% endif %}
+                </div>
+            </article>
+        {% else %}
+            <div class="empty-state"><p>В шаблоне нет упражнений — добавьте их, прежде чем ставить шаблон в расписание.</p></div>
         {% endfor %}
-        
-        <div class="text-center">
-            <button type="submit" class="btn btn-primary btn-lg">Создать программу</button>
-            <a href="{{ url_for('templates.list_templates') }}" class="btn btn-secondary btn-lg">Отмена</a>
+        </div>
+
+        <p class="form-error" id="formError" role="alert" hidden></p>
+        <div class="form-actions form-actions-end">
+            <button type="submit" class="btn btn-primary btn-lg">Создать расписание</button>
+            <a class="btn btn-link" href="{{ url_for('templates.list_templates') }}">Отмена</a>
         </div>
     </form>
 </div>
 
 <script>
-    // Хранилище для всех упражнений
-    let progressiveData = {};
-    
-    // Функция переключения режимов
-    function toggleMode(exerciseId) {
-        const select = document.querySelector(`.input-type-select[data-exercise-id="${exerciseId}"]`);
-        const fixedDiv = document.getElementById(`fixed_mode_${exerciseId}`);
-        const progressiveDiv = document.getElementById(`progressive_mode_${exerciseId}`);
-        
-        if (!select || !fixedDiv || !progressiveDiv) return;
-        
-        if (select.value === 'fixed') {
-            fixedDiv.style.display = 'block';
-            progressiveDiv.style.display = 'none';
-        } else {
-            fixedDiv.style.display = 'none';
-            progressiveDiv.style.display = 'block';
-            renderSetsList(exerciseId);
-        }
-    }
-    
-    // Функция добавления подхода
-    function addSet(exerciseId) {
-        const weightInput = document.querySelector(`.progressive-weight[data-exercise-id="${exerciseId}"]`);
-        const repsInput = document.querySelector(`.progressive-reps[data-exercise-id="${exerciseId}"]`);
-        
-        const weight = parseFloat(weightInput.value);
-        const reps = parseInt(repsInput.value);
-        
-        if (isNaN(weight) || isNaN(reps)) {
-            alert('Пожалуйста, заполните вес и повторения');
-            return;
-        }
-        
-        if (weight <= 0 || reps <= 0) {
-            alert('Вес и повторения должны быть больше 0');
-            return;
-        }
-        
-        if (!progressiveData[exerciseId]) {
-            progressiveData[exerciseId] = [];
-        }
-        
-        progressiveData[exerciseId].push({
-            set_number: progressiveData[exerciseId].length + 1,
-            weight: weight,
-            reps: reps
-        });
-        
-        weightInput.value = '';
-        repsInput.value = '';
-        
-        renderSetsList(exerciseId);
-    }
-    
-    // Функция удаления подхода
-    function removeSet(exerciseId, index) {
-        progressiveData[exerciseId].splice(index, 1);
-        progressiveData[exerciseId].forEach((set, idx) => {
-            set.set_number = idx + 1;
-        });
-        renderSetsList(exerciseId);
-    }
-    
-    // Отображение списка подходов
-    function renderSetsList(exerciseId) {
-        const container = document.getElementById(`sets_list_${exerciseId}`);
-        if (!container) return;
-        
-        const sets = progressiveData[exerciseId] || [];
-        
-        if (sets.length === 0) {
-            container.innerHTML = '<div class="list-group-item text-muted">Нет добавленных подходов. Добавьте первый подход.</div>';
-            return;
-        }
-        
-        container.innerHTML = '';
-        sets.forEach((set, index) => {
-            const item = document.createElement('div');
-            item.className = 'list-group-item d-flex justify-content-between align-items-center';
-            item.innerHTML = `
-                <span><strong>Подход ${set.set_number}</strong> — ${set.weight} кг × ${set.reps} повторений</span>
-                <button type="button" class="btn btn-sm btn-danger" onclick="removeSet(${exerciseId}, ${index})">Удалить</button>
-            `;
-            container.appendChild(item);
-        });
-    }
-    
-    // Подготовка данных перед отправкой
-    function prepareProgressiveData(event) {
-        let hasError = false;
-        
-        document.querySelectorAll('.input-type-select').forEach(select => {
-            const exerciseId = select.getAttribute('data-exercise-id');
-            
-            if (select.value === 'progressive') {
-                const hiddenInput = document.getElementById(`progressive_data_${exerciseId}`);
-                const sets = progressiveData[exerciseId] || [];
-                
-                if (sets.length === 0) {
-                    alert(`Для упражнения добавьте хотя бы один подход`);
-                    hasError = true;
-                } else {
-                    hiddenInput.value = JSON.stringify(sets);
-                }
-            }
-        });
-        
-        if (hasError) {
-            event.preventDefault();
-            return false;
-        }
-        return true;
-    }
-    
-    // Инициализация при загрузке страницы
-    document.addEventListener('DOMContentLoaded', function() {
-        // Находим все селекторы и добавляем обработчики
-        document.querySelectorAll('.input-type-select').forEach(select => {
-            const exerciseId = select.getAttribute('data-exercise-id');
-            
-            // Добавляем обработчик изменения
-            select.addEventListener('change', function() {
-                toggleMode(exerciseId);
-            });
-            
-            // Инициализируем видимость режимов
-            toggleMode(exerciseId);
-        });
-        
-        // Находим все кнопки добавления
-        document.querySelectorAll('.add-set-btn').forEach(btn => {
-            const exerciseId = btn.getAttribute('data-exercise-id');
-            btn.addEventListener('click', function() {
-                addSet(exerciseId);
-            });
-        });
-        
-        // Восстанавливаем сохранённые данные
-        document.querySelectorAll('[id^="progressive_data_"]').forEach(hiddenInput => {
-            if (hiddenInput.value) {
-                try {
-                    const exerciseId = hiddenInput.id.replace('progressive_data_', '');
-                    const parsed = JSON.parse(hiddenInput.value);
-                    if (parsed && parsed.length > 0) {
-                        progressiveData[exerciseId] = parsed;
-                        const select = document.querySelector(`.input-type-select[data-exercise-id="${exerciseId}"]`);
-                        if (select) {
-                            select.value = 'progressive';
-                            toggleMode(exerciseId);
-                        }
-                    }
-                } catch(e) {
-                    console.error(e);
-                }
-            }
-        });
-    });
-    
-    // Назначаем обработчик на кнопку отправки
-    const submitBtn = document.querySelector('button[type="submit"]');
-    if (submitBtn) {
-        submitBtn.addEventListener('click', function(event) {
-            if (!prepareProgressiveData(event)) {
-                return;
-            }
-            document.getElementById('mainForm').submit();
-        });
-    }
-</script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('paramsForm');
+    const errorEl = document.getElementById('formError');
 
-<style>
-    .fixed-mode, .progressive-mode {
-        margin-top: 15px;
-        padding: 15px;
-        background-color: #f8f9fa;
-        border-radius: 5px;
+    // ---------- режим «каждый подход отдельно» ----------
+    function addPlanRow(card, weight, reps) {
+        const tbody = card.querySelector('.plan-sets tbody');
+        const hasWeight = card.dataset.type === 'strength';
+        const row = document.createElement('tr');
+        row.innerHTML = `<td><span class="set-n"></span></td>` +
+            (hasWeight ? `<td><input class="cell-in" type="number" inputmode="decimal" min="0" step="0.5" data-key="weight" value="${escapeHtml(weight)}" aria-label="Вес, кг"></td>` : '') +
+            `<td><input class="cell-in" type="number" inputmode="numeric" min="1" data-key="reps" value="${escapeHtml(reps)}" aria-label="Повторения"></td>
+             <td><button type="button" class="icon-btn icon-btn-sm icon-btn-danger remove-row" aria-label="Убрать подход"><svg class="icon"><use href="#i-x"/></svg></button></td>`;
+        tbody.appendChild(row);
+        renumber(card);
     }
-    
-    .list-group-item {
-        margin-bottom: 5px;
+    function renumber(card) {
+        card.querySelectorAll('.plan-sets tbody tr').forEach((r, i) => { r.querySelector('.set-n').textContent = i + 1; });
     }
-</style>
+
+    function setMode(card) {
+        const progressive = card.querySelector('input[type="radio"][value="progressive"]').checked;
+        const fixed = card.querySelector('.mode-fixed');
+        const prog = card.querySelector('.mode-progressive');
+        fixed.hidden = progressive;
+        prog.hidden = !progressive;
+        // Поля скрытого режима отключаем: они не отправляются и не проверяются
+        fixed.querySelectorAll('input').forEach(i => { i.disabled = progressive; });
+        if (progressive && !card.querySelector('.plan-sets tbody tr')) {
+            const w = fixed.querySelector('[name$="-weight"]')?.value || card.dataset.lastWeight || 0;
+            const r = fixed.querySelector('[name$="-reps"]').value || card.dataset.lastReps || 10;
+            const sets = Math.max(1, Math.min(20, parseInt(fixed.querySelector('[name$="-sets"]').value, 10) || 3));
+            for (let i = 0; i < sets; i++) addPlanRow(card, w, r);
+        }
+    }
+
+    document.querySelectorAll('.params').forEach(card => {
+        if (card.dataset.type === 'cardio') return;
+        card.querySelectorAll('input[type="radio"]').forEach(r => r.addEventListener('change', () => setMode(card)));
+        card.querySelector('.add-set').addEventListener('click', () => {
+            const last = card.querySelector('.plan-sets tbody tr:last-child');
+            const w = last?.querySelector('[data-key="weight"]')?.value ?? 0;
+            const r = last?.querySelector('[data-key="reps"]')?.value ?? 10;
+            addPlanRow(card, w, r);
+        });
+        card.querySelector('.plan-sets').addEventListener('click', e => {
+            const btn = e.target.closest('.remove-row');
+            if (!btn) return;
+            btn.closest('tr').remove();
+            renumber(card);
+        });
+        setMode(card);
+    });
+
+    // ---------- проверка и отправка ----------
+    form.addEventListener('submit', function (event) {
+        errorEl.hidden = true;
+        let problem = null;
+
+        document.querySelectorAll('.params').forEach(card => {
+            if (problem) return;
+            const name = card.querySelector('.ex-name').textContent.trim();
+            if (card.dataset.type !== 'cardio' && !card.querySelector('.mode-progressive').hidden) {
+                const sets = Array.from(card.querySelectorAll('.plan-sets tbody tr')).map((row, i) => ({
+                    set_number: i + 1,
+                    weight: parseFloat(row.querySelector('[data-key="weight"]')?.value) || 0,
+                    reps: parseInt(row.querySelector('[data-key="reps"]').value, 10) || 0
+                }));
+                if (!sets.length) problem = `«${name}»: добавьте хотя бы один подход.`;
+                else if (sets.some(s => s.reps < 1)) problem = `«${name}»: укажите повторения в каждом подходе.`;
+                card.querySelector('[name^="progressive_data_"]').value = JSON.stringify(sets);
+            }
+            if (!problem) {
+                const bad = Array.from(card.querySelectorAll('input.form-control:not(:disabled)')).find(i => !i.checkValidity());
+                if (bad) { problem = `«${name}»: проверьте поле «${bad.closest('label').firstChild.textContent.trim()}».`; bad.focus(); }
+            }
+        });
+
+        if (problem) {
+            event.preventDefault();
+            errorEl.textContent = problem;
+            errorEl.hidden = false;
+        }
+    });
+});
+</script>
 {% endblock %}
