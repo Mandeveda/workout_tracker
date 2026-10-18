@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Пользователи{% endblock %}
 {% set role_names = {'admin': 'Администратор', 'expert': 'Эксперт', 'user': 'Пользователь'} %}
+{% set filter_names = {'all': 'Все', 'admin': 'Администраторы', 'expert': 'Эксперты', 'user': 'Пользователи', 'blocked': 'Заблокированные'} %}
+{% set keep = {'search': search, 'show': show, 'page': users.page} %}
 {% block content %}
 <div class="page-head">
     <div>
@@ -11,9 +13,17 @@
 
 <form method="GET" class="filters filters-search panel" role="search">
     <input type="search" name="search" class="form-control" placeholder="Имя или почта" value="{{ search }}" aria-label="Поиск пользователей">
+    <input type="hidden" name="show" value="{{ show }}">
     <button type="submit" class="btn btn-primary">Найти</button>
-    {% if search %}<a class="btn btn-link" href="{{ url_for('admin.users') }}">Сбросить</a>{% endif %}
+    {% if search %}<a class="btn btn-link" href="{{ url_for('admin.users', show=show) }}">Сбросить</a>{% endif %}
 </form>
+
+<nav class="filter-chips" aria-label="Фильтр по уровню доступа">
+    {% for f in filters %}
+    <a href="{{ url_for('admin.users', show=f.key, search=search) }}"{% if f.key == show %} aria-current="page"{% endif %}
+       class="{{ 'is-empty' if not f.count else '' }}">{{ filter_names.get(f.key, f.key) }} <span class="num">{{ f.count }}</span></a>
+    {% endfor %}
+</nav>
 
 {% if users.items %}
 <div class="row-list">
@@ -25,7 +35,7 @@
             <span class="row-title">{{ user.username }}{% if is_me %} <span class="pill">вы</span>{% endif %}{% if user.is_blocked %} <span class="pill is-low">заблокирован</span>{% endif %}</span>
             <span class="row-sub">{{ user.email }} · с {{ user.created_at.strftime('%d.%m.%Y') }}</span>
         </div>
-        <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id, search=search) }}" class="role-form">
+        <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id, **keep) }}" class="role-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <select name="role_id" class="form-select form-select-sm" aria-label="Роль {{ user.username }}" onchange="this.form.requestSubmit()"{% if is_me %} disabled title="Свою роль изменить нельзя"{% endif %}>
                 {% for role in roles %}
@@ -40,14 +50,14 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li>
-                    <form method="POST" action="{{ url_for('admin.reset_password', user_id=user.id, search=search) }}"
+                    <form method="POST" action="{{ url_for('admin.reset_password', user_id=user.id, **keep) }}"
                           data-confirm="Сбросить пароль {{ user.username }}? Новый временный пароль покажется здесь — передайте его пользователю.">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="dropdown-item"{% if user.is_blocked %} disabled title="Сначала разблокируйте"{% endif %}>Сбросить пароль</button>
                     </form>
                 </li>
                 <li>
-                    <form method="POST" action="{{ url_for('admin.block_user', user_id=user.id, search=search) }}"
+                    <form method="POST" action="{{ url_for('admin.block_user', user_id=user.id, **keep) }}"
                           data-confirm="{{ 'Разблокировать' if user.is_blocked else 'Заблокировать' }} {{ user.username }}?{{ '' if user.is_blocked else ' Все входы пользователя сразу завершатся.' }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="dropdown-item">{{ 'Разблокировать' if user.is_blocked else 'Заблокировать' }}</button>
@@ -55,7 +65,7 @@
                 </li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
-                    <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id, search=search) }}"
+                    <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id, **keep) }}"
                           data-confirm="Удалить аккаунт {{ user.username }}? Удалить можно только аккаунт без шаблонов и тренировок.">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="dropdown-item text-danger">Удалить</button>
@@ -68,21 +78,21 @@
     {% endfor %}
 </div>
 {% else %}
-<p class="empty-note">Никого не найдено.</p>
+<p class="empty-note">{{ 'Никого не найдено.' if search else 'В этой группе пока никого нет.' }}</p>
 {% endif %}
 
 {% if users.pages > 1 %}
 <nav class="mt-4" aria-label="Страницы">
     <ul class="pagination justify-content-center">
-        <li class="page-item{% if not users.has_prev %} disabled{% endif %}"><a class="page-link" href="{{ url_for('admin.users', page=users.prev_num, search=search) if users.has_prev else '#' }}">←</a></li>
+        <li class="page-item{% if not users.has_prev %} disabled{% endif %}"><a class="page-link" href="{{ url_for('admin.users', page=users.prev_num, search=search, show=show) if users.has_prev else '#' }}">←</a></li>
         {% for p in users.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
             {% if p %}
-            <li class="page-item{% if p == users.page %} active{% endif %}"><a class="page-link" href="{{ url_for('admin.users', page=p, search=search) }}">{{ p }}</a></li>
+            <li class="page-item{% if p == users.page %} active{% endif %}"><a class="page-link" href="{{ url_for('admin.users', page=p, search=search, show=show) }}">{{ p }}</a></li>
             {% else %}
             <li class="page-item disabled"><span class="page-link">…</span></li>
             {% endif %}
         {% endfor %}
-        <li class="page-item{% if not users.has_next %} disabled{% endif %}"><a class="page-link" href="{{ url_for('admin.users', page=users.next_num, search=search) if users.has_next else '#' }}">→</a></li>
+        <li class="page-item{% if not users.has_next %} disabled{% endif %}"><a class="page-link" href="{{ url_for('admin.users', page=users.next_num, search=search, show=show) if users.has_next else '#' }}">→</a></li>
     </ul>
 </nav>
 {% endif %}

@@ -1207,3 +1207,12 @@ fieldset legend.form-label { font-size: .9rem; }
   .role-form .form-select { width: 100%; min-width: 0; }
   .filters-search { grid-template-columns: 1fr auto; }
 }
+.filter-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.filter-chips a {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); text-decoration: none; font: 600 13px var(--font-display);
+}
+.filter-chips a .num { font-size: 12px; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--fg); }
+.filter-chips a:hover { border-color: var(--gold); color: var(--fg); }
+.filter-chips a[aria-current="page"] { border-color: var(--gold); color: var(--gold); background: rgba(var(--gold-rgb), .1); }
+.filter-chips a.is-empty:not([aria-current]) { opacity: .55; }
