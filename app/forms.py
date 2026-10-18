@@ -150,6 +150,25 @@ class ProgramGenerationForm(FlaskForm):
     
     submit = SubmitField('Продолжить')
     
+    DAYS = ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')
+    MAX_DAYS = 366
+    
+    def validate(self, extra_validators=None):
+        """Проверки, которые раньше делал только браузер"""
+        ok = super().validate(extra_validators)
+        if not any(getattr(self, day).data for day in self.DAYS):
+            self.monday.errors.append('Выберите хотя бы один день недели')
+            ok = False
+        start, end = self.start_date.data, self.end_date.data
+        if start and end:
+            if end < start:
+                self.end_date.errors.append('Дата окончания раньше даты начала')
+                ok = False
+            elif (end - start).days >= self.MAX_DAYS:
+                self.end_date.errors.append('Период — не больше года')
+                ok = False
+        return ok
+    
     def __init__(self, *args, **kwargs):
         super(ProgramGenerationForm, self).__init__(*args, **kwargs)
         from app.models import WorkoutTemplate

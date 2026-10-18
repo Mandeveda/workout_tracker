@@ -169,3 +169,10 @@ def test_cannot_move_foreign_workout(client, make_user, make_exercise, make_temp
     client.post('/auth/login', data={'username': 'other', 'password': 'pass123'})
     client.post(f'/workouts/move_to_today/{schedule.id}')
     assert db.session.get(WorkoutSchedule, schedule.id).scheduled_date == local_today() - timedelta(days=3)
+
+
+@pytest.mark.parametrize('n, word', [(1, 'подход'), (2, 'подхода'), (5, 'подходов'), (11, 'подходов'),
+                                     (12, 'подходов'), (21, 'подход'), (22, 'подхода'), (111, 'подходов'), (0, 'подходов')])
+def test_plural(n, word):
+    from app.textutil import plural
+    assert plural(n, 'подход', 'подхода', 'подходов') == word

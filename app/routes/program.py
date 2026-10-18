@@ -5,6 +5,7 @@ from app import db
 from app.models import WorkoutTemplate, WorkoutSchedule, TemplateExercise, WorkoutSession, SetLog, Exercise
 from app.forms import ProgramGenerationForm, ExerciseParametersForm
 import json
+from app.textutil import plural
 
 bp = Blueprint('program', __name__, url_prefix='/program')
 
@@ -63,149 +64,53 @@ def set_parameters():
             last_data[te.id] = last
     
     if request.method == 'POST':
-        # ... существующий код обработки POST (без изменений) ...
-        all_valid = True
-        parameters = {}
-        
+        parameters, problems = {}, []
         for te in template_exercises:
-            exercise_type = te.exercise.exercise_type
-            
-            if exercise_type == 'cardio':
-                duration = request.form.get(f'duration_{te.id}', type=int)
-                distance = request.form.get(f'distance_{te.id}', type=float)
-                heart_rate = request.form.get(f'heart_rate_{te.id}', type=int)
-                
-                if not duration:
-                    duration = 30
-                if not distance:
-                    distance = 0
-                
-                parameters[str(te.exercise_id)] = {
-                    'input_type': 'cardio',
-                    'duration': duration,
-                    'distance': distance,
-                    'target_heart_rate': heart_rate,
-                    'exercise_name': te.exercise.name,
-                    'exercise_type': 'cardio'
-                }
-                
-            elif exercise_type == 'bodyweight':
-                input_type = request.form.get(f'ex_{te.id}-input_type')
-                
-                if input_type == 'fixed':
-                    sets = int(request.form.get(f'ex_{te.id}-sets', 3))
-                    reps = int(request.form.get(f'ex_{te.id}-reps', 10))
-                    
-                    parameters[str(te.exercise_id)] = {
-                        'input_type': 'fixed',
-                        'sets': sets,
-                        'reps': reps,
-                        'weight': 0,
-                        'exercise_name': te.exercise.name,
-                        'exercise_type': 'bodyweight'
-                    }
-                else:
-                    progressive_data_json = request.form.get(f'progressive_data_{te.id}')
-                    if progressive_data_json:
-                        try:
-                            progressive_sets = json.loads(progressive_data_json)
-                            if not progressive_sets:
-                                flash(f'Для упражнения "{te.exercise.name}" не добавлено ни одного подхода', 'danger')
-                                all_valid = False
-                                continue
-                            
-                            for set_info in progressive_sets:
-                                set_info['weight'] = 0
-                            
-                            parameters[str(te.exercise_id)] = {
-                                'input_type': 'progressive',
-                                'sets': progressive_sets,
-                                'exercise_name': te.exercise.name,
-                                'exercise_type': 'bodyweight'
-                            }
-                        except json.JSONDecodeError:
-                            flash(f'Ошибка в данных упражнения "{te.exercise.name}"', 'danger')
-                            all_valid = False
-                            continue
-                    else:
-                        flash(f'Для упражнения "{te.exercise.name}" не заполнены параметры', 'danger')
-                        all_valid = False
-                        continue
-                        
-            else:  # strength
-                input_type = request.form.get(f'ex_{te.id}-input_type')
-                
-                if input_type == 'fixed':
-                    sets = int(request.form.get(f'ex_{te.id}-sets', 3))
-                    reps = int(request.form.get(f'ex_{te.id}-reps', 10))
-                    weight = float(request.form.get(f'ex_{te.id}-weight', 0))
-                    
-                    parameters[str(te.exercise_id)] = {
-                        'input_type': 'fixed',
-                        'sets': sets,
-                        'reps': reps,
-                        'weight': weight,
-                        'exercise_name': te.exercise.name,
-                        'exercise_type': 'strength'
-                    }
-                else:
-                    progressive_data_json = request.form.get(f'progressive_data_{te.id}')
-                    if progressive_data_json:
-                        try:
-                            progressive_sets = json.loads(progressive_data_json)
-                            if not progressive_sets:
-                                flash(f'Для упражнения "{te.exercise.name}" не добавлено ни одного подхода', 'danger')
-                                all_valid = False
-                                continue
-                            
-                            parameters[str(te.exercise_id)] = {
-                                'input_type': 'progressive',
-                                'sets': progressive_sets,
-                                'exercise_name': te.exercise.name,
-                                'exercise_type': 'strength'
-                            }
-                        except json.JSONDecodeError:
-                            flash(f'Ошибка в данных упражнения "{te.exercise.name}"', 'danger')
-                            all_valid = False
-                            continue
-                    else:
-                        flash(f'Для упражнения "{te.exercise.name}" не заполнены параметры', 'danger')
-                        all_valid = False
-                        continue
+            plan, problem = parse_exercise_plan(te, request.form)
+            if problem:
+                problems.append(f'Проверьте «{te.exercise.name}»: {problem}')
+            else:
+                parameters[str(te.exercise_id)] = plan
         
-        if all_valid:
-            # Генерируем расписание
+        if problems:
+            for problem in problems:
+                flash(problem, 'danger')
+        else:
             start_date = datetime.strptime(program_data['start_date'], '%Y-%m-%d').date()
             end_date = datetime.strptime(program_data['end_date'], '%Y-%m-%d').date()
+            days_map = {'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+                        'friday': 4, 'saturday': 5, 'sunday': 6}
+            selected_weekdays = {days_map[day] for day in program_data['days']}
             
-            days_map = {
-                'monday': 0, 'tuesday': 1, 'wednesday': 2,
-                'thursday': 3, 'friday': 4, 'saturday': 5, 'sunday': 6
-            }
-            
-            selected_weekdays = [days_map[day] for day in program_data['days']]
-            
+            # Даты, на которые этот шаблон уже стоит в расписании, не дублируем
+            taken = {s.scheduled_date for s in WorkoutSchedule.query.filter(
+                WorkoutSchedule.user_id == current_user.id,
+                WorkoutSchedule.template_id == template.id,
+                WorkoutSchedule.scheduled_date.between(start_date, end_date)
+            )}
+            created = skipped = 0
             current_date = start_date
-            schedules_created = 0
-            
             while current_date <= end_date:
                 if current_date.weekday() in selected_weekdays:
-                    schedule = WorkoutSchedule(
-                        user_id=current_user.id,
-                        template_id=program_data['template_id'],
-                        scheduled_date=current_date,
-                        planned_data=parameters,
-                        status='planned'
-                    )
-                    db.session.add(schedule)
-                    schedules_created += 1
+                    if current_date in taken:
+                        skipped += 1
+                    else:
+                        db.session.add(WorkoutSchedule(
+                            user_id=current_user.id,
+                            template_id=template.id,
+                            scheduled_date=current_date,
+                            planned_data=parameters,
+                            status='planned'
+                        ))
+                        created += 1
                 current_date += timedelta(days=1)
-            
             db.session.commit()
-            
             flask_session.pop('program_data', None)
             
-            flash(f'Программа успешно создана! Сгенерировано {schedules_created} тренировок.', 'success')
+            message = f'Расписание готово: {created} {plural(created, "тренировка", "тренировки", "тренировок")}.'
+            if skipped:
+                message += f' {skipped} — на даты, где «{template.name}» уже стоял в расписании, — пропущено.'
+            flash(message, 'success')
             return redirect(url_for('main.dashboard'))
     
     return render_template('program/set_parameters.html', 
@@ -213,6 +118,69 @@ def set_parameters():
                          template_exercises=template_exercises, 
                          forms=forms,
                          last_data=last_data)
+
+# Допустимые значения в плане: (минимум, максимум)
+LIMITS = {'sets': (1, 20), 'reps': (1, 1000), 'weight': (0, 1000),
+          'duration': (1, 600), 'distance': (0, 500), 'heart_rate': (40, 220)}
+
+
+def parse_number(value, kind, cast=int):
+    """Число из поля формы в допустимых пределах или None (пусто, не число, вне пределов)"""
+    try:
+        number = cast(str(value).strip().replace(',', '.'))
+    except (TypeError, ValueError):
+        return None
+    low, high = LIMITS[kind]
+    return number if low <= number <= high else None
+
+
+def parse_exercise_plan(te, form):
+    """План одного упражнения из формы шага 2: (план, None) или (None, текст ошибки)"""
+    ex_type = te.exercise.exercise_type
+    base = {'exercise_name': te.exercise.name, 'exercise_type': ex_type}
+    
+    if ex_type == 'cardio':
+        duration = parse_number(form.get(f'duration_{te.id}') or 30, 'duration')
+        distance = parse_number(form.get(f'distance_{te.id}') or 0, 'distance', float)
+        heart_raw = form.get(f'heart_rate_{te.id}')
+        heart_rate = parse_number(heart_raw, 'heart_rate') if heart_raw else None
+        if duration is None:
+            return None, 'длительность — от 1 до 600 минут'
+        if distance is None:
+            return None, 'дистанция — от 0 до 500 км'
+        if heart_raw and heart_rate is None:
+            return None, 'пульс — от 40 до 220 уд/мин'
+        return {'input_type': 'cardio', 'duration': duration, 'distance': distance,
+                'target_heart_rate': heart_rate, **base}, None
+    
+    with_weight = ex_type == 'strength'
+    if form.get(f'ex_{te.id}-input_type') == 'progressive':
+        try:
+            raw_sets = json.loads(form.get(f'progressive_data_{te.id}') or '')
+        except ValueError:
+            return None, 'не удалось прочитать подходы — заполните их заново'
+        if not isinstance(raw_sets, list) or not 1 <= len(raw_sets) <= LIMITS['sets'][1]:
+            return None, 'нужен хотя бы один подход (не больше 20)'
+        sets = []
+        for n, item in enumerate(raw_sets, start=1):
+            reps = parse_number(item.get('reps') if isinstance(item, dict) else None, 'reps')
+            weight = parse_number(item.get('weight', 0), 'weight', float) if with_weight and isinstance(item, dict) else 0
+            if reps is None or weight is None:
+                return None, f'подход {n}: повторения — от 1 до 1000, вес — от 0 до 1000 кг'
+            sets.append({'set_number': n, 'reps': reps, 'weight': weight})
+        return {'input_type': 'progressive', 'sets': sets, **base}, None
+    
+    sets = parse_number(form.get(f'ex_{te.id}-sets'), 'sets')
+    reps = parse_number(form.get(f'ex_{te.id}-reps'), 'reps')
+    weight = parse_number(form.get(f'ex_{te.id}-weight', 0), 'weight', float) if with_weight else 0
+    if sets is None:
+        return None, 'подходов — от 1 до 20'
+    if reps is None:
+        return None, 'повторений — от 1 до 1000'
+    if weight is None:
+        return None, 'вес — от 0 до 1000 кг'
+    return {'input_type': 'fixed', 'sets': sets, 'reps': reps, 'weight': weight, **base}, None
+
 
 def get_last_workout_data(user_id, exercise_id):
     """

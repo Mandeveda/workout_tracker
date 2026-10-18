@@ -86,15 +86,8 @@ def create_app(config_class=None):
         from app.timeutil import to_local
         return to_local(value)
     
-    @app.template_filter('plural')
-    def plural(n, one, few, many):
-        """Склонение по числу: 1 упражнение, 3 упражнения, 5 упражнений"""
-        n = abs(int(n))
-        if n % 10 == 1 and n % 100 != 11:
-            return one
-        if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
-            return few
-        return many
+    from app.textutil import plural
+    app.add_template_filter(plural, 'plural')   # {{ n|plural('упражнение', 'упражнения', 'упражнений') }}
     
     # Обработчик ошибки превышения лимита
     @app.errorhandler(429)
