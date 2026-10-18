@@ -4,6 +4,7 @@ from app import db
 from app.models import WorkoutSession, SetLog, Exercise
 from app.routes.main import MONTHS_SHORT
 from datetime import datetime, timedelta
+from app.timeutil import local_today, local_date, utc_start_of
 
 bp = Blueprint('analytics', __name__, url_prefix='/analytics')
 
@@ -90,7 +91,7 @@ def progress_data(exercise_id):
 
     by_date = {}
     for log in completed_logs(exercise_id).order_by(WorkoutSession.date).all():
-        day = log.session.date.strftime('%Y-%m-%d')
+        day = local_date(log.session.date).strftime('%Y-%m-%d')
         point = by_date.setdefault(day, {'weight': 0, 'reps': 0, 'set': 0, 'minutes': 0, 'km': 0})
         weight, reps = log.actual_weight or 0, log.actual_reps or 0
         point['weight'] = max(point['weight'], weight)
@@ -111,10 +112,10 @@ def progress_data(exercise_id):
 @login_required
 def dashboard():
     """Обзор: цифры за 30 дней, тоннаж по неделям, упражнения по объёму"""
-    today = datetime.utcnow().date()
+    today = local_today()
     month_ago = today - timedelta(days=30)
     completed = WorkoutSession.query.filter_by(user_id=current_user.id, is_completed=True)
-    month_sessions = completed.filter(WorkoutSession.date >= month_ago).all()
+    month_sessions = completed.filter(WorkoutSession.date >= utc_start_of(month_ago)).all()
 
     workouts_last_month = len(month_sessions)
     total_tonnage = sum(s.total_tonnage or 0 for s in month_sessions)
@@ -126,7 +127,7 @@ def dashboard():
     for exercise in user_exercises():
         rec = exercise_records(exercise) or {}
         main = rec.get('max_weight') or rec.get('max_reps') or rec.get('farthest') or rec.get('longest')
-        if main and main.session.date.date() >= month_ago:
+        if main and local_date(main.session.date) >= month_ago:
             fresh_records.append({'exercise': exercise, 'log': main})
 
     best_workout = completed.order_by(WorkoutSession.total_tonnage.desc()).first()
@@ -135,15 +136,16 @@ def dashboard():
     monday = today - timedelta(days=today.weekday())
     first_week = monday - timedelta(weeks=11)
     weekly = {first_week + timedelta(weeks=i): 0 for i in range(12)}
-    for s in completed.filter(WorkoutSession.date >= first_week).all():
-        start = s.date.date() - timedelta(days=s.date.weekday())
+    for s in completed.filter(WorkoutSession.date >= utc_start_of(first_week)).all():
+        day = local_date(s.date)
+        start = day - timedelta(days=day.weekday())
         if start in weekly:
             weekly[start] += s.total_tonnage or 0
     chart = {'labels': [d.strftime('%d.%m') for d in weekly], 'values': [round(v) for v in weekly.values()]}
 
     # Упражнения по объёму за 30 дней (силовые — тоннаж, остальные — число подходов)
     volume = {}
-    for log in completed_logs().filter(WorkoutSession.date >= month_ago).all():
+    for log in completed_logs().filter(WorkoutSession.date >= utc_start_of(month_ago)).all():
         item = volume.setdefault(log.exercise_id, {'exercise': log.exercise, 'sets': 0, 'tonnage': 0})
         item['sets'] += 1
         if log.exercise.exercise_type == 'strength':
@@ -171,16 +173,16 @@ def calendar():
 @login_required
 def calendar_data():
     """Тренировки по дням за последние 6 месяцев (JSON), только завершённые"""
-    start_date = datetime.utcnow().date() - timedelta(days=183)
+    start_date = local_today() - timedelta(days=183)
     sessions = WorkoutSession.query.filter(
         WorkoutSession.user_id == current_user.id,
         WorkoutSession.is_completed.is_(True),
-        WorkoutSession.date >= start_date
+        WorkoutSession.date >= utc_start_of(start_date)
     ).all()
 
     data = {}
     for session in sessions:
-        day = data.setdefault(session.date.strftime('%Y-%m-%d'), {'count': 0, 'total_tonnage': 0})
+        day = data.setdefault(local_date(session.date).strftime('%Y-%m-%d'), {'count': 0, 'total_tonnage': 0})
         day['count'] += 1
         day['total_tonnage'] += session.total_tonnage or 0
     return jsonify(data)

@@ -80,6 +80,12 @@ def create_app(config_class=None):
             return value
         return text.replace(',', '\u00a0').replace('.', ',')
     
+    @app.template_filter('local')
+    def local_time(value):
+        """UTC из базы → местное время сайта: {{ session.date|local|strftime... }}"""
+        from app.timeutil import to_local
+        return to_local(value)
+    
     @app.template_filter('plural')
     def plural(n, one, few, many):
         """Склонение по числу: 1 упражнение, 3 упражнения, 5 упражнений"""

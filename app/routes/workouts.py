@@ -5,6 +5,7 @@ from datetime import datetime
 from app import db, limiter
 from app.models import WorkoutSchedule, WorkoutSession, SetLog, Exercise, TemplateExercise
 from app.routes.main import session_title, human_date, MONTHS_SHORT
+from app.timeutil import local_today, local_date
 import json
 
 bp = Blueprint('workouts', __name__, url_prefix='/workouts')
@@ -14,7 +15,7 @@ bp = Blueprint('workouts', __name__, url_prefix='/workouts')
 @login_required
 def index():
     """Список тренировок на сегодня и предстоящие"""
-    today = datetime.utcnow().date()
+    today = local_today()
     
     # Активные (незавершённые) тренировки
     active_sessions = WorkoutSession.query.filter_by(
@@ -28,6 +29,13 @@ def index():
         scheduled_date=today,
         status='planned'
     ).all()
+    
+    # Пропущенные: запланированы на прошедшие дни, но не начаты и не отмечены пропуском
+    overdue = WorkoutSchedule.query.filter(
+        WorkoutSchedule.user_id == current_user.id,
+        WorkoutSchedule.scheduled_date < today,
+        WorkoutSchedule.status == 'planned'
+    ).order_by(WorkoutSchedule.scheduled_date.desc()).limit(10).all()
     
     # Предстоящие тренировки (следующие 7 дней)
     upcoming = WorkoutSchedule.query.filter(
@@ -45,6 +53,8 @@ def index():
     return render_template('workouts/index.html', 
                          active_sessions=active_sessions,
                          today_workouts=today_workouts,
+                         overdue=overdue,
+                         today=today,
                          upcoming=upcoming,
                          history=history,
                          session_title=session_title,
@@ -56,7 +66,7 @@ def index():
 @login_required
 def start_workout(schedule_id=None):
     """Начать тренировку"""
-    today = datetime.utcnow().date()
+    today = local_today()
     
     if schedule_id is None:
         schedule = WorkoutSchedule.query.filter_by(
@@ -595,7 +605,7 @@ def summary(session_id):
                          exercises_summary=exercises_summary,
                          sets_count=len(set_logs),
                          title=session_title(session),
-                         date_text=human_date(session.date.date()))
+                         date_text=human_date(local_date(session.date)))
 
 @bp.route('/skip/<int:schedule_id>', methods=['POST'])
 @login_required
@@ -611,6 +621,19 @@ def skip_workout(schedule_id):
     db.session.commit()
     
     flash('Тренировка отмечена как пропущенная', 'info')
+    return redirect(url_for('workouts.index'))
+
+@bp.route('/move_to_today/<int:schedule_id>', methods=['POST'])
+@login_required
+def move_to_today(schedule_id):
+    """Перенести пропущенную тренировку на сегодня"""
+    schedule = WorkoutSchedule.query.get_or_404(schedule_id)
+    if schedule.user_id != current_user.id or schedule.status != 'planned':
+        flash('Эту тренировку нельзя перенести', 'danger')
+        return redirect(url_for('workouts.index'))
+    schedule.scheduled_date = local_today()
+    db.session.commit()
+    flash(f'«{schedule.template.name}» перенесена на сегодня', 'success')
     return redirect(url_for('workouts.index'))
 
 @bp.route('/postpone/<int:schedule_id>', methods=['POST'])

@@ -17,7 +17,7 @@
     <div>
         <span class="label">{{ 'Итоги тренировки' if session.is_completed else 'Тренировка не завершена' }}</span>
         <h1>{{ title }}</h1>
-        <p class="page-sub">{{ date_text|capitalize }}, {{ session.date.strftime('%H:%M') }} (UTC)</p>
+        <p class="page-sub">{{ date_text|capitalize }}, {{ (session.date|local).strftime('%H:%M') }}</p>
     </div>
     <div class="page-actions">
         <a class="btn btn-primary" href="{{ url_for('main.dashboard') }}">На главную</a>

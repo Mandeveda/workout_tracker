@@ -103,3 +103,69 @@ def test_tonnage_counts_only_strength(plan, make_session):
     add_log(session, bike, 1, (20, 5), (20, 5))       # было бы +100 «кг»
     update_session_completion(session.id)
     assert session.total_tonnage == 640
+
+
+# ---------- План 3.5: «сегодня» по местному времени ----------
+from datetime import date, datetime
+
+
+@pytest.fixture
+def late_evening_utc(monkeypatch):
+    """22:30 UTC 18 октября = 01:30 МСК 19 октября"""
+    import app.timeutil as tu
+    monkeypatch.setattr(tu, 'utcnow', lambda: datetime(2026, 10, 18, 22, 30))
+    return date(2026, 10, 19)
+
+
+def test_local_today_and_day_boundaries(app, late_evening_utc):
+    from app.timeutil import local_today, utc_start_of, local_date
+    assert local_today() == late_evening_utc
+    assert utc_start_of(date(2026, 10, 19)) == datetime(2026, 10, 18, 21, 0)
+    assert local_date(datetime(2026, 10, 18, 21, 30)) == date(2026, 10, 19)
+
+
+def test_can_start_todays_workout_after_local_midnight(client, make_user, make_exercise, make_template, late_evening_utc):
+    """Раньше с 00:00 до 03:00 МСК сервер считал, что «сегодня» ещё вчера, и не давал начать тренировку"""
+    user = make_user('anna')
+    _, schedule = make_template(user, [(make_exercise('Присед'), SQUAT_PLAN)], on=late_evening_utc)
+    client.post('/auth/login', data={'username': 'anna', 'password': 'pass123'})
+    assert 'Сегодня по плану' in client.get('/dashboard').get_data(as_text=True)
+    response = client.get(f'/workouts/start/{schedule.id}')
+    assert '/workouts/perform/' in response.headers['Location']
+
+
+def test_calendar_groups_by_local_day(client, make_user, make_session, late_evening_utc):
+    user = make_user('anna')
+    session = make_session(user, completed=True)
+    session.date = datetime(2026, 10, 18, 21, 30)          # 00:30 МСК 19 октября
+    db.session.commit()
+    client.post('/auth/login', data={'username': 'anna', 'password': 'pass123'})
+    assert list(client.get('/analytics/calendar_data').get_json()) == ['2026-10-19']
+
+
+def test_overdue_workout_can_be_moved_to_today(client, make_user, make_exercise, make_template):
+    """План 3.5: просроченная тренировка висела «запланированной» навсегда — теперь её видно и можно перенести"""
+    from datetime import timedelta
+    from app.timeutil import local_today
+    from app.models import WorkoutSchedule
+    user = make_user('anna')
+    _, schedule = make_template(user, [(make_exercise('Присед'), SQUAT_PLAN)], on=local_today() - timedelta(days=3))
+    client.post('/auth/login', data={'username': 'anna', 'password': 'pass123'})
+    page = client.get('/workouts/').get_data(as_text=True)
+    assert 'Пропущенные' in page
+    assert 'пропущенн' in client.get('/dashboard').get_data(as_text=True)
+    assert client.get(f'/workouts/move_to_today/{schedule.id}').status_code == 405
+    client.post(f'/workouts/move_to_today/{schedule.id}')
+    assert db.session.get(WorkoutSchedule, schedule.id).scheduled_date == local_today()
+
+
+def test_cannot_move_foreign_workout(client, make_user, make_exercise, make_template):
+    from datetime import timedelta
+    from app.timeutil import local_today
+    from app.models import WorkoutSchedule
+    owner = make_user('owner')
+    make_user('other')
+    _, schedule = make_template(owner, [(make_exercise('Присед'), SQUAT_PLAN)], on=local_today() - timedelta(days=3))
+    client.post('/auth/login', data={'username': 'other', 'password': 'pass123'})
+    client.post(f'/workouts/move_to_today/{schedule.id}')
+    assert db.session.get(WorkoutSchedule, schedule.id).scheduled_date == local_today() - timedelta(days=3)

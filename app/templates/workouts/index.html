@@ -21,12 +21,34 @@
         <div class="row-item is-accent">
             <div class="row-main">
                 <span class="row-title">{{ session_title(s) }}</span>
-                <span class="row-sub num">начата {{ s.date.strftime('%d.%m.%Y в %H:%M') }} (UTC)</span>
+                <span class="row-sub num">начата {{ (s.date|local).strftime('%d.%m.%Y в %H:%M') }}</span>
             </div>
             <div class="row-actions">
                 <a class="btn btn-primary btn-sm" href="{{ url_for('workouts.perform' if s.schedule_id else 'workouts.free_workout', session_id=s.id) }}">
                     <svg class="icon"><use href="#i-play"/></svg>Продолжить
                 </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if overdue %}
+<section class="block">
+    <h2 class="block-title">Пропущенные</h2>
+    <div class="row-list">
+        {% for w in overdue %}
+        {% set days = (today - w.scheduled_date).days %}
+        <div class="row-item is-stack">
+            <span class="history-date num"><b>{{ w.scheduled_date.day }}</b>{{ months_short[w.scheduled_date.month - 1] }}</span>
+            <div class="row-main">
+                <span class="row-title">{{ w.template.name }}</span>
+                <span class="row-sub">{{ days }} {{ days|plural('день', 'дня', 'дней') }} назад, не начата</span>
+            </div>
+            <div class="row-actions">
+                {{ post_button(url_for('workouts.move_to_today', schedule_id=w.id), 'На сегодня', 'btn btn-outline-primary btn-sm') }}
+                {{ post_button(url_for('workouts.skip_workout', schedule_id=w.id), 'Пропустить', 'btn btn-link btn-sm row-muted-action') }}
             </div>
         </div>
         {% endfor %}
@@ -89,7 +111,7 @@
             {% for s in history %}
             <li>
                 <a href="{{ url_for('workouts.summary', session_id=s.id) }}">
-                    <span class="history-date num"><b>{{ s.date.day }}</b>{{ months_short[s.date.month - 1] }}</span>
+                    <span class="history-date num"><b>{{ (s.date|local).day }}</b>{{ months_short[(s.date|local).month - 1] }}</span>
                     <span class="history-body">
                         <span class="history-title">{{ session_title(s) }}</span>
                         <span class="history-sub num">{{ s.total_tonnage|num }} кг</span>

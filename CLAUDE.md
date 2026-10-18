@@ -42,6 +42,7 @@ Tests (`tests/`) run against an in-memory SQLite DB created per test (`conftest.
 - `DATABASE_URL` → otherwise SQLite at `instance/workout.db`. `REDIS_URL`/`RATELIMIT_STORAGE_URI` → limiter storage (default `memory://`). Mail defaults to Yandex SMTP over SSL (used for password reset).
 - `create_app()` picks the config class via `get_config()` from `ENVIRONMENT` (`development` → `DevelopmentConfig`: DEBUG, insecure cookies by default; `production` → `ProductionConfig`: `SameSite=Strict`). `SESSION_COOKIE_SECURE` from `.env` overrides the per-environment default (`env_bool` helper).
 - `RATELIMIT_DEFAULT_LIMITS` in `config.py` is **not** a Flask-Limiter key (the real one is `RATELIMIT_DEFAULT`), so there is effectively no global limit — only the explicit `@limiter.limit` on auth routes. Renaming it would enable 20 req/hour site-wide. Workout AJAX endpoints (`save_progress`, `complete`) are `@limiter.exempt`.
+- Times are stored as naive UTC (`datetime.utcnow()`); anything about "today", days or weeks uses the site timezone `APP_TIMEZONE` (default `Europe/Moscow`) via `app/timeutil.py` (`local_today`, `local_date`, `utc_start_of` for query boundaries) and the Jinja filter `|local`. Tests patch `app.timeutil.utcnow`.
 - The strict CSP header is only added when `ENVIRONMENT=production`; any new external asset host must be added there.
 
 ## Architecture

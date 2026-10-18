@@ -14,7 +14,7 @@
         {% if active_session %}
             <span class="label">Тренировка не завершена</span>
             <h2>{{ session_title(active_session) }}</h2>
-            <p class="hero-meta">Начата <b class="num">{{ active_session.date.strftime('%d.%m.%Y в %H:%M') }}</b> (UTC)</p>
+            <p class="hero-meta">Начата <b class="num">{{ (active_session.date|local).strftime('%d.%m.%Y в %H:%M') }}</b></p>
             <div class="hero-actions">
                 <a class="btn btn-primary" href="{{ url_for('workouts.perform' if active_session.schedule_id else 'workouts.free_workout', session_id=active_session.id) }}">
                     <svg class="icon"><use href="#i-play"/></svg>Продолжить
@@ -54,6 +54,11 @@
         {% endif %}
     </div>
 
+    {% if overdue_count and not active_session %}
+    <a class="hero-overdue" href="{{ url_for('workouts.index') }}">
+        {{ overdue_count }} {{ overdue_count|plural('пропущенная тренировка', 'пропущенные тренировки', 'пропущенных тренировок') }} — перенести или отметить пропуск →
+    </a>
+    {% endif %}
     <div class="hero-week">
         <div class="week" aria-label="Текущая неделя">
             {% for d in week %}
@@ -94,7 +99,7 @@
     <div class="stat">
         <span class="label">Лучший тоннаж</span>
         <strong class="num">{{ (best_workout.total_tonnage|num ~ ' кг') if best_workout else '—' }}</strong>
-        <small>{{ best_workout.date.strftime('%d.%m.%Y') if best_workout else 'после первой тренировки' }}</small>
+        <small>{{ (best_workout.date|local).strftime('%d.%m.%Y') if best_workout else 'после первой тренировки' }}</small>
     </div>
 </section>
 
@@ -123,7 +128,7 @@
             {% for s in recent %}
             <li>
                 <a href="{{ url_for('workouts.summary', session_id=s.id) }}">
-                    <span class="history-date num"><b>{{ s.date.day }}</b>{{ months_short[s.date.month - 1] }}</span>
+                    <span class="history-date num"><b>{{ (s.date|local).day }}</b>{{ months_short[(s.date|local).month - 1] }}</span>
                     <span class="history-body">
                         <span class="history-title">{{ session_title(s) }}</span>
                         <span class="history-sub num">{{ s.total_tonnage|num }} кг</span>

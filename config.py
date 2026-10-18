@@ -48,6 +48,9 @@ class Config:
     
     PERMANENT_SESSION_LIFETIME = timedelta(hours=int(os.environ.get('SESSION_LIFETIME_HOURS', 24)))
 
+    # Часовой пояс сайта: от него зависят «сегодня», неделя и календарь (в базе время в UTC)
+    APP_TIMEZONE = os.environ.get('APP_TIMEZONE', 'Europe/Moscow')
+
     # Cookie «запомнить меня» (Flask-Login): по умолчанию она живёт год и без флага Secure
     REMEMBER_COOKIE_DURATION = timedelta(days=30)
     REMEMBER_COOKIE_SECURE = SESSION_COOKIE_SECURE      # только по HTTPS там, где HTTPS

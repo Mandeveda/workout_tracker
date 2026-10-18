@@ -2,6 +2,7 @@ from flask import render_template, Blueprint
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 from app.models import WorkoutSchedule, WorkoutSession
+from app.timeutil import local_today, local_date, utc_start_of
 
 bp = Blueprint('main', __name__)
 
@@ -34,7 +35,7 @@ def index():
 @bp.route('/dashboard')
 @login_required
 def dashboard():
-    today = datetime.utcnow().date()
+    today = local_today()
     completed = WorkoutSession.query.filter_by(user_id=current_user.id, is_completed=True)
 
     # Незавершённая тренировка — её предлагаем продолжить в первую очередь
@@ -53,12 +54,18 @@ def dashboard():
             WorkoutSchedule.status == 'planned'
         ).order_by(WorkoutSchedule.scheduled_date).first()
 
+    overdue_count = WorkoutSchedule.query.filter(
+        WorkoutSchedule.user_id == current_user.id,
+        WorkoutSchedule.scheduled_date < today,
+        WorkoutSchedule.status == 'planned'
+    ).count()
+
     # Текущая неделя: в какие дни тренировались и что запланировано
     monday = today - timedelta(days=today.weekday())
     sunday = monday + timedelta(days=6)
     done_days = {
-        s.date.date() for s in completed.filter(
-            WorkoutSession.date >= monday, WorkoutSession.date < sunday + timedelta(days=1)
+        local_date(s.date) for s in completed.filter(
+            WorkoutSession.date >= utc_start_of(monday), WorkoutSession.date < utc_start_of(sunday + timedelta(days=1))
         ).all()
     }
     planned_days = {
@@ -82,9 +89,9 @@ def dashboard():
     # Цифры за 30 дней и сравнение с предыдущими 30
     month_ago = today - timedelta(days=30)
     two_months_ago = today - timedelta(days=60)
-    month_sessions = completed.filter(WorkoutSession.date >= month_ago).all()
+    month_sessions = completed.filter(WorkoutSession.date >= utc_start_of(month_ago)).all()
     prev_month_count = completed.filter(
-        WorkoutSession.date >= two_months_ago, WorkoutSession.date < month_ago
+        WorkoutSession.date >= utc_start_of(two_months_ago), WorkoutSession.date < utc_start_of(month_ago)
     ).count()
     month_tonnage = sum(s.total_tonnage or 0 for s in month_sessions)
 
@@ -100,8 +107,9 @@ def dashboard():
     # Тоннаж по неделям за последние 8 недель
     first_week = monday - timedelta(weeks=7)
     weekly = {first_week + timedelta(weeks=i): 0 for i in range(8)}
-    for s in completed.filter(WorkoutSession.date >= first_week).all():
-        week_start = s.date.date() - timedelta(days=s.date.weekday())
+    for s in completed.filter(WorkoutSession.date >= utc_start_of(first_week)).all():
+        day = local_date(s.date)
+        week_start = day - timedelta(days=day.weekday())
         if week_start in weekly:
             weekly[week_start] += s.total_tonnage or 0
     chart = {
@@ -119,6 +127,7 @@ def dashboard():
         next_workout=next_workout,
         next_workout_text=human_date(next_workout.scheduled_date) if next_workout else None,
         week=week,
+        overdue_count=overdue_count,
         month_count=len(month_sessions),
         month_delta=len(month_sessions) - prev_month_count,
         month_tonnage=month_tonnage,

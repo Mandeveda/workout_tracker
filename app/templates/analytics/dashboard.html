@@ -88,7 +88,7 @@
         {% if best_workout %}
         <a class="best-workout" href="{{ url_for('workouts.summary', session_id=best_workout.id) }}">
             <strong class="num">{{ best_workout.total_tonnage|num }} кг</strong>
-            <span>{{ best_workout.template.name if best_workout.template else 'Свободная тренировка' }} · {{ best_workout.date.strftime('%d.%m.%Y') }}</span>
+            <span>{{ best_workout.template.name if best_workout.template else 'Свободная тренировка' }} · {{ (best_workout.date|local).strftime('%d.%m.%Y') }}</span>
         </a>
         {% else %}
         <p class="empty-note">Появится после первой завершённой тренировки.</p>

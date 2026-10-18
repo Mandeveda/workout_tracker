@@ -5,7 +5,7 @@
     <span class="label">{{ label }}</span>
     {% if log %}
     <strong class="num">{{ value }}</strong>
-    <small class="num">{{ detail }} · {{ log.session.date.strftime('%d.%m.%Y') }}</small>
+    <small class="num">{{ detail }} · {{ (log.session.date|local).strftime('%d.%m.%Y') }}</small>
     {% else %}
     <strong>—</strong>
     {% endif %}
