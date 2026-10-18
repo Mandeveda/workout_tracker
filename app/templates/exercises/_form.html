@@ -1,0 +1,132 @@
+{# Общая форма упражнения для add.html и edit.html. Ожидает: form, subgroups, submit_label, exercise (только при редактировании) #}
+<form method="POST" class="panel form-panel exercise-form" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="mb-3">
+        {{ form.name.label(class="form-label") }}
+        {{ form.name(class="form-control" ~ (' is-invalid' if form.name.errors else ''), placeholder="Например, «Жим штанги лёжа»") }}
+        {% for e in form.name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+    </div>
+
+    <div class="mb-3">
+        <span class="form-label d-block">Тип</span>
+        <div class="segmented segmented-3" role="radiogroup" aria-label="Тип упражнения">
+            {% for value, label in [('strength', 'Силовое'), ('bodyweight', 'Свой вес'), ('cardio', 'Кардио')] %}
+            <label><input type="radio" name="exercise_type" value="{{ value }}"{% if form.exercise_type.data == value or (not form.exercise_type.data and loop.first) %} checked{% endif %}><span>{{ label }}</span></label>
+            {% endfor %}
+        </div>
+        <div class="form-text" id="typeHint"></div>
+    </div>
+
+    <div class="form-row-2" id="muscleFields">
+        <div>
+            {{ form.muscle_group_id.label(class="form-label") }}
+            {{ form.muscle_group_id(class="form-select") }}
+        </div>
+        <div>
+            {{ form.muscle_subgroup_id.label(class="form-label") }}
+            <select name="muscle_subgroup_id" id="muscle_subgroup_id" class="form-select" data-selected="{{ form.muscle_subgroup_id.data or 0 }}"></select>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        {{ form.description.label(class="form-label") }}
+        {{ form.description(class="form-control", rows=5, placeholder="Исходное положение, движение, на что обратить внимание") }}
+    </div>
+
+    <div class="mb-3">
+        <span class="form-label d-block">Фото или видео</span>
+        <div class="segmented segmented-4" role="radiogroup" aria-label="Тип медиа">
+            {% for value, label in [('none', 'Нет'), ('image', 'Фото'), ('gif', 'GIF'), ('youtube', 'YouTube')] %}
+            <label><input type="radio" name="media_type" value="{{ value }}"{% if (form.media_type.data or 'none') == value %} checked{% endif %}><span>{{ label }}</span></label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="mb-3" id="mediaUrlBlock" hidden>
+        {{ form.media_url.label(class="form-label") }}
+        {{ form.media_url(class="form-control" ~ (' is-invalid' if form.media_url.errors else ''), placeholder="https://…/image.jpg", inputmode="url") }}
+        {% for e in form.media_url.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+        <div class="media-preview" id="mediaPreview" hidden><img alt="Предпросмотр"></div>
+    </div>
+
+    <div class="mb-3" id="youtubeBlock" hidden>
+        <label class="form-label" for="youtube_id">Ссылка на видео или его ID</label>
+        {{ form.youtube_id(class="form-control" ~ (' is-invalid' if form.youtube_id.errors else ''), placeholder="https://youtu.be/… или dQw4w9WgXcQ", maxlength=200) }}
+        {% for e in form.youtube_id.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+        <div class="form-text">Можно вставить ссылку целиком — ID видео возьмём из неё сами.</div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+        <a class="btn btn-link" href="{{ url_for('exercises.list_exercises') }}">Отмена</a>
+    </div>
+</form>
+
+<script id="subgroupsData" type="application/json">{{ subgroups|tojson }}</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('.exercise-form');
+    const subgroups = JSON.parse(document.getElementById('subgroupsData').textContent);
+    const group = document.getElementById('muscle_group_id');
+    const sub = document.getElementById('muscle_subgroup_id');
+    const hints = {
+        strength: 'Подходы с весом: кг × повторения.',
+        bodyweight: 'Подходы без отягощения: только повторения.',
+        cardio: 'Минуты и километры. Группа мышц не нужна.'
+    };
+
+    function fillSubgroups(selected) {
+        const list = subgroups.filter(s => String(s.group) === group.value);
+        sub.innerHTML = '<option value="0">Не выбрано</option>' +
+            list.map(s => `<option value="${s.id}"${String(s.id) === String(selected) ? ' selected' : ''}>${escapeHtml(s.name)}</option>`).join('');
+        sub.disabled = list.length === 0;
+    }
+
+    function onType() {
+        const type = form.querySelector('[name="exercise_type"]:checked').value;
+        document.getElementById('muscleFields').hidden = type === 'cardio';
+        document.getElementById('typeHint').textContent = hints[type];
+    }
+
+    function onMedia() {
+        const media = form.querySelector('[name="media_type"]:checked').value;
+        document.getElementById('mediaUrlBlock').hidden = !(media === 'image' || media === 'gif');
+        document.getElementById('youtubeBlock').hidden = media !== 'youtube';
+        preview();
+    }
+
+    // Предпросмотр картинки по ссылке
+    const urlInput = document.getElementById('media_url');
+    function preview() {
+        const box = document.getElementById('mediaPreview');
+        const url = safeUrl(urlInput.value.trim());
+        box.hidden = !url || document.getElementById('mediaUrlBlock').hidden;
+        if (url) box.querySelector('img').src = url;
+    }
+    document.querySelector('#mediaPreview img').addEventListener('error', () => { document.getElementById('mediaPreview').hidden = true; });
+
+    // Из ссылки YouTube оставляем только ID (11 символов)
+    const yt = document.getElementById('youtube_id');
+    function extractYoutubeId() {
+        const v = yt.value.trim();
+        const m = v.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/)([A-Za-z0-9_-]{11})/);
+        if (m) yt.value = m[1];
+    }
+
+    group.addEventListener('change', () => fillSubgroups(0));
+    form.querySelectorAll('[name="exercise_type"]').forEach(r => r.addEventListener('change', onType));
+    form.querySelectorAll('[name="media_type"]').forEach(r => r.addEventListener('change', onMedia));
+    urlInput.addEventListener('input', preview);
+    yt.addEventListener('change', extractYoutubeId);
+    form.addEventListener('submit', function () {
+        extractYoutubeId();
+        if (form.querySelector('[name="exercise_type"]:checked').value === 'cardio') { group.value = '0'; fillSubgroups(0); }
+        sub.disabled = false;   // отключённое поле не отправляется
+    });
+
+    fillSubgroups(sub.dataset.selected);
+    onType();
+    onMedia();
+});
+</script>

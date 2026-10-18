@@ -1089,3 +1089,21 @@ fieldset legend.form-label { font-size: .9rem; }
   .progress-summary strong { font-size: 18px; }
   .progress-controls .form-select { max-width: none; }
 }
+
+/* ---------- каталог упражнений ---------- */
+.filters-3 { grid-template-columns: 2fr 1fr 1fr; }
+.ex-card-title { background: none; border: 0; padding: 0; text-align: left; cursor: pointer; }
+.ex-card-desc {
+  margin: 0; font-size: 14px; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ex-card[hidden] { display: none; }
+.form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+.segmented-3 { grid-template-columns: repeat(3, 1fr); }
+.segmented-4 { grid-template-columns: repeat(4, 1fr); }
+.media-preview { margin-top: 10px; border-radius: 12px; overflow: hidden; background: var(--surface-2); max-width: 320px; }
+.media-preview img { display: block; max-height: 200px; width: 100%; object-fit: contain; }
+@media (max-width: 767.98px) {
+  .filters-3 { grid-template-columns: 1fr 1fr; }
+  .form-row-2 { grid-template-columns: 1fr; }
+}

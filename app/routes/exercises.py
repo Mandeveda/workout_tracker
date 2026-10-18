@@ -6,6 +6,11 @@ from app.forms import ExerciseForm
 
 bp = Blueprint('exercises', __name__, url_prefix='/exercises')
 
+def subgroups_data():
+    """Все уточнения мышц для формы упражнения (фильтруются по группе в браузере)"""
+    return [{'id': s.id, 'name': s.display_name, 'group': s.muscle_group_id}
+            for s in MuscleSubgroup.query.order_by(MuscleSubgroup.display_name).all()]
+
 def is_expert():
     """Проверка, имеет ли пользователь права эксперта"""
     return current_user.is_authenticated and current_user.role.name in ['expert', 'admin']
@@ -56,7 +61,7 @@ def add_exercise():
         existing = Exercise.query.filter_by(name=form.name.data).first()
         if existing:
             flash('Упражнение с таким названием уже существует', 'danger')
-            return render_template('exercises/add.html', form=form)
+            return render_template('exercises/add.html', form=form, subgroups=subgroups_data())
         
         # Создаём упражнение (обрабатываем 0 как None)
         exercise = Exercise(
@@ -80,7 +85,7 @@ def add_exercise():
         flash(f'Упражнение "{exercise.name}" успешно создано!', 'success')
         return redirect(url_for('exercises.list_exercises'))
     
-    return render_template('exercises/add.html', form=form)
+    return render_template('exercises/add.html', form=form, subgroups=subgroups_data())
 
 @bp.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -96,16 +101,11 @@ def edit_exercise(id):
     
     form = ExerciseForm(obj=exercise)
     
-    # Загружаем подгруппы для текущей группы мышц
-    current_subgroups = []
-    if exercise.muscle_group_id:
-        current_subgroups = MuscleSubgroup.query.filter_by(muscle_group_id=exercise.muscle_group_id).all()
-    
     if form.validate_on_submit():
         existing = Exercise.query.filter(Exercise.name == form.name.data, Exercise.id != id).first()
         if existing:
             flash('Упражнение с таким названием уже существует', 'danger')
-            return render_template('exercises/edit.html', form=form, exercise=exercise, current_subgroups=current_subgroups)
+            return render_template('exercises/edit.html', form=form, exercise=exercise, subgroups=subgroups_data())
         
         exercise.name = form.name.data
         exercise.exercise_type = form.exercise_type.data
@@ -123,7 +123,7 @@ def edit_exercise(id):
         flash('Упражнение обновлено', 'success')
         return redirect(url_for('exercises.list_exercises'))
     
-    return render_template('exercises/edit.html', form=form, exercise=exercise, current_subgroups=current_subgroups)
+    return render_template('exercises/edit.html', form=form, exercise=exercise, subgroups=subgroups_data())
 
 @bp.route('/get_subgroups')
 @login_required

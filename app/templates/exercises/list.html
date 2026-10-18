@@ -1,201 +1,89 @@
 {% extends "base.html" %}
 {% from "_macros.html" import post_button with context %}
-{% block title %}База упражнений{% endblock %}
+{% block title %}Упражнения{% endblock %}
+{% set type_names = {'strength': 'Силовое', 'bodyweight': 'Собственный вес', 'cardio': 'Кардио'} %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>База упражнений</h2>
+<div class="page-head">
+    <div>
+        <h1>Упражнения</h1>
+        <p class="page-sub">Общий каталог: {{ exercises|length }} {{ exercises|length|plural('упражнение', 'упражнения', 'упражнений') }}. Нажмите на упражнение, чтобы посмотреть технику.</p>
+    </div>
     {% if current_user.role.name in ['expert', 'admin'] %}
-        <a href="{{ url_for('exercises.add_exercise') }}" class="btn btn-primary">+ Добавить упражнение</a>
+    <div class="page-actions">
+        <a class="btn btn-primary" href="{{ url_for('exercises.add_exercise') }}"><svg class="icon"><use href="#i-plus"/></svg>Новое упражнение</a>
+    </div>
     {% endif %}
 </div>
 
-<!-- Поиск и фильтры -->
-<div class="card mb-4">
-    <div class="card-body">
-        <div class="row g-2">
-            <div class="col-md-5">
-                <input type="text" id="searchInput" class="form-control" placeholder="Поиск по названию" value="{{ search }}">
-            </div>
-            <div class="col-md-5">
-                <select id="muscleGroupSelect" class="form-select">
-                    <option value="">Все группы мышц</option>
-                    {% for group in muscle_groups %}
-                        <option value="{{ group.name }}" {% if muscle_group == group.name %}selected{% endif %}>
-                            {{ group.display_name }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-2">
-                <button id="filterButton" class="btn btn-primary w-100">🔍 Найти</button>
-            </div>
-        </div>
-    </div>
+<div class="filters filters-3 panel">
+    <input type="search" id="filterSearch" class="form-control" placeholder="Поиск по названию" value="{{ search }}" autocomplete="off" aria-label="Поиск по названию">
+    <select id="filterGroup" class="form-select" aria-label="Группа мышц">
+        <option value="">Все группы</option>
+        {% for g in muscle_groups %}<option value="{{ g.name }}"{% if muscle_group == g.name %} selected{% endif %}>{{ g.display_name }}</option>{% endfor %}
+    </select>
+    <select id="filterType" class="form-select" aria-label="Тип">
+        <option value="">Все типы</option>
+        {% for key, name in type_names.items() %}<option value="{{ key }}">{{ name }}</option>{% endfor %}
+    </select>
 </div>
 
-<!-- Список упражнений -->
-<div id="exercisesList">
-    <!-- Вместо <div class="row"> -->
-    <div class="row row-cols-1 row-cols-md-2 g-4">
-        {% for exercise in exercises %}
-            <div class="col">
-                <div class="card h-100">
-                    <div class="card-body d-flex flex-column">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <h5 class="card-title mb-0">{{ exercise.name }}</h5>
-                            <span class="badge bg-secondary flex-shrink-0 ms-2">{{ exercise.exercise_type }}</span>
-                        </div>
-                        
-                        {% if exercise.muscle_group %}
-                            <p class="card-text mt-2">
-                                <small class="text-muted">
-                                    {{ exercise.muscle_group.display_name }}
-                                    {% if exercise.muscle_subgroup %} → {{ exercise.muscle_subgroup.display_name }}{% endif %}
-                                </small>
-                            </p>
-                        {% endif %}
-                        
-                        <!-- Медиа контент с фиксированной высотой -->
-                        {% if exercise.media_type != 'none' %}
-                            <div class="exercise-media mt-2 mb-2">
-                                {% if exercise.media_type == 'image' or exercise.media_type == 'gif' %}
-                                <div class="text-center bg-light rounded p-1 mb-2" style="max-height: 180px; overflow: hidden;">
-                                    <img src="{{ exercise.media_url }}" alt="{{ exercise.name }}" 
-                                        class="img-fluid rounded" 
-                                        style="max-height: 150px; width: auto; object-fit: contain;">
-                                </div>
-                                {% elif exercise.media_type == 'youtube' and exercise.youtube_id %}
-                                    <div class="ratio ratio-16x9">
-                                        <iframe src="https://www.youtube.com/embed/{{ exercise.youtube_id }}" 
-                                                title="{{ exercise.name }}" 
-                                                frameborder="0" 
-                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                                allowfullscreen></iframe>
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                        
-                        {% if exercise.description %}
-                            <p class="card-text mt-2 flex-grow-1">{{ exercise.description[:100] }}{% if exercise.description|length > 100 %}...{% endif %}</p>
-                        {% endif %}
-                        
-                        <div class="mt-auto pt-2">
-                            {% if current_user.role.name in ['expert', 'admin'] and (exercise.created_by_id == current_user.id or current_user.role.name == 'admin') %}
-                                <a href="{{ url_for('exercises.edit_exercise', id=exercise.id) }}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
-                                {{ post_button(url_for('exercises.del_exercise', exercise_id=exercise.id), 'Удалить', confirm='Удалить упражнение?') }}
-                            {% endif %}
-                        </div>
-                    </div>
+<div class="card-grid" id="exerciseGrid">
+    {% for e in exercises %}
+    <article class="tcard ex-card" data-name="{{ e.name|lower }}" data-type="{{ e.exercise_type }}" data-group="{{ e.muscle_group.name if e.muscle_group else '' }}">
+        <div class="tcard-head">
+            <div class="tcard-headings">
+                <button type="button" class="tcard-title ex-card-title exercise-name-link" data-exercise-id="{{ e.id }}">{{ e.name }}</button>
+                <div class="tcard-meta">
+                    {{ type_names.get(e.exercise_type, e.exercise_type) }}
+                    {%- if e.muscle_group %} · {{ e.muscle_group.display_name }}{% if e.muscle_subgroup %}, {{ e.muscle_subgroup.display_name|lower }}{% endif %}{% endif %}
                 </div>
             </div>
-        {% else %}
-            <div class="col-12">
-                <div class="alert alert-info">Упражнений не найдено</div>
+            {% if current_user.can_edit(e) and current_user.role.name in ['expert', 'admin'] %}
+            <div class="dropdown">
+                <button type="button" class="icon-btn icon-btn-sm" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Действия с упражнением">
+                    <svg class="icon"><use href="#i-more"/></svg>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{{ url_for('exercises.edit_exercise', id=e.id) }}">Изменить</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>{{ post_button(url_for('exercises.del_exercise', exercise_id=e.id), 'Удалить', 'dropdown-item text-danger',
+                                       confirm='Удалить «' ~ e.name ~ '» из каталога?') }}</li>
+                </ul>
             </div>
-        {% endfor %}
-    </div>
+            {% endif %}
+        </div>
+        {% if e.description %}<p class="ex-card-desc">{{ e.description }}</p>{% endif %}
+        {% if e.media_type in ['image', 'gif'] and e.media_url or e.media_type == 'youtube' and e.youtube_id %}
+        <div class="tcard-actions"><span class="pill">{{ 'видео' if e.media_type == 'youtube' else 'фото' }}</span></div>
+        {% endif %}
+    </article>
+    {% endfor %}
 </div>
+<p class="empty-note" id="noResults" hidden>Ничего не найдено. Измените поиск или фильтры.</p>
+{% if not exercises %}<div class="empty-state"><p>Каталог пока пуст.</p></div>{% endif %}
+
+{% include "_exercise_modal.html" %}
 
 <script>
-    // Функция загрузки упражнений через AJAX
-    function loadExercises() {
-        const search = document.getElementById('searchInput').value;
-        const muscleGroup = document.getElementById('muscleGroupSelect').value;
-        
-        console.log('Поиск:', search, 'Группа мышц:', muscleGroup); // Для отладки
-        
-        // Показываем индикатор загрузки
-        document.getElementById('exercisesList').innerHTML = `
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Загрузка...</span>
-                </div>
-                <p class="mt-2">Загрузка упражнений...</p>
-            </div>
-        `;
-        
-        // AJAX запрос
-        fetch(`/exercises/filter?search=${encodeURIComponent(search)}&muscle_group=${encodeURIComponent(muscleGroup)}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Получено упражнений:', data.length);
-                renderExercises(data);
-            })
-            .catch(error => {
-                console.error('Ошибка:', error);
-                document.getElementById('exercisesList').innerHTML = `
-                    <div class="alert alert-danger">Ошибка загрузки упражнений: ${escapeHtml(error.message)}</div>
-                `;
-            });
-    }
-    
-    // Функция отображения упражнений
-    function renderExercises(exercises) {
-        if (exercises.length === 0) {
-            document.getElementById('exercisesList').innerHTML = `
-                <div class="row">
-                    <div class="col-12">
-                        <div class="alert alert-info">Упражнений не найдено</div>
-                    </div>
-                </div>
-            `;
-            return;
-        }
-        
-        let html = '<div class="row">';
-        exercises.forEach(exercise => {
-            html += `
-                <div class="col-md-6 mb-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between">
-                                <h5 class="card-title">${escapeHtml(exercise.name)}</h5>
-                                <span class="badge bg-secondary">${escapeHtml(exercise.exercise_type)}</span>
-                            </div>
-                            ${exercise.muscle_group ? `
-                                <p class="card-text">
-                                    <small class="text-muted">
-                                        ${escapeHtml(exercise.muscle_group_display)}
-                                        ${exercise.muscle_subgroup_display ? ` → ${escapeHtml(exercise.muscle_subgroup_display)}` : ''}
-                                    </small>
-                                </p>
-                            ` : ''}
-                            ${exercise.description ? `
-                                <p class="card-text">${escapeHtml(exercise.description.substring(0, 100))}${exercise.description.length > 100 ? '...' : ''}</p>
-                            ` : ''}
-                            <div class="mt-2">
-                                ${exercise.can_edit ? `
-                                    <a href="/exercises/edit/${exercise.id}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
-                                    <form method="POST" action="/exercises/del_exercise/${exercise.id}" class="d-inline" data-confirm="Удалить упражнение?">
-                                        <input type="hidden" name="csrf_token" value="${escapeHtml(csrfToken)}">
-                                        <button type="submit" class="btn btn-sm btn-danger">Удалить</button>
-                                    </form>
-                                ` : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+document.addEventListener('DOMContentLoaded', function () {
+    const cards = Array.from(document.querySelectorAll('.ex-card'));
+    const search = document.getElementById('filterSearch');
+    const group = document.getElementById('filterGroup');
+    const type = document.getElementById('filterType');
+    function apply() {
+        const q = search.value.trim().toLowerCase();
+        let shown = 0;
+        cards.forEach(c => {
+            const ok = (!q || c.dataset.name.includes(q)) && (!group.value || c.dataset.group === group.value) && (!type.value || c.dataset.type === type.value);
+            c.hidden = !ok;
+            if (ok) shown += 1;
         });
-        html += '</div>';
-        document.getElementById('exercisesList').innerHTML = html;
+        document.getElementById('noResults').hidden = shown > 0 || cards.length === 0;
     }
-    
-    // Функция экранирования HTML
-    
-    // Обработчики событий
-    document.getElementById('filterButton').addEventListener('click', loadExercises);
-    document.getElementById('searchInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            loadExercises();
-        }
-    });
-    document.getElementById('muscleGroupSelect').addEventListener('change', loadExercises);
+    search.addEventListener('input', apply);
+    group.addEventListener('change', apply);
+    type.addEventListener('change', apply);
+    apply();
+});
 </script>
 {% endblock %}

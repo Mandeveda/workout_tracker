@@ -1,131 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Добавить упражнение{% endblock %}
+{% block title %}Новое упражнение{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <h2 class="mb-4">Добавить новое упражнение</h2>
-        <div class="card">
-            <div class="card-body">
-                <form method="POST">
-                    {{ form.hidden_tag() }}
-                    
-                    <div class="mb-3">
-                        {{ form.name.label(class="form-label") }}
-                        {{ form.name(class="form-control") }}
-                        {% for error in form.name.errors %}
-                            <div class="text-danger">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        {{ form.exercise_type.label(class="form-label") }}
-                        {{ form.exercise_type(class="form-select", id="exercise_type") }}
-                        {% for error in form.exercise_type.errors %}
-                            <div class="text-danger">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    
-                    <div id="muscle_group_block" class="mb-3">
-                        {{ form.muscle_group_id.label(class="form-label") }}
-                        {{ form.muscle_group_id(class="form-select", id="muscle_group_id") }}
-                        {% for error in form.muscle_group_id.errors %}
-                            <div class="text-danger">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    
-                    <div id="muscle_subgroup_block" class="mb-3">
-                        {{ form.muscle_subgroup_id.label(class="form-label") }}
-                        {{ form.muscle_subgroup_id(class="form-select", id="muscle_subgroup_id") }}
-                        <div class="form-text">Сначала выберите группу мышц</div>
-                        {% for error in form.muscle_subgroup_id.errors %}
-                            <div class="text-danger">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        {{ form.description.label(class="form-label") }}
-                        {{ form.description(class="form-control", rows=4) }}
-                        {% for error in form.description.errors %}
-                            <div class="text-danger">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">📷 Медиа</label>
-                        {{ form.media_type(class="form-select", id="media_type") }}
-                    </div>
-
-                    <div id="media_url_block" class="mb-3" style="display: none;">
-                        {{ form.media_url.label(class="form-label") }}
-                        {{ form.media_url(class="form-control", placeholder="https://example.com/image.jpg") }}
-                        <div class="form-text">Прямая ссылка на изображение или GIF</div>
-                    </div>
-
-                    <div id="youtube_id_block" class="mb-3" style="display: none;">
-                        {{ form.youtube_id.label(class="form-label") }}
-                        {{ form.youtube_id(class="form-control", placeholder="dQw4w9WgXcQ") }}
-                        <div class="form-text">ID видео из URL YouTube: https://youtu.be/XXXXXX или https://www.youtube.com/watch?v=XXXXXX</div>
-                    </div>
-                    {{ form.submit(class="btn btn-primary") }}
-                    <a href="{{ url_for('exercises.list_exercises') }}" class="btn btn-secondary">Отмена</a>
-                </form>
-            </div>
+<div class="form-page">
+    <div class="page-head">
+        <div>
+            <span class="label">Каталог упражнений</span>
+            <h1>Новое упражнение</h1>
+            <p class="page-sub">Упражнение появится в каталоге у всех пользователей.</p>
         </div>
     </div>
+    {% with submit_label = 'Добавить в каталог' %}{% include "exercises/_form.html" %}{% endwith %}
 </div>
-
-<script>
-    function toggleMuscleFields() {
-        const exerciseType = document.getElementById('exercise_type').value;
-        const muscleGroupBlock = document.getElementById('muscle_group_block');
-        const muscleSubgroupBlock = document.getElementById('muscle_subgroup_block');
-        
-        if (exerciseType === 'cardio') {
-            muscleGroupBlock.style.display = 'none';
-            muscleSubgroupBlock.style.display = 'none';
-        } else {
-            muscleGroupBlock.style.display = 'block';
-            muscleSubgroupBlock.style.display = 'block';
-        }
-    }
-    
-    // Динамическая загрузка уточнений
-    document.getElementById('muscle_group_id').addEventListener('change', function() {
-        var groupId = this.value;
-        if (groupId && groupId != '0') {
-            fetch('/exercises/get_subgroups?muscle_group_id=' + groupId)
-                .then(response => response.json())
-                .then(data => {
-                    var subgroupSelect = document.getElementById('muscle_subgroup_id');
-                    subgroupSelect.innerHTML = '<option value="0">Не выбрано</option>';
-                    data.forEach(function(subgroup) {
-                        var option = document.createElement('option');
-                        option.value = subgroup.id;
-                        option.textContent = subgroup.display_name;
-                        subgroupSelect.appendChild(option);
-                    });
-                });
-        }
-    });
-    
-    document.getElementById('exercise_type').addEventListener('change', toggleMuscleFields);
-    toggleMuscleFields();
-
-    function toggleMediaFields() {
-        const mediaType = document.getElementById('media_type').value;
-        const urlBlock = document.getElementById('media_url_block');
-        const youtubeBlock = document.getElementById('youtube_id_block');
-        
-        urlBlock.style.display = 'none';
-        youtubeBlock.style.display = 'none';
-        
-        if (mediaType === 'image' || mediaType === 'gif') {
-            urlBlock.style.display = 'block';
-        } else if (mediaType === 'youtube') {
-            youtubeBlock.style.display = 'block';
-        }
-    }
-    
-    document.getElementById('media_type').addEventListener('change', toggleMediaFields);
-    toggleMediaFields();
-</script>
 {% endblock %}
