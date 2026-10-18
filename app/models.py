@@ -1,5 +1,8 @@
 from app import db, login_manager
+from flask import current_app
 from flask_login import UserMixin
+import hashlib
+import hmac
 from datetime import datetime
 from sqlalchemy.orm import relationship
 from math import log10
@@ -9,7 +12,17 @@ import json
 # Загрузка пользователя для Flask-Login
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    """Загрузка пользователя по идентификатору из сессии вида "id:отпечаток" (см. User.get_id)"""
+    id_part, _, fingerprint = str(user_id).partition(':')
+    if not id_part.isdigit() or not fingerprint:
+        return None  # старый формат или подделка — считаем, что вход не выполнен
+    
+    user = db.session.get(User, int(id_part))
+    if user is None or user.is_blocked:
+        return None
+    if not hmac.compare_digest(user.password_fingerprint(), fingerprint):
+        return None  # пароль сменили после входа
+    return user
 
 # Таблица ролей (простая, одна роль на пользователя)
 class Role(db.Model):
@@ -64,6 +77,23 @@ class User(UserMixin, db.Model):
     workout_sessions = relationship('WorkoutSession', back_populates='user', cascade='all, delete-orphan')
     schedules = db.relationship('WorkoutSchedule', back_populates='user', cascade='all, delete-orphan')
 
+    def password_fingerprint(self):
+        """Короткий отпечаток текущего пароля (HMAC от хеша, сам хеш не раскрывается)"""
+        key = current_app.config['SECRET_KEY'].encode()
+        return hmac.new(key, (self.password_hash or '').encode(), hashlib.sha256).hexdigest()[:16]
+    
+    def get_id(self):
+        """Идентификатор для сессии и cookie «запомнить меня».
+        
+        Включает отпечаток пароля: после смены пароля все старые входы перестают действовать.
+        """
+        return f'{self.id}:{self.password_fingerprint()}'
+    
+    @property
+    def is_active(self):
+        """Заблокированный пользователь считается неактивным (Flask-Login не даст войти)"""
+        return not self.is_blocked
+    
     def can_edit(self, resource):
         """Проверка, может ли пользователь редактировать ресурс (упражнение, шаблон и т.д.)"""
         if not self.is_authenticated:
