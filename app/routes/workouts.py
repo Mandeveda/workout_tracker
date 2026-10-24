@@ -106,6 +106,7 @@ def start_workout(schedule_id=None):
         user_id=current_user.id,
         schedule_id=schedule.id,
         template_id=schedule.template_id,
+        template_name=schedule.template.name,
         date=datetime.utcnow(),
         status='in_progress',  # Новый статус
         is_completed=False      # Новое поле
@@ -298,10 +299,11 @@ def planned_sets_by_exercise(schedule):
     """
     if not schedule:
         return {}
-    in_template = {te.exercise_id for te in schedule.template.template_exercises}
+    # Шаблон удалён — planned_data уже урезан до его упражнений на момент удаления (app/deletion.py)
+    in_template = {te.exercise_id for te in schedule.template.template_exercises} if schedule.template else None
     planned = {}
     for exercise_id, plan in (schedule.planned_data or {}).items():
-        if int(exercise_id) not in in_template:
+        if in_template is not None and int(exercise_id) not in in_template:
             continue
         if plan.get('input_type') == 'progressive':
             planned[int(exercise_id)] = len(plan.get('sets') or [])

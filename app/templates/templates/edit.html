@@ -75,8 +75,8 @@
 
     <div class="danger-zone">
         {{ post_button(url_for('templates.delete_template', template_id=template.id), 'Удалить шаблон', 'btn btn-link btn-sm row-muted-action',
-                       confirm='Удалить шаблон «' ~ template.name ~ '» без возможности восстановления?') }}
-        <span class="form-text">Удалить можно только шаблон без упражнений и без тренировок в расписании.</span>
+                       confirm='Удалить шаблон «' ~ template.name ~ '»? Запланированные по нему тренировки уберутся из расписания, проведённые останутся в истории.') }}
+        <span class="form-text">Проведённые тренировки останутся в истории и статистике под этим названием.</span>
     </div>
 </div>
 {% endblock %}

@@ -46,11 +46,12 @@ def pages(make_user, make_exercise, make_template, make_session):
     template, schedule = make_template(user, [(squat, {'input_type': 'fixed', 'sets': 3, 'reps': 8, 'weight': 60})])
     session = make_session(user, schedule)
     done = make_session(user, completed=True, logs=[(squat, 8, 60)])
+    victim = make_user('victim')
     return ['/', '/dashboard', '/workouts/', '/workouts/free_workout', f'/workouts/perform/{session.id}',
             f'/workouts/summary/{done.id}', '/templates/', f'/templates/edit/{template.id}',
             f'/templates/add_exercise/{template.id}', f'/program/create/{template.id}', '/exercises/',
             '/exercises/add', '/analytics/dashboard', '/analytics/records', '/analytics/progress',
-            '/analytics/calendar', '/profile/', '/profile/edit', '/admin/users', '/offline']
+            '/analytics/calendar', '/profile/', '/profile/edit', '/admin/users', f'/admin/user/{victim.id}/delete', '/offline']
 
 
 def test_every_inline_script_has_request_nonce(client, pages):

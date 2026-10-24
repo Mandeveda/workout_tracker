@@ -1,7 +1,7 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint
+from flask import render_template, redirect, url_for, flash, request, Blueprint, current_app
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
-from app import db
+from app import db, deletion
 from app.models import User, Role
 from sqlalchemy import or_
 from app.timeutil import utcnow
@@ -10,10 +10,12 @@ bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 def back_to_list():
     """Вернуться к списку с тем же поиском, фильтром и страницей"""
-    return redirect(url_for('admin.users',
-                            search=request.args.get('search', ''),
-                            show=request.args.get('show', 'all'),
-                            page=request.args.get('page', 1, type=int)))
+    return redirect(url_for('admin.users', **list_args()))
+
+def list_args():
+    """Поиск, фильтр и страница списка — чтобы вернуться туда же"""
+    return {'search': request.args.get('search', ''), 'show': request.args.get('show', 'all'),
+            'page': request.args.get('page', 1, type=int)}
 
 def is_admin():
     """Проверка, является ли пользователь администратором"""
@@ -151,33 +153,38 @@ def block_user(user_id):
     
     return back_to_list()
 
-@bp.route('/user/<int:user_id>/delete', methods=['POST'])
+@bp.route('/user/<int:user_id>/delete', methods=['GET', 'POST'])
 @login_required
 def delete_user(user_id):
-    """Удаление пользователя (с проверкой зависимостей)"""
+    """Удаление пользователя со всеми данными: GET — перечень того, что пропадёт, POST — удаление
+    после ввода имени пользователя"""
     if not is_admin():
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('main.dashboard'))
     
     user = User.query.get_or_404(user_id)
-    
-    # Нельзя удалить себя
     if user.id == current_user.id:
         flash('Нельзя удалить самого себя', 'warning')
         return back_to_list()
-    
-    # Проверяем, есть ли у пользователя данные
-    template_count = len(user.workout_templates)
-    session_count = len(user.workout_sessions)
-    
-    if template_count > 0 or session_count > 0:
-        flash(f'Пользователь "{user.username}" имеет {template_count} шаблонов и {session_count} тренировок. Сначала удалите их.', 'danger')
+    if user.role.name == 'admin':
+        flash(f'«{user.username}» — администратор. Сначала смените ему роль, потом удаляйте.', 'warning')
         return back_to_list()
     
-    username = user.username
-    db.session.delete(user)
-    db.session.commit()
+    if request.method == 'POST':
+        if request.form.get('confirm_username', '').strip() != user.username:
+            flash('Имя введено неверно — аккаунт не удалён.', 'danger')
+            return redirect(url_for('admin.delete_user', user_id=user.id, **list_args()))
+        username = user.username
+        try:
+            deletion.delete_user(user, heir=current_user)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception('Ошибка удаления пользователя %s', user_id)
+            flash('Не удалось удалить пользователя. Попробуйте ещё раз.', 'danger')
+            return back_to_list()
+        flash(f'Пользователь «{username}» и все его данные удалены', 'success')
+        return back_to_list()
     
-    flash(f'Пользователь "{username}" удалён', 'success')
-    
-    return back_to_list()
+    return render_template('admin/delete_user.html', user=user, keep=list_args(),
+                           preview=deletion.user_deletion_preview(user))

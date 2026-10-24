@@ -1,8 +1,9 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint
+from flask import render_template, redirect, url_for, flash, request, Blueprint, current_app
 from flask_login import login_required, current_user
-from app import db
+from app import db, deletion
 from app.models import WorkoutTemplate, TemplateExercise, WorkoutSchedule, Exercise
 from app.forms import WorkoutTemplateForm, AddExerciseForm
+from app.textutil import plural
 
 bp = Blueprint('templates', __name__, url_prefix='/templates')
 
@@ -239,32 +240,33 @@ def move_down_exercise(template_id, exercise_id):
 @bp.route('/delete/<int:template_id>', methods=['POST'])
 @login_required
 def delete_template(template_id):
-    """Удаление шаблона с проверкой"""
+    """Удаление шаблона (владелец или админ): начатые тренировки остаются в истории,
+    дни расписания без них удаляются"""
     template = WorkoutTemplate.query.get_or_404(template_id)
     
-    # Проверка прав
     if not current_user.can_edit(template):
         flash('Доступ запрещён', 'danger')
         return redirect(url_for('templates.list_templates'))
     
-    # Проверка: есть ли упражнения в шаблоне
-    exercises_count = TemplateExercise.query.filter_by(template_id=template.id).count()
-    if exercises_count > 0:
-        flash(f'Невозможно удалить шаблон "{template.name}". Сначала удалите все упражнения из шаблона.', 'danger')
-        return redirect(url_for('templates.edit_template', template_id=template.id))
-    
-    # Проверка: есть ли расписания, использующие этот шаблон
-    schedules_count = WorkoutSchedule.query.filter_by(template_id=template.id).count()
-    if schedules_count > 0:
-        flash(f'Невозможно удалить шаблон "{template.name}". Сначала удалите все программы (расписания), созданные из этого шаблона.', 'danger')
+    template_name = template.name
+    preview = deletion.template_deletion_preview(template)
+    try:
+        deletion.delete_template(template)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Ошибка удаления шаблона %s', template_id)
+        flash('Не удалось удалить шаблон. Попробуйте ещё раз.', 'danger')
         return redirect(url_for('templates.list_templates'))
     
-    # Удаляем шаблон
-    template_name = template.name
-    db.session.delete(template)
-    db.session.commit()
-    flash(f'Шаблон "{template_name}" успешно удалён!', 'success')
-    
+    details = []
+    if preview['removed_days']:
+        details.append(f"из расписания убрано {preview['removed_days']} "
+                       f"{plural(preview['removed_days'], 'день', 'дня', 'дней')}")
+    if preview['kept_sessions']:
+        details.append(f"{preview['kept_sessions']} "
+                       f"{plural(preview['kept_sessions'], 'тренировка осталась', 'тренировки остались', 'тренировок остались')} в истории")
+    flash(f'Шаблон «{template_name}» удалён' + (': ' + ', '.join(details) if details else '') + '.', 'success')
     return redirect(url_for('templates.list_templates'))
 
 @bp.route('/archive/<int:template_id>', methods=['POST'])

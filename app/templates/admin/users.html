@@ -64,12 +64,8 @@
                     </form>
                 </li>
                 <li><hr class="dropdown-divider"></li>
-                <li>
-                    <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id, **keep) }}"
-                          data-confirm="Удалить аккаунт {{ user.username }}? Удалить можно только аккаунт без шаблонов и тренировок.">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="dropdown-item text-danger">Удалить</button>
-                    </form>
+                <li>{% if user.role.name == 'admin' %}<span class="dropdown-item disabled" title="Сначала смените роль">Удалить</span>
+                    {% else %}<a class="dropdown-item text-danger" href="{{ url_for('admin.delete_user', user_id=user.id, **keep) }}">Удалить…</a>{% endif %}
                 </li>
             </ul>
         </div>

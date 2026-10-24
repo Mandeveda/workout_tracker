@@ -2,7 +2,7 @@ from flask import render_template, Blueprint, jsonify
 from flask_login import login_required, current_user
 from app import db
 from app.models import WorkoutSession, SetLog, Exercise
-from app.routes.main import MONTHS_SHORT
+from app.routes.main import MONTHS_SHORT, session_title
 from datetime import datetime, timedelta
 from app.timeutil import local_today, local_date, utc_start_of
 
@@ -159,7 +159,8 @@ def dashboard():
                            fresh_records=fresh_records,
                            best_workout=best_workout,
                            chart=chart,
-                           top_exercises=top_exercises)
+                           top_exercises=top_exercises,
+                           session_title=session_title)
 
 
 @bp.route('/calendar')

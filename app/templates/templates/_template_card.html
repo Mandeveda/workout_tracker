@@ -27,7 +27,7 @@
                 {% endif %}
                 <li><hr class="dropdown-divider"></li>
                 <li>{{ post_button(url_for('templates.delete_template', template_id=template.id), 'Удалить', 'dropdown-item text-danger',
-                                   confirm='Удалить шаблон «' ~ template.name ~ '» без возможности восстановления?') }}</li>
+                                   confirm='Удалить шаблон «' ~ template.name ~ '»? Запланированные по нему тренировки уберутся из расписания, проведённые останутся в истории.') }}</li>
             </ul>
         </div>
         {% endif %}

@@ -307,6 +307,8 @@ class WorkoutSession(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     schedule_id = db.Column(db.Integer, db.ForeignKey('workout_schedules.id'), nullable=True)
     template_id = db.Column(db.Integer, db.ForeignKey('workout_templates.id'), nullable=True)
+    # Название шаблона на момент тренировки: остаётся в истории, если шаблон удалят
+    template_name = db.Column(db.String(100), nullable=True)
     date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     status = db.Column(db.String(20), default='in_progress')  # in_progress, completed
     
@@ -417,7 +419,8 @@ class WorkoutSchedule(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    template_id = db.Column(db.Integer, db.ForeignKey('workout_templates.id'), nullable=False)
+    # Пусто у проведённых тренировок удалённого шаблона (план подходов остаётся в planned_data)
+    template_id = db.Column(db.Integer, db.ForeignKey('workout_templates.id'), nullable=True)
     
     scheduled_date = db.Column(db.Date, nullable=False)
     order_index = db.Column(db.Integer, default=0)
@@ -437,7 +440,7 @@ class WorkoutSchedule(db.Model):
     session = relationship('WorkoutSession', back_populates='schedule', uselist=False)
     
     def __repr__(self):
-        return f'<WorkoutSchedule {self.scheduled_date} - {self.template.name}>'
+        return f'<WorkoutSchedule {self.scheduled_date} - {self.template.name if self.template else self.template_id}>'
     
 class PasswordResetToken(db.Model):
     __tablename__ = 'password_reset_tokens'

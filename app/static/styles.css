@@ -1234,3 +1234,7 @@ fieldset legend.form-label { font-size: .9rem; }
 .email-banner-text { flex: 1 1 320px; min-width: 0; overflow-wrap: anywhere; }
 .email-banner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .email-banner-actions form { display: contents; }
+
+/* Удаление пользователя: перечень того, что пропадёт */
+.delete-list { margin: 0 0 1rem; padding-left: 1.25rem; line-height: 1.9; }
+.delete-list b { color: var(--fg); }

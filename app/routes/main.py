@@ -24,7 +24,7 @@ def session_title(session):
         return session.template.name
     if session.schedule and session.schedule.template:
         return session.schedule.template.name
-    return 'Свободная тренировка'
+    return session.template_name or 'Свободная тренировка'
 
 
 @bp.route('/')

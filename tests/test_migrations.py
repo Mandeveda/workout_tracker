@@ -39,3 +39,20 @@ def test_email_migration_gives_existing_users_30_days(tmp_path):
     assert confirmed is None
     left = datetime.fromisoformat(deadline) - datetime.utcnow()
     assert timedelta(days=29) < left <= timedelta(days=30)
+
+
+def test_template_history_migration_saves_template_names(tmp_path):
+    """ROADMAP B: у проведённых тренировок сохраняется название шаблона"""
+    db_path = tmp_path / 'old.db'
+    assert flask_db('upgrade', db_path, 'c3d8e1f04a27').returncode == 0
+    with sqlite3.connect(db_path) as con:
+        con.execute("INSERT INTO roles (id, name) VALUES (2, 'user')")
+        con.execute("INSERT INTO users (id, username, email, role_id) VALUES (1, 'u', 'u@example.com', 2)")
+        con.execute("INSERT INTO workout_templates (id, name, user_id) VALUES (1, 'Спина', 1)")
+        con.execute("INSERT INTO workout_sessions (user_id, template_id, date) VALUES (1, 1, '2026-01-01')")
+        con.execute("INSERT INTO workout_sessions (user_id, template_id, date) VALUES (1, NULL, '2026-01-02')")
+    upgrade = flask_db('upgrade', db_path)
+    assert upgrade.returncode == 0, upgrade.stderr
+    with sqlite3.connect(db_path) as con:
+        names = [row[0] for row in con.execute("SELECT template_name FROM workout_sessions ORDER BY id")]
+    assert names == ['Спина', None]

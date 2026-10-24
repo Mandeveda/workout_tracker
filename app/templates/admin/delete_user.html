@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Удаление {{ user.username }}{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Удалить {{ user.username }}?</h1>
+        <p class="page-sub">{{ user.email }} · с {{ user.created_at.strftime('%d.%m.%Y') if user.created_at else '—' }}{% if user.email_confirm_overdue() %} · <span class="pill is-low">срок подтверждения почты истёк</span>{% endif %}</p>
+    </div>
+</div>
+
+<form method="POST" class="panel form-panel" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h2 class="block-title">Безвозвратно удалится</h2>
+    <ul class="delete-list">
+        <li>аккаунт и вход в него</li>
+        <li><b class="num">{{ preview.templates }}</b> {{ preview.templates|plural('шаблон', 'шаблона', 'шаблонов') }} тренировок</li>
+        <li><b class="num">{{ preview.schedules }}</b> {{ preview.schedules|plural('день', 'дня', 'дней') }} в расписании</li>
+        <li><b class="num">{{ preview.sessions }}</b> {{ preview.sessions|plural('тренировка', 'тренировки', 'тренировок') }} в истории ({{ preview.sets|num }} {{ preview.sets|plural('подход', 'подхода', 'подходов') }})</li>
+        <li><b class="num">{{ preview.measurements }}</b> {{ preview.measurements|plural('замер', 'замера', 'замеров') }} тела и анкета профиля</li>
+    </ul>
+    {% if preview.exercises %}
+    <p class="form-text">{{ preview.exercises }} {{ preview.exercises|plural('упражнение', 'упражнения', 'упражнений') }} каталога, добавленных пользователем, останутся в каталоге — их автором станете вы.</p>
+    {% endif %}
+    <p class="form-text">Если нужно просто закрыть доступ — заблокируйте аккаунт: данные сохранятся.</p>
+
+    <div class="mb-3">
+        <label class="form-label" for="confirm_username">Для подтверждения введите имя пользователя: <b>{{ user.username }}</b></label>
+        <input class="form-control" id="confirm_username" name="confirm_username" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-danger">Удалить навсегда</button>
+        <a class="btn btn-link" href="{{ url_for('admin.users', **keep) }}">Отмена</a>
+    </div>
+</form>
+{% endblock %}
