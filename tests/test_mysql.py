@@ -110,3 +110,25 @@ def test_lengths_mysql_would_reject_are_validated(client, make_user):
     client.post(f'/templates/edit/{template.id}', data={'edit_name': '1', 'name': 'Ж' * 101})
     db.session.refresh(template)
     assert template.name == 'Спина'
+
+
+def test_backup_and_restore_round_trip(tmp_path):
+    """backup_db.py → файл SQLite; восстановление из него transfer_to_mysql.py в пустую базу"""
+    source, restored, out = tmp_path / 'site.db', tmp_path / 'restored.db', tmp_path / 'backups'
+    for path in (source, restored):
+        assert flask_db('upgrade', path).returncode == 0
+    with sqlite3.connect(source) as con:
+        con.execute("INSERT INTO roles (id, name) VALUES (2, 'user')")
+        con.execute("INSERT INTO users (id, username, email, role_id, weight) VALUES (5, 'Нудл', 'n@example.com', 2, 70.5)")
+    env = {**os.environ, 'DATABASE_URL': f'sqlite:///{source}'}
+    backup = subprocess.run([sys.executable, 'backup_db.py', '--out', str(out)], cwd=ROOT, env=env,
+                            capture_output=True, text=True, timeout=120)
+    assert backup.returncode == 0, backup.stdout + backup.stderr
+    assert 'все строки совпадают' in backup.stdout
+    [copy] = out.glob('tracker-*.db')
+    assert oct(copy.stat().st_mode)[-3:] == '600'
+
+    restore = transfer('--from', f'sqlite:///{copy}', '--to', f'sqlite:///{restored}', '--apply')
+    assert restore.returncode == 0, restore.stdout + restore.stderr
+    with sqlite3.connect(restored) as con:
+        assert con.execute('SELECT id, username, weight FROM users').fetchall() == [(5, 'Нудл', 70.5)]
