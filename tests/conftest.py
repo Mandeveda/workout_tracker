@@ -80,7 +80,7 @@ def client(app):
 @pytest.fixture
 def make_user(app):
     def make(username='user', role_id=2, password=PASSWORD, **fields):
-        user = User(username=username, email=f'{username}@example.com',
+        user = User(username=username, email=fields.pop('email', f'{username}@example.com'),
                     password_hash=generate_password_hash(password), role_id=role_id, **fields)
         db.session.add(user)
         db.session.commit()

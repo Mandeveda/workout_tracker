@@ -3,9 +3,11 @@ from flask import current_app
 from flask_login import UserMixin
 import hashlib
 import hmac
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import relationship
 from math import log10
+
+EMAIL_CONFIRM_DAYS = 30   # сколько дней даётся на подтверждение почты
 
 # Загрузка пользователя для Flask-Login
 @login_manager.user_loader
@@ -46,6 +48,14 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128))  # будет хранить хеш пароля
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_blocked = db.Column(db.Boolean, default=False)
+
+    # Подтверждение почты: дата подтверждения (None — не подтверждена), срок на подтверждение
+    # и новый адрес, который ждёт подтверждения (смена почты). Пока новый не подтверждён,
+    # действует старый — опечатка в новом адресе не лишает доступа к аккаунту.
+    email_confirmed_at = db.Column(db.DateTime, nullable=True)
+    email_confirm_deadline = db.Column(db.DateTime, nullable=True,
+                                       default=lambda: datetime.utcnow() + timedelta(days=EMAIL_CONFIRM_DAYS))
+    pending_email = db.Column(db.String(120), nullable=True)
     
     # Внешний ключ на роль (одна роль у пользователя)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False, default=2)  # 2 = обычный пользователь по умолчанию
@@ -74,6 +84,24 @@ class User(UserMixin, db.Model):
     workout_templates = relationship('WorkoutTemplate', back_populates='user', cascade='all, delete-orphan')
     workout_sessions = relationship('WorkoutSession', back_populates='user', cascade='all, delete-orphan')
     schedules = db.relationship('WorkoutSchedule', back_populates='user', cascade='all, delete-orphan')
+
+    @property
+    def email_confirmed(self):
+        return self.email_confirmed_at is not None
+
+    def email_confirm_days_left(self):
+        """Сколько полных дней осталось на подтверждение почты (0 — сегодня последний день или срок вышел)"""
+        if self.email_confirmed or not self.email_confirm_deadline:
+            return None
+        from app.timeutil import utcnow
+        return max(0, (self.email_confirm_deadline - utcnow()).days)
+
+    def email_confirm_overdue(self):
+        """Срок подтверждения почты истёк, а почта так и не подтверждена"""
+        if self.email_confirmed or not self.email_confirm_deadline:
+            return False
+        from app.timeutil import utcnow
+        return utcnow() > self.email_confirm_deadline
 
     def password_fingerprint(self):
         """Короткий отпечаток текущего пароля (HMAC от хеша, сам хеш не раскрывается)"""

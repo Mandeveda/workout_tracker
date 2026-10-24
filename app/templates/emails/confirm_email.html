@@ -1,0 +1,33 @@
+{# Письмо подтверждения почты. Встроенные стили — почтовые программы не поддерживают внешние #}
+<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="UTF-8"><title>Подтверждение почты</title></head>
+<body style="margin:0;padding:0;background:#f7f2ea;font-family:Arial,Helvetica,sans-serif;color:#231e18;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f2ea;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fffdf9;border:1px solid #e3d8c7;border-radius:14px;">
+        <tr><td style="padding:28px 28px 8px;">
+          <div style="font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#9e6a35;font-weight:bold;">Tracker Workout</div>
+          <h1 style="font-size:22px;margin:12px 0 0;">{{ 'Подтвердите новый адрес' if is_change else 'Подтвердите почту' }}</h1>
+        </td></tr>
+        <tr><td style="padding:8px 28px 0;font-size:15px;line-height:1.55;">
+          <p>Здравствуйте, {{ user.username }}!</p>
+          {% if is_change %}
+          <p>Вы указали этот адрес как новую почту аккаунта. Пока вы его не подтвердите, для входа и писем используется прежний адрес.</p>
+          {% else %}
+          <p>Нажмите кнопку, чтобы подтвердить, что это ваша почта. Она нужна для восстановления пароля и уведомлений.</p>
+          {% endif %}
+        </td></tr>
+        <tr><td align="center" style="padding:20px 28px;">
+          <a href="{{ url }}" style="display:inline-block;background:#c8925a;color:#1d1408;text-decoration:none;font-weight:bold;padding:13px 28px;border-radius:999px;">Подтвердить почту</a>
+        </td></tr>
+        <tr><td style="padding:0 28px 24px;font-size:13px;line-height:1.5;color:#776c60;">
+          <p>Ссылка действует {{ link_days }} {{ link_days|plural('день', 'дня', 'дней') }}. Если кнопка не нажимается, скопируйте адрес в браузер:<br>
+          <span style="word-break:break-all;color:#9e6a35;">{{ url }}</span></p>
+          <p>Если вы не регистрировались на Tracker Workout, просто удалите это письмо.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash
 from app import db
 from app.models import User, Role
 from sqlalchemy import or_
+from app.timeutil import utcnow
 
 bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -49,10 +50,17 @@ def users():
     for role in sorted(roles, key=lambda r: level.get(r.name, 9)):
         filters.append({'key': role.name, 'count': base.filter(User.role_id == role.id).count()})
     filters.append({'key': 'blocked', 'count': base.filter(User.is_blocked.is_(True)).count()})
+    unconfirmed = base.filter(User.email_confirmed_at.is_(None))
+    filters.append({'key': 'unconfirmed', 'count': unconfirmed.count()})
+    filters.append({'key': 'overdue', 'count': unconfirmed.filter(User.email_confirm_deadline < utcnow()).count()})
     
     query = base
     if show == 'blocked':
         query = query.filter(User.is_blocked.is_(True))
+    elif show == 'unconfirmed':
+        query = query.filter(User.email_confirmed_at.is_(None))
+    elif show == 'overdue':
+        query = query.filter(User.email_confirmed_at.is_(None), User.email_confirm_deadline < utcnow())
     elif show != 'all':
         role = next((r for r in roles if r.name == show), None)
         if role:

@@ -4,7 +4,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
 from app import db
 from app.models import User
-from app.forms import ProfileForm, ChangePasswordForm
+from app.forms import ProfileForm, ChangePasswordForm, ChangeEmailForm
+from app import limiter, email_confirm
+from app.routes.auth import is_safe_redirect
+from sqlalchemy import func
 import json
 
 bp = Blueprint('profile', __name__, url_prefix='/profile')
@@ -159,7 +162,8 @@ def edit():
         
         return redirect(url_for('profile.index'))
     
-    return render_template('profile/edit.html', form=form, user=current_user, password_form=ChangePasswordForm(formdata=None))
+    return render_template('profile/edit.html', form=form, user=current_user,
+                           password_form=ChangePasswordForm(formdata=None), email_form=ChangeEmailForm(formdata=None))
 
 
 @bp.route('/change_password', methods=['POST'])
@@ -182,6 +186,50 @@ def change_password():
     login_user(current_user, remember=True)
     flash('Пароль изменён. На других устройствах нужно будет войти заново.', 'success')
     return redirect(url_for('profile.index'))
+
+@bp.route('/change_email', methods=['POST'])
+@login_required
+@limiter.limit("5 per hour")
+def change_email():
+    """Смена почты: ссылка подтверждения уходит на новый адрес, до подтверждения действует старый"""
+    form = ChangeEmailForm()
+    back = url_for('profile.edit') + '#email'
+    if not form.validate_on_submit():
+        for errors in form.errors.values():
+            for error in errors:
+                flash(error, 'danger')
+        return redirect(back)
+    if not check_password_hash(current_user.password_hash or '', form.password.data):
+        flash('Текущий пароль указан неверно', 'danger')
+        return redirect(back)
+    new_email = form.new_email.data
+    if new_email == current_user.email.lower():
+        flash('Это и так ваша текущая почта.', 'info')
+        return redirect(back)
+    if User.query.filter(func.lower(User.email) == new_email, User.id != current_user.id).first():
+        flash('Этот адрес уже занят другим аккаунтом.', 'danger')
+        return redirect(back)
+
+    current_user.pending_email = new_email
+    db.session.commit()
+    try:
+        email_confirm.send_confirmation(current_user, new_email)
+        flash(f'Мы отправили ссылку на {new_email}. Пока вы её не подтвердите, используется прежняя почта.', 'success')
+    except Exception:
+        current_app.logger.exception('Не удалось отправить письмо смены почты (user_id=%s)', current_user.id)
+        flash('Новый адрес сохранён, но письмо отправить не удалось — отправьте его ещё раз из напоминания вверху.', 'warning')
+    return redirect(url_for('profile.index'))
+
+
+@bp.route('/cancel_email_change', methods=['POST'])
+@login_required
+def cancel_email_change():
+    current_user.pending_email = None
+    db.session.commit()
+    flash('Смена почты отменена.', 'info')
+    back = request.form.get('next')
+    return redirect(back if is_safe_redirect(back) else url_for('profile.index'))
+
 
 @bp.route('/add_measurement', methods=['POST'])
 @login_required

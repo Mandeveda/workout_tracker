@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Пользователи{% endblock %}
 {% set role_names = {'admin': 'Администратор', 'expert': 'Эксперт', 'user': 'Пользователь'} %}
-{% set filter_names = {'all': 'Все', 'admin': 'Администраторы', 'expert': 'Эксперты', 'user': 'Пользователи', 'blocked': 'Заблокированные'} %}
+{% set filter_names = {'all': 'Все', 'admin': 'Администраторы', 'expert': 'Эксперты', 'user': 'Пользователи', 'blocked': 'Заблокированные', 'unconfirmed': 'Почта не подтверждена', 'overdue': 'Срок подтверждения истёк'} %}
 {% set keep = {'search': search, 'show': show, 'page': users.page} %}
 {% block content %}
 <div class="page-head">
@@ -32,7 +32,7 @@
     <div class="row-item user-row{% if user.is_blocked %} is-blocked{% endif %}">
         <span class="avatar">{{ user.username[:1]|upper }}</span>
         <div class="row-main">
-            <span class="row-title">{{ user.username }}{% if is_me %} <span class="pill">вы</span>{% endif %}{% if user.is_blocked %} <span class="pill is-low">заблокирован</span>{% endif %}</span>
+            <span class="row-title">{{ user.username }}{% if is_me %} <span class="pill">вы</span>{% endif %}{% if user.is_blocked %} <span class="pill is-low">заблокирован</span>{% endif %}{% if user.email_confirm_overdue() %} <span class="pill is-low">срок подтверждения истёк</span>{% elif not user.email_confirmed %} <span class="pill">почта не подтверждена · {{ user.email_confirm_days_left() }} дн.</span>{% endif %}</span>
             <span class="row-sub">{{ user.email }} · с {{ user.created_at.strftime('%d.%m.%Y') }}</span>
         </div>
         <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id, **keep) }}" class="role-form">

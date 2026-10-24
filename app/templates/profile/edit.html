@@ -54,6 +54,24 @@
         </div>
     </form>
 
+    <form method="POST" action="{{ url_for('profile.change_email') }}" class="panel form-panel mt-4" id="email" novalidate>
+        {{ email_form.hidden_tag() }}
+        <h2 class="block-title">Почта</h2>
+        <p class="form-text mt-0 mb-3">
+            Сейчас: <b>{{ user.email }}</b> —
+            {% if user.email_confirmed %}<span class="tone tone-ok">подтверждена</span>{% else %}<span class="tone tone-warn">не подтверждена</span>{% endif %}.
+            {% if user.pending_email %}Ждёт подтверждения: <b>{{ user.pending_email }}</b>.{% endif %}
+            Новый адрес начнёт действовать после перехода по ссылке из письма.
+        </p>
+        <div class="params-grid params-grid-2">
+            <div>{{ form_field(email_form.new_email, type="email", autocomplete="email", inputmode="email") }}</div>
+            <div>{{ form_field(email_form.password, autocomplete="current-password") }}</div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-outline-primary">Отправить ссылку на новый адрес</button>
+        </div>
+    </form>
+
     <form method="POST" action="{{ url_for('profile.change_password') }}" class="panel form-panel mt-4" id="password" novalidate>
         {{ password_form.hidden_tag() }}
         <h2 class="block-title">Пароль</h2>

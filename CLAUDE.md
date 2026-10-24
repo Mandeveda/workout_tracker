@@ -12,6 +12,8 @@ Workout Tracker — a server-rendered Flask 3 app (Jinja2 + Bootstrap 5 and Char
 
 `PLAN.md` tracks the agreed bug-fix plan. When a plan item is completed, mark it `[x]` and append the commit hash in the same change set. Follow the order stated at the top of the file.
 
+`ROADMAP.md` tracks new features (stages A–D: email confirmation, admin deletion, MySQL, coach role) with the owner's decisions per stage; same `[x]` + hash convention. Ask the owner clarifying questions before starting each stage.
+
 ## Commands
 
 ```bash
@@ -66,6 +68,10 @@ WorkoutSchedule ──1 WorkoutSession ──< SetLog (planned vs actual per set
 3. `workouts` blueprint: `start` creates a `WorkoutSession` for a schedule, `perform` renders it, `save_progress` / `complete` are JSON endpoints called via `fetch` from `perform.html`. `free_workout` is a session with no template/schedule (`template_id`/`schedule_id` nullable); it reuses any unfinished session (`is_completed=False`).
 4. `SetLog.calculate_completion()` computes per-set completion by tonnage (bodyweight uses the user's body weight, cardio compares duration stored in `planned_reps`/`actual_reps`); session `completion_percent`/`total_tonnage` aggregate these. `analytics` (dashboard, calendar, progress, records) reads from these fields.
 5. `profile` stores anthropometrics on `User` plus `measurements_history` JSON; BMI / body fat (US Navy) / FFMI are `User` properties.
+
+### Email confirmation
+
+`app/email_confirm.py`: signed `itsdangerous` token (`uid` + address, 3 days, no DB table) → `auth.confirm_email`. `User.email_confirmed_at` / `email_confirm_deadline` (30 days, `EMAIL_CONFIRM_DAYS`) / `pending_email` (address change applies only after its link is opened). Login works before confirmation; `_email_banner.html` (in `base.html`) shows days left; nothing is deleted automatically — admin filters `show=unconfirmed|overdue` in `/admin/users`. Tests use `mail.record_messages()`.
 
 ### Roles and access control
 

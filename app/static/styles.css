@@ -1223,3 +1223,14 @@ fieldset legend.form-label { font-size: .9rem; }
 .install-steps { padding-left: 1.2em; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
 .install-share { width: 18px; height: 18px; color: var(--gold); vertical-align: -3px; }
 .landing-install { padding-left: 0; margin-top: 12px; }
+
+/* ---------- напоминание о подтверждении почты ---------- */
+.email-banner {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+  margin-bottom: 20px; padding: 12px 16px; border-radius: 12px;
+  background: rgba(var(--gold-rgb), .1); border: 1px solid rgba(var(--gold-rgb), .45); font-size: 14px;
+}
+.email-banner.is-overdue { background: rgba(var(--low-rgb), .1); border-color: rgba(var(--low-rgb), .55); }
+.email-banner-text { flex: 1 1 320px; min-width: 0; overflow-wrap: anywhere; }
+.email-banner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.email-banner-actions form { display: contents; }

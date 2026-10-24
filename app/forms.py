@@ -194,3 +194,9 @@ class ResetPasswordForm(FlaskForm):
     password = PasswordField('Новый пароль', validators=[DataRequired(REQUIRED), Length(min=6, message=PASSWORD_LEN)])
     confirm_password = PasswordField('Подтвердите пароль', validators=[DataRequired(REQUIRED), EqualTo('password', PASSWORDS_MATCH)])
     submit = SubmitField('Сменить пароль')
+
+class ChangeEmailForm(FlaskForm):
+    """Смена почты: новый адрес применяется только после подтверждения ссылкой"""
+    new_email = StringField('Новая почта', filters=[normalize_email], validators=[DataRequired(REQUIRED), Email(EMAIL_FORMAT)])
+    password = PasswordField('Текущий пароль', validators=[DataRequired(REQUIRED)])
+    submit = SubmitField('Отправить ссылку')

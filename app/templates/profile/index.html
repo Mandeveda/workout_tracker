@@ -10,7 +10,7 @@
         <span class="avatar avatar-lg">{{ user.username[:1]|upper }}</span>
         <div>
             <h1>{{ user.username }}</h1>
-            <p class="page-sub">{{ user.email }} · {{ role_names.get(user.role.name, user.role.name) }} · с {{ user.created_at.strftime('%d.%m.%Y') }}</p>
+            <p class="page-sub">{{ user.email }}{% if not user.email_confirmed %} <span class="pill is-low">не подтверждена</span>{% endif %} · {{ role_names.get(user.role.name, user.role.name) }} · с {{ user.created_at.strftime('%d.%m.%Y') }}</p>
         </div>
     </div>
     <div class="page-actions">

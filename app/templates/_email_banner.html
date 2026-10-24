@@ -1,0 +1,31 @@
+{# Напоминание о подтверждении почты (для вошедших). Состояния: не подтверждена / срок истёк / идёт смена адреса #}
+{% if current_user.is_authenticated and (not current_user.email_confirmed or current_user.pending_email) %}
+{% set days = current_user.email_confirm_days_left() %}
+<div class="email-banner{% if current_user.email_confirm_overdue() %} is-overdue{% endif %}" role="status">
+    <div class="email-banner-text">
+        {% if current_user.pending_email %}
+            Мы отправили ссылку на <b>{{ current_user.pending_email }}</b>. Пока вы её не подтвердите, используется <b>{{ current_user.email }}</b>.
+        {% elif current_user.email_confirm_overdue() %}
+            <b>Срок подтверждения почты истёк.</b> Подтвердите <b>{{ current_user.email }}</b>, иначе аккаунт может быть удалён.
+        {% else %}
+            Подтвердите почту <b>{{ current_user.email }}</b> — осталось <b class="num">{{ days }} {{ days|plural('день', 'дня', 'дней') }}</b>, иначе аккаунт может быть удалён.
+        {% endif %}
+    </div>
+    <div class="email-banner-actions">
+        <form method="POST" action="{{ url_for('auth.resend_confirmation') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+            <button type="submit" class="btn btn-primary btn-sm">Отправить письмо ещё раз</button>
+        </form>
+        {% if current_user.pending_email %}
+        <form method="POST" action="{{ url_for('profile.cancel_email_change') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+            <button type="submit" class="btn btn-link btn-sm">Отменить смену</button>
+        </form>
+        {% else %}
+        <a class="btn btn-link btn-sm" href="{{ url_for('profile.edit') }}#email">Изменить почту</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

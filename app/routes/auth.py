@@ -10,6 +10,8 @@ import secrets
 from app import db, limiter, mail
 from app.models import User, Role, PasswordResetToken
 from app.forms import RegistrationForm, LoginForm, ForgotPasswordForm, ResetPasswordForm
+from app import email_confirm
+from app.timeutil import utcnow
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -67,13 +69,21 @@ def register():
         try:
             db.session.add(user)
             db.session.commit()
-            flash('Регистрация успешна! Теперь вы можете войти.', 'success')
-            return redirect(url_for('auth.login'))
         except Exception:
             db.session.rollback()
             current_app.logger.exception('Ошибка регистрации')
             flash('Ошибка при регистрации. Пожалуйста, попробуйте снова.', 'danger')
             return render_template('register.html', form=form)
+        
+        try:
+            email_confirm.send_confirmation(user, user.email)
+            flash(f'Аккаунт создан! Мы отправили письмо на {user.email} — перейдите по ссылке, чтобы подтвердить почту. '
+                  f'Войти можно уже сейчас.', 'success')
+        except Exception:
+            current_app.logger.exception('Не удалось отправить письмо подтверждения (user_id=%s)', user.id)
+            flash('Аккаунт создан! Письмо для подтверждения почты отправить не удалось — '
+                  'войдите и отправьте его ещё раз из напоминания вверху страницы.', 'warning')
+        return redirect(url_for('auth.login'))
     
     return render_template('register.html', form=form)
 
@@ -282,3 +292,58 @@ def reset_password(token):
         return redirect(url_for('auth.login'))
     
     return render_template('auth/reset_password.html', form=form, token=token)
+
+
+
+@bp.route('/confirm_email/<token>')
+def confirm_email(token):
+    """Подтверждение почты по ссылке из письма (работает и без входа в аккаунт)"""
+    data, problem = email_confirm.read_token(token)
+    target = url_for('main.dashboard') if current_user.is_authenticated else url_for('auth.login')
+    if problem == 'expired':
+        flash('Ссылка устарела. Отправьте письмо ещё раз из напоминания вверху страницы.', 'warning')
+        return redirect(target)
+    user = db.session.get(User, data[0]) if data else None
+    if not user:
+        flash('Ссылка недействительна. Отправьте письмо ещё раз из напоминания вверху страницы.', 'danger')
+        return redirect(target)
+    
+    email = (data[1] or '').lower()
+    if user.pending_email and user.pending_email.lower() == email:
+        taken = User.query.filter(func.lower(User.email) == email, User.id != user.id).first()
+        if taken:
+            flash('Этот адрес уже занят другим аккаунтом — укажите другую почту в профиле.', 'danger')
+            return redirect(target)
+        user.email = email
+        user.pending_email = None
+        user.email_confirmed_at = utcnow()
+        db.session.commit()
+        flash(f'Новая почта подтверждена: {email}', 'success')
+    elif user.email.lower() == email:
+        if not user.email_confirmed_at:
+            user.email_confirmed_at = utcnow()
+            db.session.commit()
+        flash('Почта подтверждена. Спасибо!', 'success')
+    else:
+        flash('Ссылка устарела: адрес в аккаунте с тех пор изменился.', 'warning')
+    return redirect(target)
+
+
+@bp.route('/resend_confirmation', methods=['POST'])
+@login_required
+@limiter.limit("3 per hour")
+def resend_confirmation():
+    """Отправить письмо подтверждения ещё раз — на новый адрес, если идёт смена, иначе на текущий"""
+    email = current_user.pending_email or (None if current_user.email_confirmed else current_user.email)
+    back = request.form.get('next')
+    back = back if is_safe_redirect(back) else url_for('main.dashboard')
+    if not email:
+        flash('Почта уже подтверждена.', 'info')
+        return redirect(back)
+    try:
+        email_confirm.send_confirmation(current_user, email)
+        flash(f'Письмо отправлено на {email}. Если его нет во «Входящих», проверьте «Спам».', 'success')
+    except Exception:
+        current_app.logger.exception('Не удалось отправить письмо подтверждения (user_id=%s)', current_user.id)
+        flash('Не удалось отправить письмо. Попробуйте позже.', 'danger')
+    return redirect(back)
