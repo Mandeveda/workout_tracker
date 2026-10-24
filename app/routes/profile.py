@@ -1,9 +1,10 @@
 from flask import render_template, redirect, url_for, flash, request, Blueprint, jsonify, current_app
-from flask_login import login_required, current_user
+from flask_login import login_required, current_user, login_user
+from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
 from app import db
 from app.models import User
-from app.forms import ProfileForm
+from app.forms import ProfileForm, ChangePasswordForm
 import json
 
 bp = Blueprint('profile', __name__, url_prefix='/profile')
@@ -158,7 +159,29 @@ def edit():
         
         return redirect(url_for('profile.index'))
     
-    return render_template('profile/edit.html', form=form, user=current_user)
+    return render_template('profile/edit.html', form=form, user=current_user, password_form=ChangePasswordForm(formdata=None))
+
+
+@bp.route('/change_password', methods=['POST'])
+@login_required
+def change_password():
+    """Смена пароля. Остальные входы пользователя завершаются, текущий — сохраняется"""
+    form = ChangePasswordForm()
+    if not form.validate_on_submit():
+        for errors in form.errors.values():
+            for error in errors:
+                flash(error, 'danger')
+        return redirect(url_for('profile.edit') + '#password')
+    if not check_password_hash(current_user.password_hash or '', form.old_password.data):
+        flash('Текущий пароль указан неверно', 'danger')
+        return redirect(url_for('profile.edit') + '#password')
+
+    current_user.password_hash = generate_password_hash(form.new_password.data)
+    db.session.commit()
+    # Отпечаток пароля в сессии изменился (см. User.get_id) — заново входим на этом устройстве
+    login_user(current_user, remember=True)
+    flash('Пароль изменён. На других устройствах нужно будет войти заново.', 'success')
+    return redirect(url_for('profile.index'))
 
 @bp.route('/add_measurement', methods=['POST'])
 @login_required

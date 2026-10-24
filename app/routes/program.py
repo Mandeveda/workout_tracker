@@ -2,8 +2,8 @@ from flask import render_template, redirect, url_for, flash, request, Blueprint,
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 from app import db
-from app.models import WorkoutTemplate, WorkoutSchedule, TemplateExercise, WorkoutSession, SetLog, Exercise
-from app.forms import ProgramGenerationForm, ExerciseParametersForm
+from app.models import WorkoutTemplate, WorkoutSchedule, TemplateExercise, WorkoutSession, SetLog
+from app.forms import ProgramGenerationForm
 import json
 from app.textutil import plural
 
@@ -51,14 +51,9 @@ def set_parameters():
     # Получаем упражнения из шаблона
     template_exercises = TemplateExercise.query.filter_by(template_id=template.id).order_by(TemplateExercise.order).all()
     
-    # Создаём форму для каждого упражнения
-    forms = {}
-    last_data = {}  # Храним последние данные по каждому упражнению
-    
+    # Последние результаты по упражнениям — подставляются в поля как начальные значения
+    last_data = {}
     for te in template_exercises:
-        forms[te.id] = ExerciseParametersForm(prefix=f'ex_{te.id}')
-        
-        # Получаем последние данные по этому упражнению
         last = get_last_workout_data(current_user.id, te.exercise_id)
         if last:
             last_data[te.id] = last
@@ -116,7 +111,6 @@ def set_parameters():
     return render_template('program/set_parameters.html', 
                          template=template, 
                          template_exercises=template_exercises, 
-                         forms=forms,
                          last_data=last_data)
 
 # Допустимые значения в плане: (минимум, максимум)

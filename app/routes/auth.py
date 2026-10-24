@@ -69,8 +69,9 @@ def register():
             db.session.commit()
             flash('Регистрация успешна! Теперь вы можете войти.', 'success')
             return redirect(url_for('auth.login'))
-        except Exception as e:
+        except Exception:
             db.session.rollback()
+            current_app.logger.exception('Ошибка регистрации')
             flash('Ошибка при регистрации. Пожалуйста, попробуйте снова.', 'danger')
             return render_template('register.html', form=form)
     
@@ -106,22 +107,15 @@ def login():
             regenerate_session()
             
             # Выполняем вход
-            login_user(user, remember=True)  # remember=True если нужно "запомнить меня"
-            
-            # Сохраняем дополнительную информацию в сессии
-            session['user_id'] = user.id
-            session['login_time'] = datetime.now().isoformat()
-            session['user_username'] = user.username
+            login_user(user, remember=True)
             
             # Возвращаем туда, откуда пришли, но только на страницу этого сайта
             next_page = request.args.get('next')
             return redirect(next_page if is_safe_redirect(next_page) else url_for('main.dashboard'))
         else:
             # Не показываем, существует ли пользователь или неверен пароль (безопасность)
+            # От подбора пароля защищает лимит запросов на этот маршрут (5 в минуту)
             flash('Неверный логин/email или пароль', 'danger')
-            # Небольшая задержка для защиты от брутфорса
-            import time
-            time.sleep(0.5)
     
     return render_template('login.html', form=form)
 

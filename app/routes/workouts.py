@@ -1,12 +1,10 @@
 from flask import render_template, redirect, url_for, flash, request, Blueprint, jsonify, current_app
 from flask_login import login_required, current_user
-from flask_wtf.csrf import generate_csrf
 from datetime import datetime
 from app import db, limiter
 from app.models import WorkoutSchedule, WorkoutSession, SetLog, Exercise, TemplateExercise
 from app.routes.main import session_title, human_date, MONTHS_SHORT
 from app.timeutil import local_today, local_date
-import json
 
 bp = Blueprint('workouts', __name__, url_prefix='/workouts')
 

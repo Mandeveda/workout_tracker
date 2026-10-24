@@ -1,5 +1,4 @@
 from flask_wtf import FlaskForm
-from flask_login import current_user
 from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, IntegerField, FloatField, BooleanField, DateField, SelectMultipleField
 from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, NumberRange, Optional, Regexp
 from sqlalchemy import func
@@ -84,53 +83,6 @@ class WorkoutTemplateForm(FlaskForm):
     name = StringField('Название шаблона', validators=[DataRequired(), Length(max=100)])
     submit = SubmitField('Создать шаблон')
 
-class TemplateExerciseForm(FlaskForm):
-    exercise_id = SelectField('Упражнение', coerce=int, validators=[DataRequired()])
-    order = IntegerField('Порядок выполнения', default=0)
-    submit = SubmitField('Добавить упражнение')
-    
-    # 👇 НОВЫЕ ПОЛЯ ДЛЯ ФИЛЬТРОВ
-    filter_type = SelectField('Тип упражнения', choices=[
-        ('', 'Все типы'),
-        ('strength', 'Силовые'),
-        ('bodyweight', 'Собственный вес'),
-        ('cardio', 'Кардио')
-    ], default='')
-    
-    filter_muscle_group = SelectField('Группа мышц', coerce=int, choices=[], default=0)
-    filter_subgroup = SelectField('Подгруппа', coerce=int, choices=[], default=0)
-    
-    def __init__(self, *args, **kwargs):
-        super(TemplateExerciseForm, self).__init__(*args, **kwargs)
-        from app.models import MuscleGroup, MuscleSubgroup
-        # Загружаем группы мышц
-        groups = MuscleGroup.query.order_by('display_name').all()
-        self.filter_muscle_group.choices = [(0, 'Все группы')] + [(g.id, g.display_name) for g in groups]
-        # Подгруппы будут загружаться через AJAX
-        self.filter_subgroup.choices = [(0, 'Все подгруппы')]
-
-class ExerciseParametersForm(FlaskForm):
-    """Форма для параметров одного упражнения (динамическая)"""
-    input_type = SelectField('Тип нагрузки', choices=[
-        ('fixed', 'Одинаково во всех подходах'),
-        ('progressive', 'Индивидуально для каждого подхода')
-    ], validators=[DataRequired()])
-    
-    # Для fixed режима
-    sets = IntegerField('Количество подходов', default=3, validators=[NumberRange(min=1, max=20)])
-    reps = IntegerField('Повторений в подходе', default=10, validators=[NumberRange(min=1, max=100)])
-    weight = FloatField('Вес (кг)', default=0)
-    
-    # Для progressive режима (будет динамически добавляться через JS)
-    # Храним как строку JSON в отдельном поле
-    
-    def __init__(self, *args, **kwargs):
-        super(ExerciseParametersForm, self).__init__(*args, **kwargs)
-        # Убираем валидацию для progressive режима
-        self.sets.validators = []
-        self.reps.validators = []
-        self.weight.validators = []
-
 class ProgramGenerationForm(FlaskForm):
     """Форма для генерации программы"""
     template_id = SelectField('Шаблон тренировки', coerce=int, validators=[DataRequired()])
@@ -195,21 +147,8 @@ class ProfileForm(FlaskForm):
     
     submit = SubmitField('Сохранить изменения')
 
-class MeasurementForm(FlaskForm):
-    """Форма для добавления нового измерения"""
-    weight = FloatField('Вес (кг)', validators=[NumberRange(min=30, max=300)])
-    chest_circumference = FloatField('Грудь (см)', validators=[NumberRange(min=0, max=200)], default=0)
-    waist_circumference = FloatField('Талия (см)', validators=[NumberRange(min=0, max=200)], default=0)
-    hips_circumference = FloatField('Бёдра (см)', validators=[NumberRange(min=0, max=200)], default=0)
-    biceps_circumference = FloatField('Бицепс (см)', validators=[NumberRange(min=0, max=100)], default=0)
-    forearm_circumference = FloatField('Предплечье (см)', validators=[NumberRange(min=0, max=100)], default=0)
-    thigh_circumference = FloatField('Бедро (см)', validators=[NumberRange(min=0, max=150)], default=0)
-    calf_circumference = FloatField('Икра (см)', validators=[NumberRange(min=0, max=100)], default=0)
-    neck_circumference = FloatField('Шея (см)', validators=[NumberRange(min=0, max=100)], default=0)
-    submit = SubmitField('Сохранить измерение')
-
 class ChangePasswordForm(FlaskForm):
-    old_password = PasswordField('Текущий пароль', validators=[DataRequired()])
+    old_password = PasswordField('Текущий пароль', validators=[DataRequired(REQUIRED)])
     new_password = PasswordField('Новый пароль', validators=[
         DataRequired(),
         Length(min=6, message='Пароль должен быть не менее 6 символов')

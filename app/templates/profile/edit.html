@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import form_field %}
 {% block title %}Изменить профиль{% endblock %}
 {% macro field(f, unit='') -%}
 <label>{{ f.label.text }}{% if unit %}, {{ unit }}{% endif %}
@@ -50,6 +51,20 @@
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Сохранить</button>
             <a class="btn btn-link" href="{{ url_for('profile.index') }}">Отмена</a>
+        </div>
+    </form>
+
+    <form method="POST" action="{{ url_for('profile.change_password') }}" class="panel form-panel mt-4" id="password" novalidate>
+        {{ password_form.hidden_tag() }}
+        <h2 class="block-title">Пароль</h2>
+        <p class="form-text mt-0 mb-3">После смены пароля на других устройствах нужно будет войти заново.</p>
+        {{ form_field(password_form.old_password, autocomplete="current-password") }}
+        <div class="params-grid params-grid-2">
+            <div>{{ form_field(password_form.new_password, autocomplete="new-password") }}</div>
+            <div>{{ form_field(password_form.confirm_password, autocomplete="new-password") }}</div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-outline-primary">Сменить пароль</button>
         </div>
     </form>
 </div>

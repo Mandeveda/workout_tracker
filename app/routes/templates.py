@@ -1,8 +1,8 @@
-from flask import render_template, redirect, url_for, flash, request, Blueprint, jsonify
+from flask import render_template, redirect, url_for, flash, request, Blueprint
 from flask_login import login_required, current_user
 from app import db
 from app.models import WorkoutTemplate, TemplateExercise, WorkoutSchedule, Exercise
-from app.forms import WorkoutTemplateForm, TemplateExerciseForm, AddExerciseForm
+from app.forms import WorkoutTemplateForm, AddExerciseForm
 
 bp = Blueprint('templates', __name__, url_prefix='/templates')
 
@@ -57,16 +57,14 @@ def edit_template(template_id):
             flash('Название шаблона обновлено', 'success')
         return redirect(url_for('templates.edit_template', template_id=template.id))
     
-    form = TemplateExerciseForm()
     template_exercises = TemplateExercise.query.filter_by(template_id=template.id).order_by(TemplateExercise.order).all()
     
-    return render_template('templates/edit.html', template=template, template_exercises=template_exercises, form=form)
+    return render_template('templates/edit.html', template=template, template_exercises=template_exercises)
 
 @bp.route('/add_exercise/<int:template_id>', methods=['GET', 'POST'])
 @login_required
 def add_exercise(template_id):
     """Добавление упражнений в шаблон с фильтрацией (групповое)"""
-    from app.models import MuscleGroup, MuscleSubgroup
     from sqlalchemy import func
     
     template = WorkoutTemplate.query.get_or_404(template_id)
@@ -97,10 +95,6 @@ def add_exercise(template_id):
     
     # Получаем список упражнений
     exercises = query.order_by(Exercise.name).all()
-    
-    # Для AJAX-запросов возвращаем JSON
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify([{'id': e.id, 'name': e.name} for e in exercises])
     
     # Обновляем choices для формы
     exercise_choices = [(e.id, e.name) for e in exercises]

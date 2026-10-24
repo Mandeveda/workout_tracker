@@ -1,6 +1,6 @@
 from flask import render_template, Blueprint, current_app, send_from_directory
 from flask_login import login_required, current_user
-from datetime import datetime, timedelta
+from datetime import timedelta
 from app.models import WorkoutSchedule, WorkoutSession
 from app.timeutil import local_today, local_date, utc_start_of
 

@@ -73,7 +73,6 @@ class Config:
         RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
     
     RATELIMIT_STRATEGY = 'fixed-window'
-    RATELIMIT_DEFAULT_LIMITS = ["100 per day", "20 per hour"]
     RATELIMIT_HEADERS_ENABLED = True
     RATELIMIT_STORAGE_OPTIONS = {
         'socket_connect_timeout': 30,
@@ -107,7 +106,6 @@ class Config:
         def add_security_headers(response):
             response.headers['X-Content-Type-Options'] = 'nosniff'
             response.headers['X-Frame-Options'] = 'DENY'
-            response.headers['X-XSS-Protection'] = '1; mode=block'
             response.headers['Referrer-Policy'] = Config.REFERRER_POLICY
             
             # Более мягкий CSP для разработки (можно усилить для продакшена)

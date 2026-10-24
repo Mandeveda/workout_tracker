@@ -32,16 +32,17 @@ flask --app run db upgrade
 pip install -r requirements-dev.txt   # once: pytest (dev only, not on the server)
 pytest                                # all tests, ~7 s
 pytest tests/test_auth.py -k reset    # one file / matching tests
+python -m pyflakes app/               # unused imports / undefined names (should print nothing)
 ```
 
-Tests (`tests/`) run against an in-memory SQLite DB created per test (`conftest.py`: fixtures `make_user`, `make_exercise`, `make_template`, `make_session`, helpers `login`, `csrf_token`). `conftest.py` sets env vars *before* importing the app because `config.py` reads them at import, and clears `flask.g` before each request because the test keeps an app context open (Flask-Login/Flask-WTF cache in `g`). Add a test with every bug fix. No linter or build step.
+Tests (`tests/`) run against an in-memory SQLite DB created per test (`conftest.py`: fixtures `make_user`, `make_exercise`, `make_template`, `make_session`, helpers `login`, `csrf_token`). `conftest.py` sets env vars *before* importing the app because `config.py` reads them at import, and clears `flask.g` before each request because the test keeps an app context open (Flask-Login/Flask-WTF cache in `g`). Add a test with every bug fix. No build step.
 
 ## Configuration
 
 - `config.py` loads `.env` from the project root and **raises at import if `SECRET_KEY` is missing**.
 - `DATABASE_URL` → otherwise SQLite at `instance/workout.db`. `REDIS_URL`/`RATELIMIT_STORAGE_URI` → limiter storage (default `memory://`). Mail defaults to Yandex SMTP over SSL (used for password reset).
 - `create_app()` picks the config class via `get_config()` from `ENVIRONMENT` (`development` → `DevelopmentConfig`: DEBUG, insecure cookies by default; `production` → `ProductionConfig`: `SameSite=Strict`). `SESSION_COOKIE_SECURE` from `.env` overrides the per-environment default (`env_bool` helper).
-- `RATELIMIT_DEFAULT_LIMITS` in `config.py` is **not** a Flask-Limiter key (the real one is `RATELIMIT_DEFAULT`), so there is effectively no global limit — only the explicit `@limiter.limit` on auth routes. Renaming it would enable 20 req/hour site-wide. Workout AJAX endpoints (`save_progress`, `complete`) are `@limiter.exempt`.
+- No global rate limit — only explicit `@limiter.limit` on auth routes (login, register, forgot password). Workout AJAX endpoints (`save_progress`, `complete`) are `@limiter.exempt`.
 - Times are stored as naive UTC (`datetime.utcnow()`); anything about "today", days or weeks uses the site timezone `APP_TIMEZONE` (default `Europe/Moscow`) via `app/timeutil.py` (`local_today`, `local_date`, `utc_start_of` for query boundaries) and the Jinja filter `|local`. Tests patch `app.timeutil.utcnow`.
 - The strict CSP header is only added when `ENVIRONMENT=production`; any new external asset host must be added there.
 
@@ -79,7 +80,7 @@ Bootstrap 5.3 (CDN) recoloured via its `--bs-*` variables in `static/styles.css`
 
 ### PWA
 
-`static/manifest.json`, `static/sw.js` (registered from `base.html` as `/static/sw.js`), `main.offline` route + `offline.html`. Bump the cache names in `sw.js` when changing cached static files.
+Installable PWA. `static/manifest.json` (icons incl. `maskable-*`, `apple-touch-icon.png`), `static/sw.js` served from the root by `main.service_worker` (`/sw.js`, scope `/`) and registered by `static/js/pwa.js`. The SW never caches pages (navigation → network, offline → precached `/offline`), only `/static/*` (stale-while-revalidate) and CDN assets (cache-first); bump `VERSION` in `sw.js` when changing its logic. `offline.html` is standalone (no base, no user data, no external assets). Static URLs get `?v=<mtime>` automatically (`url_defaults` in `create_app`). `pwa.js` shows `[data-install]` buttons: native prompt (Chrome/Edge), iOS instructions (`#installIosModal`), and an "open in Chrome" hint for Android browsers that only create shortcuts (Yandex, Xiaomi, Firefox — `#installAndroidModal`).
 
 ## Database / migrations
 
