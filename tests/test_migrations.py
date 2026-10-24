@@ -56,3 +56,12 @@ def test_template_history_migration_saves_template_names(tmp_path):
     with sqlite3.connect(db_path) as con:
         names = [row[0] for row in con.execute("SELECT template_name FROM workout_sessions ORDER BY id")]
     assert names == ['Спина', None]
+
+
+def test_coach_migration_seeds_specializations(tmp_path):
+    """ROADMAP D.1: начальный список специализаций создаётся миграцией"""
+    db_path = tmp_path / 'fresh.db'
+    assert flask_db('upgrade', db_path).returncode == 0
+    with sqlite3.connect(db_path) as con:
+        names = [row[0] for row in con.execute('SELECT name FROM specializations ORDER BY sort_order')]
+    assert len(names) == 10 and names[0] == 'Набор мышечной массы'

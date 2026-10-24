@@ -64,6 +64,8 @@ class User(UserMixin, db.Model):
     pending_email = db.Column(db.String(120), nullable=True)
     # Когда пользователь последний раз открывал сайт (обновляется не чаще LAST_SEEN_STEP)
     last_seen_at = db.Column(db.DateTime, nullable=True)
+    # Письма о заявках тренеру и ответах на них (уведомления на сайте приходят всегда)
+    email_notifications = db.Column(db.Boolean, nullable=False, default=True, server_default='1')
     
     # Внешний ключ на роль (одна роль у пользователя)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False, default=2)  # 2 = обычный пользователь по умолчанию
@@ -89,9 +91,11 @@ class User(UserMixin, db.Model):
 
     # Связи
     role = relationship('Role', back_populates='users')
-    workout_templates = relationship('WorkoutTemplate', back_populates='user', cascade='all, delete-orphan')
+    workout_templates = relationship('WorkoutTemplate', back_populates='user', cascade='all, delete-orphan',
+                                     foreign_keys='WorkoutTemplate.user_id')
     workout_sessions = relationship('WorkoutSession', back_populates='user', cascade='all, delete-orphan')
-    schedules = db.relationship('WorkoutSchedule', back_populates='user', cascade='all, delete-orphan')
+    schedules = db.relationship('WorkoutSchedule', back_populates='user', cascade='all, delete-orphan',
+                                foreign_keys='WorkoutSchedule.user_id')
 
     @property
     def email_confirmed(self):
@@ -264,13 +268,16 @@ class WorkoutTemplate(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True) 
+    # Тренер, который назначил шаблон (это копия его шаблона у подопечного); пусто — свой шаблон
+    assigned_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     
     # Для привязки к дате/дню недели
     scheduled_date = db.Column(db.Date, nullable=True)  # если привязано к конкретной дате
     scheduled_weekday = db.Column(db.Integer, nullable=True)  # 0-6 (пн=0, вс=6)
     
     # Связи
-    user = relationship('User', back_populates='workout_templates')
+    user = relationship('User', back_populates='workout_templates', foreign_keys=[user_id])
+    assigned_by = relationship('User', foreign_keys=[assigned_by_id])
     template_exercises = relationship('TemplateExercise', back_populates='template', cascade='all, delete-orphan')
     workout_sessions = relationship('WorkoutSession', back_populates='template')
     schedules = db.relationship('WorkoutSchedule', back_populates='template', cascade='all, delete-orphan')#исправил db.relationship на relationship
@@ -441,9 +448,12 @@ class WorkoutSchedule(db.Model):
     # Для повторяющихся программ (в будущем)
     is_recurring = db.Column(db.Boolean, default=False)
     recurring_rule = db.Column(db.String(50), nullable=True)
+    # Тренер, который поставил этот день в расписание; пусто — пользователь сам
+    assigned_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     
     # Связи
-    user = db.relationship('User', back_populates='schedules')
+    user = db.relationship('User', back_populates='schedules', foreign_keys=[user_id])
+    assigned_by = db.relationship('User', foreign_keys=[assigned_by_id])
     template = db.relationship('WorkoutTemplate', back_populates='schedules')
     session = relationship('WorkoutSession', back_populates='schedule', uselist=False)
     
@@ -472,3 +482,139 @@ class PasswordResetToken(db.Model):
     def is_valid(self):
         """Проверка, действителен ли токен"""
         return not self.used and not self.is_expired()
+
+
+# ---------- Тренеры (ROADMAP D) ----------
+
+COACH_STATUSES = ('pending', 'approved', 'rejected', 'revoked')   # на проверке, одобрен, отклонён, статус снят
+LINK_STATUSES = ('requested', 'active', 'declined', 'ended')      # заявка, подопечный, заявка отклонена, связь разорвана
+REVIEW_MIN_SESSIONS = 3      # столько тренировок по назначению тренера нужно провести, чтобы оставить отзыв
+RATING_MIN_REVIEWS = 3       # с какого числа отзывов показывается рейтинг
+
+coach_specializations = db.Table(
+    'coach_specializations',
+    db.Column('coach_profile_id', db.Integer, db.ForeignKey('coach_profiles.id'), primary_key=True),
+    db.Column('specialization_id', db.Integer, db.ForeignKey('specializations.id'), primary_key=True),
+)
+
+
+class Specialization(db.Model):
+    """Направление работы тренера; список ведёт админ"""
+    __tablename__ = 'specializations'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(60), unique=True, nullable=False)
+    sort_order = db.Column(db.Integer, nullable=False, default=0, server_default='0')
+    is_active = db.Column(db.Boolean, nullable=False, default=True, server_default='1')   # скрытые не предлагаются в анкете
+
+    def __repr__(self):
+        return f'<Specialization {self.name}>'
+
+
+class CoachProfile(db.Model):
+    """Анкета тренера. Тренер — не роль, а дополнительный статус любого пользователя"""
+    __tablename__ = 'coach_profiles'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='pending')
+    bio = db.Column(db.Text, nullable=True)                       # «о себе», достижения
+    experience_years = db.Column(db.Integer, nullable=True)
+    city = db.Column(db.String(80), nullable=True)
+    works_online = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
+    works_offline = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
+    contacts = db.Column(db.String(300), nullable=True)           # видны только подопечным
+    photo = db.Column(db.String(100), nullable=True)              # имя файла в папке фото тренеров
+    max_clients = db.Column(db.Integer, nullable=True)            # пусто — без ограничения
+    accepting = db.Column(db.Boolean, nullable=False, default=True, server_default='1')   # набор открыт
+    admin_note = db.Column(db.String(300), nullable=True)         # причина отказа / снятия статуса
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
+    approved_at = db.Column(db.DateTime, nullable=True)
+
+    user = relationship('User', backref=db.backref('coach_profile', uselist=False))
+    specializations = relationship('Specialization', secondary=coach_specializations,
+                                   order_by='Specialization.sort_order')
+
+    @property
+    def is_approved(self):
+        return self.status == 'approved'
+
+    def __repr__(self):
+        return f'<CoachProfile user={self.user_id} {self.status}>'
+
+
+class CoachLink(db.Model):
+    """Связь тренер ↔ подопечный: от заявки до разрыва (история сохраняется)"""
+    __tablename__ = 'coach_links'
+
+    id = db.Column(db.Integer, primary_key=True)
+    coach_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default='requested')
+    message = db.Column(db.String(500), nullable=True)            # сообщение в заявке
+    share_measurements = db.Column(db.Boolean, nullable=False, default=False, server_default='0')
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    answered_at = db.Column(db.DateTime, nullable=True)
+    ended_at = db.Column(db.DateTime, nullable=True)
+    ended_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    coach = relationship('User', foreign_keys=[coach_id])
+    client = relationship('User', foreign_keys=[client_id])
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+    def __repr__(self):
+        return f'<CoachLink coach={self.coach_id} client={self.client_id} {self.status}>'
+
+
+class SessionComment(db.Model):
+    """Комментарий тренера к проведённой тренировке подопечного"""
+    __tablename__ = 'session_comments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('workout_sessions.id'), nullable=False, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    session = relationship('WorkoutSession', backref=db.backref('comments', order_by='SessionComment.created_at'))
+    author = relationship('User')
+
+
+class CoachReview(db.Model):
+    """Отзыв подопечного о тренере: один на пару, можно исправить"""
+    __tablename__ = 'coach_reviews'
+    __table_args__ = (db.UniqueConstraint('coach_id', 'author_id', name='uq_coach_review_author'),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    coach_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)                # 1–5
+    text = db.Column(db.Text, nullable=True)
+    reply = db.Column(db.Text, nullable=True)                     # ответ тренера (один)
+    replied_at = db.Column(db.DateTime, nullable=True)
+    reported_at = db.Column(db.DateTime, nullable=True)           # тренер пожаловался
+    is_hidden = db.Column(db.Boolean, nullable=False, default=False, server_default='0')   # скрыт админом
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    coach = relationship('User', foreign_keys=[coach_id])
+    author = relationship('User', foreign_keys=[author_id])
+
+
+class Notification(db.Model):
+    """Уведомление на сайте (колокольчик)"""
+    __tablename__ = 'notifications'
+    __table_args__ = (db.Index('ix_notifications_user_read', 'user_id', 'read_at'),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    kind = db.Column(db.String(30), nullable=False)               # coach_request, request_answer, …
+    text = db.Column(db.String(300), nullable=False)
+    url = db.Column(db.String(300), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    read_at = db.Column(db.DateTime, nullable=True)

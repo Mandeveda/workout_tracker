@@ -144,3 +144,34 @@ def test_legacy_completed_session_is_not_recalculated(client, make_user, make_ex
     client.post(f'/templates/delete/{template.id}')
     session = db.session.get(WorkoutSession, session.id)
     assert session.completion_percent == 5.7 and session.template_name == 'День ног'
+
+
+def test_deleting_coach_or_client_cleans_coach_data(client, make_user, make_exercise, make_template, make_session):
+    """ROADMAP D.1: у удалённого тренера пропадают анкета, связи, отзывы; назначенное подопечному остаётся"""
+    from app.models import (CoachLink, CoachProfile, CoachReview, Notification, SessionComment,
+                            Specialization)
+    make_user('boss', role_id=1)
+    coach, pupil = make_user('coach'), make_user('pupil')
+    profile = CoachProfile(user_id=coach.id, status='approved', specializations=[Specialization.query.first()]
+                           if Specialization.query.first() else [])
+    squat = make_exercise('Присед')
+    template, day = make_template(pupil, [(squat, PLAN)])
+    template.assigned_by_id = day.assigned_by_id = coach.id
+    session = make_session(pupil, day, completed=True, logs=[(squat, 10, 50)])
+    db.session.add_all([profile,
+                        CoachLink(coach_id=coach.id, client_id=pupil.id, status='active'),
+                        CoachReview(coach_id=coach.id, author_id=pupil.id, rating=5, text='Отлично'),
+                        SessionComment(session_id=session.id, author_id=coach.id, text='Молодец'),
+                        Notification(user_id=coach.id, kind='coach_request', text='Новая заявка')])
+    db.session.commit()
+    login(client, 'boss')
+    client.post(f'/admin/user/{coach.id}/delete', data={'confirm_username': 'coach'})
+    db.session.expire_all()
+
+    assert db.session.get(User, coach.id) is None
+    for model in (CoachProfile, CoachLink, CoachReview, SessionComment, Notification):
+        assert model.query.count() == 0, model
+    template = db.session.get(WorkoutTemplate, template.id)
+    assert template is not None and template.assigned_by_id is None
+    assert WorkoutSchedule.query.filter_by(user_id=pupil.id).one().assigned_by_id is None
+    assert SetLog.query.count() == 1

@@ -8,8 +8,9 @@
 from sqlalchemy import or_
 
 from app import db
-from app.models import (Exercise, PasswordResetToken, SetLog, TemplateExercise,
-                        WorkoutSchedule, WorkoutSession, WorkoutTemplate)
+from app.models import (CoachLink, CoachProfile, CoachReview, Exercise, Notification, PasswordResetToken,
+                        SessionComment, SetLog, TemplateExercise, WorkoutSchedule, WorkoutSession,
+                        WorkoutTemplate, coach_specializations)
 
 
 def _template_sessions(template):
@@ -40,6 +41,7 @@ def delete_template(template):
         # status — для старых записей, у которых is_completed пуст (колонку добавили позже)
         finished = session.is_completed or session.status == 'completed'
         if not finished and not session.set_logs:
+            SessionComment.query.filter_by(session_id=session.id).delete(synchronize_session=False)
             db.session.delete(session)        # открыли и ничего не записали — в истории не нужна
             continue
         if not finished:
@@ -86,6 +88,19 @@ def delete_user(user, heir):
 
     Exercise.query.filter_by(created_by_id=user.id).update(
         {Exercise.created_by_id: heir.id}, synchronize_session=False)
+    # как тренер: шаблоны и дни, назначенные подопечным, остаются у них — без пометки «от тренера»
+    for model in (WorkoutTemplate, WorkoutSchedule):
+        model.query.filter_by(assigned_by_id=user.id).update({model.assigned_by_id: None}, synchronize_session=False)
+    profile_ids = db.session.query(CoachProfile.id).filter(CoachProfile.user_id == user.id)
+    db.session.execute(coach_specializations.delete().where(coach_specializations.c.coach_profile_id.in_(profile_ids)))
+    CoachProfile.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+    CoachLink.query.filter(or_(CoachLink.coach_id == user.id, CoachLink.client_id == user.id)).delete(
+        synchronize_session=False)
+    CoachReview.query.filter(or_(CoachReview.coach_id == user.id, CoachReview.author_id == user.id)).delete(
+        synchronize_session=False)
+    SessionComment.query.filter(or_(SessionComment.author_id == user.id, SessionComment.session_id.in_(sessions))).delete(
+        synchronize_session=False)
+    Notification.query.filter_by(user_id=user.id).delete(synchronize_session=False)
     SetLog.query.filter(SetLog.session_id.in_(sessions)).delete(synchronize_session=False)
     WorkoutSession.query.filter_by(user_id=user.id).delete(synchronize_session=False)
     WorkoutSchedule.query.filter_by(user_id=user.id).delete(synchronize_session=False)

@@ -25,6 +25,9 @@ from config import BASE_DIR, database_settings
 from app import models   # импорт моделей регистрирует все таблицы в db.metadata
 
 BATCH = 500
+# Таблицы, которые миграции сами заполняют начальными данными: в новой базе их строки
+# заменяются строками из источника
+SEEDED_BY_MIGRATIONS = {'specializations'}
 
 
 def fail(message):
@@ -119,7 +122,8 @@ def main():
         missing = set(t.name for t in tables) - set(inspect(dst).get_table_names())
         if missing:
             fail(f'в MySQL нет таблиц: {", ".join(sorted(missing))}')
-        filled = [t.name for t in tables if dst.execute(select(func.count()).select_from(t)).scalar()]
+        filled = [t.name for t in tables if t.name not in SEEDED_BY_MIGRATIONS
+                  and dst.execute(select(func.count()).select_from(t)).scalar()]
         if filled:
             fail(f'в MySQL уже есть данные ({", ".join(filled)}) — перенос только в пустую базу')
         if dst.dialect.name in ('mysql', 'mariadb'):
@@ -138,6 +142,9 @@ def main():
         dst.rollback()                   # закрыть транзакцию, которую открыли проверки выше
         transaction = dst.begin()
         try:
+            for table in tables:
+                if table.name in SEEDED_BY_MIGRATIONS:
+                    dst.execute(table.delete())
             report = copy_and_verify(src, dst, tables)
         except Exception as error:
             transaction.rollback()
