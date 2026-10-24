@@ -1,7 +1,8 @@
 from flask import render_template, redirect, url_for, flash, request, Blueprint, current_app
 from flask_login import login_required, current_user
 from app import db, deletion
-from app.models import WorkoutTemplate, TemplateExercise, WorkoutSchedule, Exercise
+from app.models import WorkoutTemplate, TemplateExercise, WorkoutSchedule, Exercise, User
+from sqlalchemy import func
 from app.forms import WorkoutTemplateForm, AddExerciseForm
 from app.textutil import plural
 
@@ -12,15 +13,24 @@ bp = Blueprint('templates', __name__, url_prefix='/templates')
 def list_templates():
     """Список шаблонов (админ видит все, обычный пользователь — только свои)"""
     if current_user.role.name == 'admin':
-        # Админ видит все шаблоны
-        templates = WorkoutTemplate.query.order_by(WorkoutTemplate.created_at.desc()).all()
-    else:
-        # Обычный пользователь видит только свои
-        templates = WorkoutTemplate.query.filter_by(
-            user_id=current_user.id, 
-            is_active=True
-        ).order_by(WorkoutTemplate.created_at.desc()).all()
-    
+        # Админ видит все шаблоны; фильтр ?owner=<id пользователя>
+        owners = (db.session.query(User, func.count(WorkoutTemplate.id))
+                  .join(WorkoutTemplate, WorkoutTemplate.user_id == User.id)
+                  .group_by(User.id).order_by(func.lower(User.username)).all())
+        owner_id = request.args.get('owner', type=int)
+        if owner_id not in {user.id for user, _ in owners}:
+            owner_id = None
+        query = WorkoutTemplate.query
+        if owner_id:
+            query = query.filter_by(user_id=owner_id)
+        templates = query.order_by(WorkoutTemplate.created_at.desc()).all()
+        return render_template('templates/list.html', templates=templates, owners=owners, owner_id=owner_id)
+
+    # Обычный пользователь видит только свои
+    templates = WorkoutTemplate.query.filter_by(
+        user_id=current_user.id, 
+        is_active=True
+    ).order_by(WorkoutTemplate.created_at.desc()).all()
     return render_template('templates/list.html', templates=templates)
 
 @bp.route('/create', methods=['GET', 'POST'])
@@ -66,7 +76,6 @@ def edit_template(template_id):
 @login_required
 def add_exercise(template_id):
     """Добавление упражнений в шаблон с фильтрацией (групповое)"""
-    from sqlalchemy import func
     
     template = WorkoutTemplate.query.get_or_404(template_id)
     

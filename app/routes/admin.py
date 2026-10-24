@@ -4,7 +4,7 @@ from werkzeug.security import generate_password_hash
 from app import db, deletion
 from app.models import User, Role
 from sqlalchemy import or_
-from app.timeutil import utcnow
+from app.timeutil import local_today, utcnow
 
 bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -72,7 +72,8 @@ def users():
     
     users = query.order_by(User.id).paginate(page=page, per_page=per_page, error_out=False)
     
-    return render_template('admin/users.html', users=users, roles=roles, search=search, show=show, filters=filters)
+    return render_template('admin/users.html', users=users, roles=roles, search=search, show=show, filters=filters,
+                           today=local_today())
 
 @bp.route('/user/<int:user_id>/role', methods=['POST'])
 @login_required

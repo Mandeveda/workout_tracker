@@ -13,6 +13,19 @@
     </div>
 </div>
 
+{% if owners %}
+<form method="GET" class="filters filters-owner panel" role="search">
+    <label class="form-label mb-0" for="owner">Владелец</label>
+    <select id="owner" name="owner" class="form-select js-autosubmit">
+        <option value="">Все пользователи · {{ owners|sum(attribute=1) }}</option>
+        {% for user, count in owners %}
+        <option value="{{ user.id }}"{% if user.id == owner_id %} selected{% endif %}>{{ user.username }}{% if user.id == current_user.id %} (вы){% endif %} · {{ count }}</option>
+        {% endfor %}
+    </select>
+    <noscript><button type="submit" class="btn btn-primary">Показать</button></noscript>
+</form>
+{% endif %}
+
 {% if templates %}
 <div class="card-grid">
     {% for template in templates %}

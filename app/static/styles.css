@@ -1196,6 +1196,7 @@ fieldset legend.form-label { font-size: .9rem; }
 
 /* ---------- администрирование ---------- */
 .filters-search { grid-template-columns: 1fr auto auto; align-items: center; }
+.filters-owner { grid-template-columns: auto minmax(0, 360px); align-items: center; justify-content: start; }
 .user-row .avatar { flex: none; }
 .user-row.is-blocked { border-style: dashed; }
 .user-row.is-blocked .row-title { color: var(--muted); }

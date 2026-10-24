@@ -111,6 +111,26 @@ def create_app(config_class=None):
                     static_versions[filename] = 0
             values.setdefault('v', static_versions[filename])
     
+    # «Был на сайте» для админки: пишем в базу не чаще раза в 5 минут, а не на каждый запрос
+    # (после ответа: пользователь к этому моменту уже загружен, а изменения страницы сохранены)
+    @app.after_request
+    def remember_last_seen(response):
+        from flask import request
+        from flask_login import current_user
+        from app.models import User, LAST_SEEN_STEP
+        from app.timeutil import utcnow
+        if request.endpoint in (None, 'static', 'main.service_worker') or not current_user.is_authenticated:
+            return response
+        now = utcnow()
+        if current_user.last_seen_at and now - current_user.last_seen_at < LAST_SEEN_STEP:
+            return response
+        try:
+            db.session.execute(db.update(User).where(User.id == current_user.id).values(last_seen_at=now))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()   # отметка не важнее самого запроса
+        return response
+    
     # Обработчик ошибки превышения лимита
     @app.errorhandler(429)
     def ratelimit_handler(e):

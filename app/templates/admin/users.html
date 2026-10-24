@@ -33,7 +33,8 @@
         <span class="avatar">{{ user.username[:1]|upper }}</span>
         <div class="row-main">
             <span class="row-title">{{ user.username }}{% if is_me %} <span class="pill">вы</span>{% endif %}{% if user.is_blocked %} <span class="pill is-low">заблокирован</span>{% endif %}{% if user.email_confirm_overdue() %} <span class="pill is-low">срок подтверждения истёк</span>{% elif not user.email_confirmed %} <span class="pill">почта не подтверждена · {{ user.email_confirm_days_left() }} дн.</span>{% endif %}</span>
-            <span class="row-sub">{{ user.email }} · с {{ user.created_at.strftime('%d.%m.%Y') }}</span>
+            <span class="row-sub">{{ user.email }} · с {{ user.created_at.strftime('%d.%m.%Y') }} ·
+                {% if user.last_seen_at %}{% set seen = user.last_seen_at|local %}был(а) {{ 'сегодня в ' ~ seen.strftime('%H:%M') if seen.date() == today else seen.strftime('%d.%m.%Y') }}{% else %}ещё не заходил(а){% endif %}</span>
         </div>
         <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id, **keep) }}" class="role-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

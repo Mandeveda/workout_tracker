@@ -183,7 +183,7 @@ def change_password():
     current_user.password_hash = generate_password_hash(form.new_password.data)
     db.session.commit()
     # Отпечаток пароля в сессии изменился (см. User.get_id) — заново входим на этом устройстве
-    login_user(current_user, remember=True)
+    login_user(current_user._get_current_object(), remember=True)   # сам объект, не прокси current_user
     flash('Пароль изменён. На других устройствах нужно будет войти заново.', 'success')
     return redirect(url_for('profile.index'))
 

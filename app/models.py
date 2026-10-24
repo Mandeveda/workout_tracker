@@ -8,6 +8,7 @@ from sqlalchemy.orm import relationship
 from math import log10
 
 EMAIL_CONFIRM_DAYS = 30   # сколько дней даётся на подтверждение почты
+LAST_SEEN_STEP = timedelta(minutes=5)   # как часто обновлять отметку «был на сайте»
 
 # Загрузка пользователя для Flask-Login
 @login_manager.user_loader
@@ -56,6 +57,8 @@ class User(UserMixin, db.Model):
     email_confirm_deadline = db.Column(db.DateTime, nullable=True,
                                        default=lambda: datetime.utcnow() + timedelta(days=EMAIL_CONFIRM_DAYS))
     pending_email = db.Column(db.String(120), nullable=True)
+    # Когда пользователь последний раз открывал сайт (обновляется не чаще LAST_SEEN_STEP)
+    last_seen_at = db.Column(db.DateTime, nullable=True)
     
     # Внешний ключ на роль (одна роль у пользователя)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False, default=2)  # 2 = обычный пользователь по умолчанию
