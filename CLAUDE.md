@@ -84,7 +84,7 @@ Installable PWA. `static/manifest.json` (icons incl. `maskable-*`, `apple-touch-
 
 ## Database / migrations
 
-`migrations/` contains only a single Alembic revision (`add_is_completed_to_workout_sessions`, `down_revision = None`) — the base schema came from `db.create_all()`, not migrations. Check that the generated migration against an existing DB is sane before applying. Production DB is SQLite at the path hardcoded in `passenger_wsgi.py`.
+Alembic via Flask-Migrate (`render_as_batch=True` for SQLite ALTERs). History: `5999db948d2c` — full initial schema (kept the old revision id so existing DBs, already stamped with it, need nothing), `b7e2a9c41d03` — rebuilds the hand-made `password_reset_tokens` table into the model's form (no-op on DBs created by migrations). Change models → `flask --app run db migrate -m "..."`, review the generated file, `flask --app run db upgrade`. `tests/test_migrations.py` runs upgrade + `db check` on an empty DB, so a model change without a migration fails the tests. Production DB is SQLite at the path in `.env` / `passenger_wsgi.py`; back it up before `db upgrade` on the server.
 
 ## Deployment
 

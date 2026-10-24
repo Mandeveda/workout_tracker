@@ -35,7 +35,8 @@ def create_app(config_class=None):
     
     # Инициализация расширений
     db.init_app(app)
-    migrate.init_app(app, db)
+    # render_as_batch: SQLite не умеет большинство ALTER TABLE — Alembic пересоздаёт таблицу
+    migrate.init_app(app, db, render_as_batch=True)
     login_manager.init_app(app)
     mail.init_app(app)
     
