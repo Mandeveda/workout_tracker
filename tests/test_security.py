@@ -136,3 +136,10 @@ def test_unused_exercise_can_be_deleted(client, make_user, make_exercise):
     login(client, 'expert')
     client.post(f'/exercises/del_exercise/{lunge.id}')
     assert db.session.get(Exercise, lunge.id) is None
+
+
+def test_tests_never_send_real_email(app):
+    """Тесты не должны отправлять письма через настоящий SMTP сайта (ошибка была до 24.10.2026)"""
+    state = app.extensions['mail']
+    assert state.suppress is True
+    assert state.server == 'localhost.invalid' and not state.username and not state.password

@@ -13,12 +13,19 @@ os.environ['DATABASE_URL'] = 'sqlite://'
 os.environ['ENVIRONMENT'] = 'development'
 os.environ['SESSION_COOKIE_SECURE'] = 'False'
 os.environ['SESSION_COOKIE_DOMAIN'] = ''
+# Почта: config.py читает локальный .env с настоящим SMTP сайта — в тестах подменяем
+# на несуществующий сервер без логина, чтобы ни одно письмо не ушло наружу
+os.environ['MAIL_SERVER'] = 'localhost.invalid'
+os.environ['MAIL_USERNAME'] = ''
+os.environ['MAIL_PASSWORD'] = ''
+os.environ['MAIL_DEFAULT_SENDER'] = 'tests@localhost.invalid'
+os.environ['REDIS_URL'] = ''
 
 import pytest
 from flask import g
 from werkzeug.security import generate_password_hash
 
-from app import create_app, db, limiter
+from app import create_app, db, limiter, mail
 from app.models import (Role, User, Exercise, WorkoutTemplate, TemplateExercise,
                         WorkoutSchedule, WorkoutSession, SetLog)
 
@@ -27,7 +34,8 @@ PASSWORD = 'pass123'
 
 def _make_app(csrf=False):
     app = create_app()
-    app.config.update(TESTING=True, WTF_CSRF_ENABLED=csrf)
+    app.config.update(TESTING=True, WTF_CSRF_ENABLED=csrf, MAIL_SUPPRESS_SEND=True)
+    mail.init_app(app)          # Flask-Mail читает MAIL_SUPPRESS_SEND при инициализации — инициализируем заново
     limiter.enabled = False
 
     # Тест держит открытым контекст приложения, и запросы тестового клиента его переиспользуют.
