@@ -4,12 +4,17 @@
 //   - Android / Chrome / Edge: браузер присылает событие beforeinstallprompt — по кнопке
 //     вызываем его стандартное окно установки;
 //   - iPhone / iPad (Safari): такого события нет — кнопка открывает инструкцию
-//     «Поделиться → На экран Домой» (#installIosModal).
+//     «Поделиться → На экран Домой» (#installIosModal);
+//   - Android в Яндекс Браузере, браузере Xiaomi, Firefox и т. п.: они кладут на экран обычный
+//     ярлык, который открывает сайт внутри браузера, — кнопка открывает инструкцию
+//     «откройте в Chrome» (#installAndroidModal).
 // В уже установленном приложении (display-mode: standalone) кнопок нет.
 (function () {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPad с iPadOS 13+
+    const isAndroid = /android/i.test(navigator.userAgent);
+    const isShortcutOnlyBrowser = isAndroid && /YaBrowser|YaApp|MiuiBrowser|XiaoMi|Firefox|OPR|UCBrowser|HeyTapBrowser/i.test(navigator.userAgent);
     let deferredPrompt = null;
 
     function showButtons(show) {
@@ -40,7 +45,7 @@
     });
 
     document.addEventListener('DOMContentLoaded', function () {
-        if (isIos) showButtons(true);
+        if (isIos || isShortcutOnlyBrowser) showButtons(true);
     });
 
     document.addEventListener('click', function (event) {
@@ -48,8 +53,8 @@
         if (deferredPrompt) {
             deferredPrompt.prompt();
             deferredPrompt.userChoice.finally(() => { deferredPrompt = null; showButtons(false); });
-        } else if (isIos) {
-            const modal = document.getElementById('installIosModal');
+        } else if (isIos || isShortcutOnlyBrowser) {
+            const modal = document.getElementById(isIos ? 'installIosModal' : 'installAndroidModal');
             if (modal && window.bootstrap) bootstrap.Modal.getOrCreateInstance(modal).show();
         }
     });

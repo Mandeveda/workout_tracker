@@ -19,3 +19,25 @@
         </div>
     </div>
 </div>
+
+{# Android в браузерах, которые вместо установки кладут на экран ярлык (Яндекс, Xiaomi, Firefox…) #}
+<div class="modal fade" id="installAndroidModal" tabindex="-1" aria-labelledby="installAndroidTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="installAndroidTitle">Установка на Android</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <p>Этот браузер добавляет на экран обычный ярлык — сайт откроется внутри браузера, с адресной строкой. Приложение в отдельном окне устанавливает <b>Chrome</b>:</p>
+                <ol class="install-steps">
+                    <li>Откройте сайт в Chrome — кнопкой ниже или вручную: <b class="num">tracker-workout.ru</b>.</li>
+                    <li>В Chrome нажмите <b>«Установить приложение»</b> в меню сайта или в меню браузера <b>⋮</b>.</li>
+                    <li>На Xiaomi, Redmi и POCO, если после установки иконка не появилась: <b>Настройки → Приложения → Chrome → Другие разрешения → «Ярлыки на рабочем столе» → Разрешить</b>, затем установите ещё раз.</li>
+                </ol>
+                <a class="btn btn-primary w-100" href="intent://tracker-workout.ru/dashboard?source=pwa#Intent;scheme=https;package=com.android.chrome;end">Открыть в Chrome</a>
+                <p class="form-text mt-3 mb-0">Старый ярлык браузера с рабочего стола можно удалить.</p>
+            </div>
+        </div>
+    </div>
+</div>

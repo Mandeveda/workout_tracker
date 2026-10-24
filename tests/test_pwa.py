@@ -50,6 +50,7 @@ def test_offline_page_is_standalone_and_anonymous(client, make_user):
 def test_pages_have_install_wiring(client):
     page = client.get('/').get_data(as_text=True)
     assert 'rel="manifest"' in page and 'data-install' in page and 'installIosModal' in page
+    assert 'installAndroidModal' in page and 'package=com.android.chrome' in page
     assert '/static/icons/apple-touch-icon.png' in page
     assert "register('/static/sw.js')" not in page
     assert '/static/js/pwa.js?v=' in page                 # версия у статики сбрасывает кэш после обновления
