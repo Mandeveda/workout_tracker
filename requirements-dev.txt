@@ -2,3 +2,4 @@
 -r requirements.txt
 pytest==8.3.5
 pyflakes==3.2.0
+redislite==6.2.912183   # настоящий redis-server для tests/test_ratelimit.py

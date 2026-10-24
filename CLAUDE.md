@@ -40,7 +40,8 @@ Tests (`tests/`) run against an in-memory SQLite DB created per test (`conftest.
 ## Configuration
 
 - `config.py` loads `.env` from the project root and **raises at import if `SECRET_KEY` is missing**.
-- `DATABASE_URL` → otherwise SQLite at `instance/workout.db`. `REDIS_URL`/`RATELIMIT_STORAGE_URI` → limiter storage (default `memory://`). Mail defaults to Yandex SMTP over SSL (used for password reset).
+- `DATABASE_URL` → otherwise SQLite at `instance/workout.db`. Mail defaults to Yandex SMTP over SSL (used for password reset).
+- Rate-limit counters live in Redis when `REDIS_URL` is set (production: shared by all Passenger processes); `config.redis_storage_uri` accepts `redis://…` or a socket path / `unix://…` (converted to `redis+unix://`). Without it — `memory://` (per process). If Redis is unreachable the limiter falls back to memory instead of failing requests (`RATELIMIT_IN_MEMORY_FALLBACK_ENABLED`, `RATELIMIT_SWALLOW_ERRORS`). `tests/test_ratelimit.py` runs a real `redis-server` from `redislite` (requirements-dev) and checks that two processes share one counter.
 - `create_app()` picks the config class via `get_config()` from `ENVIRONMENT` (`development` → `DevelopmentConfig`: DEBUG, insecure cookies by default; `production` → `ProductionConfig`: `SameSite=Strict`). `SESSION_COOKIE_SECURE` from `.env` overrides the per-environment default (`env_bool` helper).
 - No global rate limit — only explicit `@limiter.limit` on auth routes (login, register, forgot password). Workout AJAX endpoints (`save_progress`, `complete`) are `@limiter.exempt`.
 - Times are stored as naive UTC (`datetime.utcnow()`); anything about "today", days or weeks uses the site timezone `APP_TIMEZONE` (default `Europe/Moscow`) via `app/timeutil.py` (`local_today`, `local_date`, `utc_start_of` for query boundaries) and the Jinja filter `|local`. Tests patch `app.timeutil.utcnow`.

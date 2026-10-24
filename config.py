@@ -17,6 +17,21 @@ def env_bool(name, default):
         return default
     return value.strip().lower() in ('true', '1', 'yes', 'on')
 
+def redis_storage_uri(url):
+    """Адрес Redis для Flask-Limiter.
+
+    Принимает redis://…, rediss://…, а также сокет: unix:///путь/redis.sock или просто
+    /путь/redis.sock (так Redis обычно подключается на хостинге) — библиотека лимитов
+    понимает сокет только в записи redis+unix://.
+    """
+    url = url.strip()
+    if url.startswith('unix://'):
+        return 'redis+unix://' + url[len('unix://'):]
+    if url.startswith('/'):
+        return 'redis+unix://' + url
+    return url
+
+
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY')
     if not SECRET_KEY:
@@ -65,18 +80,20 @@ class Config:
     WTF_CSRF_SECRET_KEY = os.environ.get('WTF_CSRF_SECRET_KEY', SECRET_KEY)
     
     # ===== НАСТРОЙКИ FLASK-LIMITER =====
-    # Поддерживаем Redis для продакшена
+    # Счётчики лимитов (вход, регистрация, сброс пароля) — в Redis, общие для всех
+    # процессов Passenger. Без REDIS_URL — в памяти процесса (локальная разработка).
     REDIS_URL = os.environ.get('REDIS_URL')
-    if REDIS_URL:
-        RATELIMIT_STORAGE_URI = REDIS_URL
-    else:
-        RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
-    
+    RATELIMIT_STORAGE_URI = (redis_storage_uri(REDIS_URL) if REDIS_URL
+                             else os.environ.get('RATELIMIT_STORAGE_URI', 'memory://'))
     RATELIMIT_STRATEGY = 'fixed-window'
     RATELIMIT_HEADERS_ENABLED = True
+    RATELIMIT_KEY_PREFIX = 'tracker-workout'         # чтобы ключи не смешались с другими данными в Redis
+    # Если Redis недоступен — не отдавать ошибку 500, а временно считать в памяти процесса
+    RATELIMIT_IN_MEMORY_FALLBACK_ENABLED = True
+    RATELIMIT_SWALLOW_ERRORS = True
     RATELIMIT_STORAGE_OPTIONS = {
-        'socket_connect_timeout': 30,
-        'socket_timeout': 30,
+        'socket_connect_timeout': 2,                 # было 30 с: при зависшем Redis вход ждал полминуты
+        'socket_timeout': 2,
     } if REDIS_URL else {}
     
     # ===== НАСТРОЙКИ EMAIL =====
