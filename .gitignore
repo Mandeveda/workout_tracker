@@ -8,3 +8,8 @@ instance/
 data_for_init.json
 .cache/
 *.zip
+
+# Рабочие заметки и планы — только локально
+CLAUDE.md
+PLAN.md
+ROADMAP.md
