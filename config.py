@@ -108,16 +108,27 @@ class Config:
             response.headers['X-Frame-Options'] = 'DENY'
             response.headers['Referrer-Policy'] = Config.REFERRER_POLICY
             
-            # Более мягкий CSP для разработки (можно усилить для продакшена)
-            if os.environ.get('ENVIRONMENT') == 'production':
-                response.headers['Content-Security-Policy'] = (
-                    "default-src 'self' https://cdn.jsdelivr.net; "
-                    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-                    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
-                    "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com; "
-                    "img-src 'self' data: https: http:; "
-                    "connect-src 'self' https://cdn.jsdelivr.net;"
-                )
+            # CSP: скрипты — только свои, с CDN и встроенные с nonce этого запроса
+            # (внедрённый в страницу чужой скрипт nonce не знает и не выполнится).
+            # Стили допускают 'unsafe-inline' — нужны атрибуты style (ширина полос и т. п.).
+            from app.security import csp_nonce
+            cdn = 'https://cdn.jsdelivr.net'
+            fonts = 'https://fonts.googleapis.com https://fonts.gstatic.com'
+            response.headers['Content-Security-Policy'] = '; '.join([
+                "default-src 'self'",
+                f"script-src 'self' 'nonce-{csp_nonce()}' {cdn}",
+                f"style-src 'self' 'unsafe-inline' {cdn} https://fonts.googleapis.com",
+                f"font-src 'self' data: {cdn} https://fonts.gstatic.com",
+                "img-src 'self' data: https:",
+                f"connect-src 'self' {cdn} {fonts}",      # service worker кэширует CDN и шрифты
+                "frame-src https://www.youtube.com https://www.youtube-nocookie.com",   # видео техники
+                "worker-src 'self'",
+                "manifest-src 'self'",
+                "object-src 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "frame-ancestors 'none'",
+            ])
             return response
 
 # Настройки для разных окружений

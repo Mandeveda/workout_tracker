@@ -65,6 +65,12 @@ def create_app(config_class=None):
         from flask_wtf.csrf import generate_csrf
         return dict(csrf_token=generate_csrf)
     
+    # nonce для встроенных скриптов: <script nonce="{{ csp_nonce() }}">
+    @app.context_processor
+    def inject_csp_nonce():
+        from app.security import csp_nonce
+        return dict(csp_nonce=csp_nonce)
+    
     # Контекстный процессор для current_user
     @app.context_processor
     def inject_user():

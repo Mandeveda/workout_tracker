@@ -21,7 +21,7 @@
         button { border: 0; border-radius: 999px; padding: 12px 22px; font: 600 14px inherit; letter-spacing: .04em; text-transform: uppercase;
                  background: linear-gradient(135deg, var(--gold-hi), var(--gold-lo)); color: var(--on-gold); cursor: pointer; }
     </style>
-    <script>try { if (localStorage.getItem('tw-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}</script>
+    <script nonce="{{ csp_nonce() }}">try { if (localStorage.getItem('tw-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}</script>
 </head>
 <body>
     <main class="card">
@@ -30,7 +30,8 @@
         </div>
         <h1>Нет соединения</h1>
         <p>Страница не загрузилась: похоже, пропал интернет. Проверьте подключение и попробуйте снова.</p>
-        <button type="button" onclick="location.reload()">Обновить</button>
+        <button type="button" id="reload">Обновить</button>
     </main>
+    <script nonce="{{ csp_nonce() }}">document.getElementById('reload').addEventListener('click', () => location.reload());</script>
 </body>
 </html>

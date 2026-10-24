@@ -37,7 +37,7 @@
         </div>
         <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id, **keep) }}" class="role-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <select name="role_id" class="form-select form-select-sm" aria-label="Роль {{ user.username }}" onchange="this.form.requestSubmit()"{% if is_me %} disabled title="Свою роль изменить нельзя"{% endif %}>
+            <select name="role_id" class="form-select form-select-sm js-autosubmit" aria-label="Роль {{ user.username }}"{% if is_me %} disabled title="Свою роль изменить нельзя"{% endif %}>
                 {% for role in roles %}
                 <option value="{{ role.id }}"{% if user.role_id == role.id %} selected{% endif %}>{{ role_names.get(role.name, role.name) }}</option>
                 {% endfor %}

@@ -51,3 +51,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 5000);
     });
 });
+
+// Поле, которое отправляет свою форму сразу при изменении (например, роль в админке):
+// <select class="js-autosubmit">. Вместо onchange="…" — такие обработчики запрещены CSP
+document.addEventListener('change', function (event) {
+    if (event.target.classList.contains('js-autosubmit') && event.target.form) {
+        event.target.form.requestSubmit();
+    }
+});

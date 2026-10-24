@@ -144,7 +144,7 @@
     </section>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     // Приветствие по местному времени пользователя
     const h1 = document.querySelector('.js-greeting');

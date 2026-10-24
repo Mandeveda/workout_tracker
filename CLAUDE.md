@@ -44,7 +44,7 @@ Tests (`tests/`) run against an in-memory SQLite DB created per test (`conftest.
 - `create_app()` picks the config class via `get_config()` from `ENVIRONMENT` (`development` → `DevelopmentConfig`: DEBUG, insecure cookies by default; `production` → `ProductionConfig`: `SameSite=Strict`). `SESSION_COOKIE_SECURE` from `.env` overrides the per-environment default (`env_bool` helper).
 - No global rate limit — only explicit `@limiter.limit` on auth routes (login, register, forgot password). Workout AJAX endpoints (`save_progress`, `complete`) are `@limiter.exempt`.
 - Times are stored as naive UTC (`datetime.utcnow()`); anything about "today", days or weeks uses the site timezone `APP_TIMEZONE` (default `Europe/Moscow`) via `app/timeutil.py` (`local_today`, `local_date`, `utc_start_of` for query boundaries) and the Jinja filter `|local`. Tests patch `app.timeutil.utcnow`.
-- The strict CSP header is only added when `ENVIRONMENT=production`; any new external asset host must be added there.
+- CSP is sent on every response (`Config.init_app` in `config.py`): `script-src` has no `'unsafe-inline'` — every inline `<script>` must carry `nonce="{{ csp_nonce() }}"` (`app/security.py`), and inline event handlers (`onclick=` etc.) are forbidden: use `addEventListener` (or `.js-autosubmit` / `data-confirm` helpers in `utils.js`). JSON data blocks (`<script type="application/json">`) need no nonce. Any new external host must be added to the policy. `tests/test_csp.py` checks every page.
 
 ## Architecture
 

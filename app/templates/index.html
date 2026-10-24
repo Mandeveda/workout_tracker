@@ -53,7 +53,7 @@
     </div>
 </section>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelector('.landing-demo').addEventListener('click', function (e) {
         const btn = e.target.closest('.check');

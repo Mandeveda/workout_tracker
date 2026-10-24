@@ -73,7 +73,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('paramsForm');
     const errorEl = document.getElementById('formError');

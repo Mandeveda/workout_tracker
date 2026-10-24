@@ -63,7 +63,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     const items = Array.from(document.querySelectorAll('.check-item'));
     const search = document.getElementById('filterSearch');

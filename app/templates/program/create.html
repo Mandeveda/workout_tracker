@@ -60,7 +60,7 @@
     </form>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     const start = document.getElementById('start_date');
     const end = document.getElementById('end_date');

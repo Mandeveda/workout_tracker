@@ -25,7 +25,7 @@
 <div class="empty-state"><p>График появится после первой завершённой тренировки.</p></div>
 {% endif %}
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     const select = document.getElementById('exerciseSelect');
     if (!select || !window.Chart) return;

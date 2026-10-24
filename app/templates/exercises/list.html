@@ -64,7 +64,7 @@
 
 {% include "_exercise_modal.html" %}
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     const cards = Array.from(document.querySelectorAll('.ex-card'));
     const search = document.getElementById('filterSearch');

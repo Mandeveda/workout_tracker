@@ -64,7 +64,7 @@
 </form>
 
 <script id="subgroupsData" type="application/json">{{ subgroups|tojson }}</script>
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.querySelector('.exercise-form');
     const subgroups = JSON.parse(document.getElementById('subgroupsData').textContent);

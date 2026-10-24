@@ -96,7 +96,7 @@
     </section>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function () {
     const canvas = document.getElementById('weeklyChart');
     if (!window.Chart || !canvas) return;
