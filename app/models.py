@@ -4,10 +4,15 @@ from flask_login import UserMixin
 import hashlib
 import hmac
 from datetime import datetime, timedelta
+from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import relationship
 from math import log10
 
 EMAIL_CONFIRM_DAYS = 30   # сколько дней даётся на подтверждение почты
+# Дробные числа: в SQLite FLOAT и так 8-байтный, а в MySQL FLOAT — 4 байта (~7 цифр, 72.3 → 72.30000305),
+# поэтому там — DOUBLE
+Real = db.Float().with_variant(mysql.DOUBLE(asdecimal=False), 'mysql', 'mariadb')
+
 LAST_SEEN_STEP = timedelta(minutes=5)   # как часто обновлять отметку «был на сайте»
 
 # Загрузка пользователя для Flask-Login
@@ -46,7 +51,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128))  # будет хранить хеш пароля
+    password_hash = db.Column(db.String(256))  # хэш пароля (scrypt у Werkzeug — 162 символа)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_blocked = db.Column(db.Boolean, default=False)
 
@@ -64,20 +69,20 @@ class User(UserMixin, db.Model):
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False, default=2)  # 2 = обычный пользователь по умолчанию
     
     # Антропометрические данные
-    weight = db.Column(db.Float, default=70.0)  # вес в кг
-    height = db.Column(db.Float, default=170.0)  # рост в см
+    weight = db.Column(Real, default=70.0)  # вес в кг
+    height = db.Column(Real, default=170.0)  # рост в см
     age = db.Column(db.Integer, default=25)  # возраст
     gender = db.Column(db.String(10), default='male')  # male/female
 
     # Объёмы мышц (в см)
-    chest_circumference = db.Column(db.Float, default=0)  # грудь
-    waist_circumference = db.Column(db.Float, default=0)  # талия
-    hips_circumference = db.Column(db.Float, default=0)  # бёдра
-    biceps_circumference = db.Column(db.Float, default=0)  # бицепс
-    forearm_circumference = db.Column(db.Float, default=0)  # предплечье
-    thigh_circumference = db.Column(db.Float, default=0)  # бедро
-    calf_circumference = db.Column(db.Float, default=0)  # икра
-    neck_circumference = db.Column(db.Float, default=0)  # шея
+    chest_circumference = db.Column(Real, default=0)  # грудь
+    waist_circumference = db.Column(Real, default=0)  # талия
+    hips_circumference = db.Column(Real, default=0)  # бёдра
+    biceps_circumference = db.Column(Real, default=0)  # бицепс
+    forearm_circumference = db.Column(Real, default=0)  # предплечье
+    thigh_circumference = db.Column(Real, default=0)  # бедро
+    calf_circumference = db.Column(Real, default=0)  # икра
+    neck_circumference = db.Column(Real, default=0)  # шея
 
     # История измерений (JSON)
     measurements_history = db.Column(db.JSON, default=list)  # [{"date": "2024-01-01", "weight": 70, "biceps": 35, ...}]
@@ -285,11 +290,11 @@ class TemplateExercise(db.Model):
     # Параметры для силовых/bodyweight
     planned_sets = db.Column(db.Integer)
     planned_reps = db.Column(db.Integer)
-    planned_weight = db.Column(db.Float)  # в кг
+    planned_weight = db.Column(Real)  # в кг
     
     # Параметры для кардио
     planned_duration = db.Column(db.Integer)  # в минутах
-    planned_distance = db.Column(db.Float)  # в км
+    planned_distance = db.Column(Real)  # в км
     planned_target_heart_rate = db.Column(db.Integer)  # целевой пульс
     
     # Связи
@@ -316,8 +321,8 @@ class WorkoutSession(db.Model):
     status = db.Column(db.String(20), default='in_progress')  # in_progress, completed
     
     # Общая оценка выполнения
-    completion_percent = db.Column(db.Float, default=0.0)
-    total_tonnage = db.Column(db.Float, default=0.0)  # общий тоннаж тренировки
+    completion_percent = db.Column(Real, default=0.0)
+    total_tonnage = db.Column(Real, default=0.0)  # общий тоннаж тренировки
     is_completed = db.Column(db.Boolean, default=False)
     
     # Связи
@@ -341,14 +346,14 @@ class SetLog(db.Model):
     
     # Плановые значения
     planned_reps = db.Column(db.Integer, nullable=False)  # исправлено с planned_reqs
-    planned_weight = db.Column(db.Float, nullable=False)
+    planned_weight = db.Column(Real, nullable=False)
     
     # Фактические значения
     actual_reps = db.Column(db.Integer)
-    actual_weight = db.Column(db.Float)
+    actual_weight = db.Column(Real)
     
     # Процент выполнения подхода (по тоннажу)
-    completion_percent = db.Column(db.Float, default=0.0)
+    completion_percent = db.Column(Real, default=0.0)
     
     # Связи
     session = relationship('WorkoutSession', back_populates='set_logs')

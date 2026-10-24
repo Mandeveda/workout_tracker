@@ -32,6 +32,24 @@ def redis_storage_uri(url):
     return url
 
 
+def database_settings(url):
+    """Адрес базы и настройки пула соединений для SQLAlchemy.
+
+    MySQL: mysql://… превращается в mysql+pymysql://… (драйвер PyMySQL), всегда с кодировкой
+    utf8mb4 (иначе эмодзи и часть символов не сохранятся). MySQL сам закрывает соединения,
+    которые простаивают дольше wait_timeout, — поэтому соединение проверяется перед
+    использованием (pool_pre_ping) и пересоздаётся раньше этого срока (pool_recycle).
+    """
+    if url.startswith('mysql://'):
+        url = 'mysql+pymysql://' + url[len('mysql://'):]
+    if not url.startswith('mysql'):
+        return url, {}
+    if 'charset=' not in url:
+        url += ('&' if '?' in url else '?') + 'charset=utf8mb4'
+    # пул небольшой: Passenger запускает несколько процессов, а число соединений у хостинга ограничено
+    return url, {'pool_pre_ping': True, 'pool_recycle': 280, 'pool_size': 3, 'max_overflow': 2}
+
+
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY')
     if not SECRET_KEY:
@@ -42,14 +60,9 @@ class Config:
     INSTANCE_PATH.mkdir(exist_ok=True)
     
     # ===== НАСТРОЙКИ БАЗЫ ДАННЫХ =====
-    # Поддерживаем PostgreSQL для продакшена и SQLite для разработки
-   # База данных
-    database_url = os.environ.get('DATABASE_URL')
-    if database_url:
-        SQLALCHEMY_DATABASE_URI = database_url
-    else:
-        DB_PATH = INSTANCE_PATH / 'workout.db'
-        SQLALCHEMY_DATABASE_URI = f'sqlite:///{DB_PATH}'
+    # DATABASE_URL: mysql://пользователь:пароль@localhost/имя_базы, иначе SQLite в instance/workout.db
+    SQLALCHEMY_DATABASE_URI, SQLALCHEMY_ENGINE_OPTIONS = database_settings(
+        os.environ.get('DATABASE_URL') or f"sqlite:///{INSTANCE_PATH / 'workout.db'}")
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     

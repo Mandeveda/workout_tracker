@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Технические работы · Tracker Workout</title>
+    <meta name="theme-color" content="#121110">
+    {# Показывается на время технических работ (файл instance/maintenance, см. create_app):
+       самостоятельная, без базы, внешних стилей и данных пользователя #}
+    <style>
+        :root { color-scheme: dark; --bg: #121110; --surface: #1b1a18; --line: #353129; --fg: #f4efe8; --muted: #9d958a; --gold-hi: #e7cc7f; --gold-lo: #c8925a; --on-gold: #1d1408; }
+        :root[data-theme="light"] { color-scheme: light; --bg: #f7f2ea; --surface: #fffdf9; --line: #e3d8c7; --fg: #231e18; --muted: #776c60; --gold-hi: #dcb766; --gold-lo: #b98049; --on-gold: #24180a; }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg); color: var(--fg);
+               font: 16px/1.55 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; }
+        .card { max-width: 380px; text-align: center; padding: 32px 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+        .mark { width: 52px; height: 52px; margin: 0 auto 18px; border-radius: 14px; display: grid; place-items: center;
+                background: linear-gradient(135deg, var(--gold-hi), var(--gold-lo)); color: var(--on-gold); }
+        h1 { font-size: 22px; margin: 0 0 8px; }
+        p { color: var(--muted); margin: 0 0 22px; }
+        button { border: 0; border-radius: 999px; padding: 12px 22px; font: 600 14px inherit; letter-spacing: .04em; text-transform: uppercase;
+                 background: linear-gradient(135deg, var(--gold-hi), var(--gold-lo)); color: var(--on-gold); cursor: pointer; }
+    </style>
+    <script nonce="{{ csp_nonce() }}">try { if (localStorage.getItem('tw-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}</script>
+</head>
+<body>
+    <main class="card">
+        <div class="mark" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11"/></svg>
+        </div>
+        <h1>Технические работы</h1>
+        <p>Сайт обновляется и вернётся через несколько минут. Ваши тренировки и данные на месте.</p>
+        <button type="button" id="reload">Обновить</button>
+    </main>
+    <script nonce="{{ csp_nonce() }}">document.getElementById('reload').addEventListener('click', () => location.reload());</script>
+</body>
+</html>

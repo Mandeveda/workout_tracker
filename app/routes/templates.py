@@ -61,8 +61,10 @@ def edit_template(template_id):
     
     # Обработка POST запроса для редактирования имени
     if request.method == 'POST' and 'edit_name' in request.form:
-        new_name = request.form.get('name')
-        if new_name:
+        new_name = (request.form.get('name') or '').strip()
+        if len(new_name) > 100:
+            flash('Название — не длиннее 100 символов', 'danger')
+        elif new_name:
             template.name = new_name
             db.session.commit()
             flash('Название шаблона обновлено', 'success')

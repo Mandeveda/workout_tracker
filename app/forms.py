@@ -10,6 +10,7 @@ USERNAME_LEN = 'Имя — от 3 до 80 символов'
 PASSWORD_LEN = 'Пароль — не меньше 6 символов'
 PASSWORDS_MATCH = 'Пароли не совпадают'
 EMAIL_FORMAT = 'Похоже, это не адрес почты: проверьте, есть ли «@» и домен'
+EMAIL_LEN = 'Адрес почты — не длиннее 120 символов'
 
 
 def normalize_email(value):
@@ -18,7 +19,7 @@ def normalize_email(value):
 
 class RegistrationForm(FlaskForm):
     username = StringField('Имя пользователя', validators=[DataRequired(REQUIRED), Length(min=3, max=80, message=USERNAME_LEN)])
-    email = StringField('Email', filters=[normalize_email], validators=[DataRequired(REQUIRED), Email(EMAIL_FORMAT)])
+    email = StringField('Email', filters=[normalize_email], validators=[DataRequired(REQUIRED), Length(max=120, message=EMAIL_LEN), Email(EMAIL_FORMAT)])
     password = PasswordField('Пароль', validators=[DataRequired(REQUIRED), Length(min=6, message=PASSWORD_LEN)])
     confirm_password = PasswordField('Подтвердите пароль', validators=[DataRequired(REQUIRED), EqualTo('password', PASSWORDS_MATCH)])
     submit = SubmitField('Зарегистрироваться')
@@ -187,7 +188,7 @@ class AddExerciseForm(FlaskForm):
         self.filter_subgroup.choices = [(0, 'Все подгруппы')]
 
 class ForgotPasswordForm(FlaskForm):
-    email = StringField('Email', filters=[normalize_email], validators=[DataRequired(REQUIRED), Email(EMAIL_FORMAT)])
+    email = StringField('Email', filters=[normalize_email], validators=[DataRequired(REQUIRED), Length(max=120, message=EMAIL_LEN), Email(EMAIL_FORMAT)])
     submit = SubmitField('Отправить ссылку')
 
 class ResetPasswordForm(FlaskForm):
@@ -197,6 +198,6 @@ class ResetPasswordForm(FlaskForm):
 
 class ChangeEmailForm(FlaskForm):
     """Смена почты: новый адрес применяется только после подтверждения ссылкой"""
-    new_email = StringField('Новая почта', filters=[normalize_email], validators=[DataRequired(REQUIRED), Email(EMAIL_FORMAT)])
+    new_email = StringField('Новая почта', filters=[normalize_email], validators=[DataRequired(REQUIRED), Length(max=120, message=EMAIL_LEN), Email(EMAIL_FORMAT)])
     password = PasswordField('Текущий пароль', validators=[DataRequired(REQUIRED)])
     submit = SubmitField('Отправить ссылку')

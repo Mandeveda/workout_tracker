@@ -111,6 +111,16 @@ def create_app(config_class=None):
                     static_versions[filename] = 0
             values.setdefault('v', static_versions[filename])
     
+    # Технические работы (переезд базы и т. п.): пока есть файл instance/maintenance,
+    # любой запрос получает 503 и ничего не пишется в базу. Включить: touch instance/maintenance
+    app.config.setdefault('MAINTENANCE_FILE', os.path.join(app.config.get('INSTANCE_PATH') or app.instance_path, 'maintenance'))
+
+    @app.before_request
+    def maintenance_mode():
+        from flask import request, render_template
+        if request.endpoint != 'static' and os.path.exists(app.config['MAINTENANCE_FILE']):
+            return render_template('maintenance.html'), 503, {'Retry-After': '600', 'Cache-Control': 'no-store'}
+
     # «Был на сайте» для админки: пишем в базу не чаще раза в 5 минут, а не на каждый запрос
     # (после ответа: пользователь к этому моменту уже загружен, а изменения страницы сохранены)
     @app.after_request
@@ -119,8 +129,9 @@ def create_app(config_class=None):
         from flask_login import current_user
         from app.models import User, LAST_SEEN_STEP
         from app.timeutil import utcnow
-        if request.endpoint in (None, 'static', 'main.service_worker') or not current_user.is_authenticated:
-            return response
+        if (response.status_code == 503 or request.endpoint in (None, 'static', 'main.service_worker')
+                or not current_user.is_authenticated):
+            return response   # 503 — технические работы: базу не трогаем
         now = utcnow()
         if current_user.last_seen_at and now - current_user.last_seen_at < LAST_SEEN_STEP:
             return response
